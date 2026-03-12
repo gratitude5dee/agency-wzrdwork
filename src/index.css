@@ -71,5 +71,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-color: #020409;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
 }
