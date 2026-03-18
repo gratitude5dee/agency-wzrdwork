@@ -47,6 +47,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
 import { ComposioToolDiscovery } from "@/components/ComposioToolDiscovery";
+import { PageLoadingState, PageErrorState } from "@/components/PageStateIndicators";
 import type { Database as DB, Json } from "@/integrations/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -202,7 +203,13 @@ export function IntegrationsPage() {
   const companyId = company?.id ?? null;
 
   // Fetch existing integrations from Supabase
-  const { data: integrationRows = [] } = useQuery<IntegrationRow[]>({
+  const {
+    data: integrationRows = [],
+    isLoading: integrationsLoading,
+    isError: integrationsError,
+    error: integrationsQueryError,
+    refetch: refetchIntegrations,
+  } = useQuery<IntegrationRow[]>({
     queryKey: ["integrations", companyId],
     enabled: !!companyId,
     queryFn: async () => {
@@ -376,6 +383,23 @@ export function IntegrationsPage() {
     },
   });
 
+  if (integrationsLoading && companyId) {
+    return <PageLoadingState label="Loading integrations…" rows={4} />;
+  }
+
+  if (integrationsError) {
+    return (
+      <PageErrorState
+        message={
+          integrationsQueryError instanceof Error
+            ? integrationsQueryError.message
+            : "Failed to load integrations."
+        }
+        onRetry={() => refetchIntegrations()}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -390,7 +414,7 @@ export function IntegrationsPage() {
       </div>
 
       {/* Integration cards grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {INTEGRATIONS.map((def) => {
           const row = rowMap.get(def.key);
           const status = deriveStatus(row, def);

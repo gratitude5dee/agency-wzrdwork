@@ -114,7 +114,7 @@ export function CockpitPage() {
             <h2 className="mt-0.5 text-lg font-black truncate">{snapshot.company.name}</h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0 ml-4">
+          <div className="hidden sm:flex flex-wrap items-center gap-1.5 shrink-0 ml-4">
             <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] px-1.5 py-0">
               {snapshot.agents.length} agents
             </Badge>
@@ -126,6 +126,20 @@ export function CockpitPage() {
             </Badge>
             <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] px-1.5 py-0">
               {openIssues} tasks
+            </Badge>
+            {snapshot.source !== "supabase" && (
+              <Badge variant="outline" className="border-blue-500/20 bg-blue-500/10 text-blue-200 text-[10px] px-1.5 py-0">
+                demo
+              </Badge>
+            )}
+          </div>
+          {/* Mobile: compact badges */}
+          <div className="flex sm:hidden items-center gap-1.5 shrink-0 ml-2">
+            <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] px-1.5 py-0">
+              {snapshot.agents.length}A
+            </Badge>
+            <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] px-1.5 py-0">
+              {liveRunCount}R
             </Badge>
             {snapshot.source !== "supabase" && (
               <Badge variant="outline" className="border-blue-500/20 bg-blue-500/10 text-blue-200 text-[10px] px-1.5 py-0">
@@ -146,42 +160,42 @@ export function CockpitPage() {
         <div className="flex items-center justify-between border-b border-white/10 glass-header px-4 py-1.5 shrink-0">
           <div className="flex items-center gap-2">
             <Workflow className="h-4 w-4 text-blue-300" />
-            <span className="text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500">
+            <span className="hidden sm:inline text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500">
               Autonomous company
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white"
+              className="gap-1 sm:gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white px-2 sm:px-3"
               onClick={() => navigate("/org-chart")}
               data-testid="cockpit-org-chart-link"
             >
               <Network className="h-4 w-4" />
-              Org Chart
+              <span className="hidden sm:inline">Org Chart</span>
             </Button>
             <Button
               variant="ghost"
               size="sm"
               className={cn(
-                "gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white",
+                "gap-1 sm:gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white px-2 sm:px-3",
                 isLogOpen && !compact ? "border-blue-500/30 text-blue-200" : "",
               )}
               onClick={() => setLogOpen(!isLogOpen)}
             >
               <History className="h-4 w-4" />
-              Logs
+              <span className="hidden sm:inline">Logs</span>
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white"
+              className="gap-1 sm:gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white px-2 sm:px-3"
               onClick={() => sceneManagerRef.current?.resetScene()}
             >
               <LayoutPanelTop className="h-4 w-4" />
-              Recenter
+              <span className="hidden sm:inline">Recenter</span>
             </Button>
           </div>
         </div>

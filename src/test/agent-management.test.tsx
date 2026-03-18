@@ -51,7 +51,9 @@ describe("AgentsPage", () => {
   it("renders heading and 'New Agent' button", async () => {
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
-    expect(screen.getByText("Agents")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Agents")).toBeInTheDocument();
+    });
     expect(screen.getByText("New Agent")).toBeInTheDocument();
   });
 
@@ -59,12 +61,17 @@ describe("AgentsPage", () => {
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
     // The page should render even with empty data (loading/empty state)
-    expect(screen.getByText("Agents")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Agents")).toBeInTheDocument();
+    });
   });
 
   it("renders 'New Agent' as a link to /agents/new", async () => {
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /new agent/i })).toBeInTheDocument();
+    });
     const link = screen.getByRole("link", { name: /new agent/i });
     expect(link).toHaveAttribute("href", "/agents/new");
   });

@@ -313,29 +313,29 @@ export function AppShell() {
 
         <SidebarInset className="h-screen overflow-hidden flex flex-col bg-[#020409]">
           <header className="shrink-0 z-20 flex h-14 items-center justify-between glass-header px-4">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="text-zinc-300 hover:text-white" />
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500">
+            <div className="flex items-center gap-3 min-w-0">
+              <SidebarTrigger className="text-zinc-300 hover:text-white shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500 hidden sm:block">
                   Agency
                 </p>
-                <h1 className="text-sm font-black uppercase tracking-[0.08em] text-zinc-100">
+                <h1 className="text-sm font-black uppercase tracking-[0.08em] text-zinc-100 truncate">
                   {pageTitle}
                 </h1>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {walletAddress && (
-                <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300">
+                <Badge variant="outline" className="hidden md:flex border-white/10 bg-[#0d1118] text-zinc-300">
                   <Wallet className="mr-1 h-3 w-3" />
                   {walletAddress}
                 </Badge>
               )}
-              <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300">
-                {liveRunCount} live runs
+              <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] sm:text-xs">
+                {liveRunCount} <span className="hidden sm:inline">live </span>runs
               </Badge>
-              <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300">
+              <Badge variant="outline" className="hidden sm:flex border-white/10 bg-[#0d1118] text-zinc-300">
                 {pendingApprovals} approvals
               </Badge>
             </div>

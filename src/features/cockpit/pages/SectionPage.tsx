@@ -11,6 +11,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "@/components/ActivityCharts";
 import { ActiveAgentsPanel } from "@/components/ActiveAgentsPanel";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
+import { PageLoadingState, PageEmptyState, PageErrorState } from "@/components/PageStateIndicators";
 import { useAgentMetrics, useIssueMetrics, useRunMetrics, useApprovalMetrics } from "@/hooks/useDashboardMetrics";
 import { useDashboardRuns, useDashboardIssues, useDashboardAgents, useDashboardActivity } from "@/hooks/useDashboardData";
 import { useCompanySettings, useSupabaseHealth, useUpdateCompanySettings } from "@/hooks/useCompanySettings";
@@ -318,21 +319,44 @@ export function SectionPage({ section }: { section: SectionName }) {
 
 function DashboardSection({ snapshot }: { snapshot: AgencySnapshot }) {
   // Metric card aggregates
-  const { data: agentMetrics, isLoading: agentMetricsLoading } = useAgentMetrics();
-  const { data: issueMetrics, isLoading: issueMetricsLoading } = useIssueMetrics();
-  const { data: runMetrics, isLoading: runMetricsLoading } = useRunMetrics();
-  const { data: approvalCount, isLoading: approvalMetricsLoading } = useApprovalMetrics();
+  const { data: agentMetrics, isLoading: agentMetricsLoading, isError: agentMetricsErr, refetch: refetchAgentMetrics } = useAgentMetrics();
+  const { data: issueMetrics, isLoading: issueMetricsLoading, isError: issueMetricsErr, refetch: refetchIssueMetrics } = useIssueMetrics();
+  const { data: runMetrics, isLoading: runMetricsLoading, isError: runMetricsErr, refetch: refetchRunMetrics } = useRunMetrics();
+  const { data: approvalCount, isLoading: approvalMetricsLoading, isError: approvalMetricsErr, refetch: refetchApprovalMetrics } = useApprovalMetrics();
 
   // Chart + panel row data — from dedicated Supabase hooks
-  const { data: liveRuns = [], isLoading: runsLoading } = useDashboardRuns();
-  const { data: liveIssues = [], isLoading: issuesLoading } = useDashboardIssues();
-  const { data: liveAgents = [], isLoading: agentsLoading } = useDashboardAgents();
-  const { data: liveActivity = [], isLoading: activityLoading } = useDashboardActivity();
+  const { data: liveRuns = [], isLoading: runsLoading, isError: runsErr, refetch: refetchRuns } = useDashboardRuns();
+  const { data: liveIssues = [], isLoading: issuesLoading, isError: issuesErr, refetch: refetchIssues } = useDashboardIssues();
+  const { data: liveAgents = [], isLoading: agentsLoading, isError: agentsErr, refetch: refetchAgents } = useDashboardAgents();
+  const { data: liveActivity = [], isLoading: activityLoading, isError: activityErr, refetch: refetchActivity } = useDashboardActivity();
 
   const isDemoMode = snapshot.source !== "supabase";
 
   // Determine if we're in initial loading of core data
   const metricsLoading = agentMetricsLoading || issueMetricsLoading || runMetricsLoading || approvalMetricsLoading;
+
+  // Determine if all primary queries errored out (total failure)
+  const allMetricsError = agentMetricsErr && issueMetricsErr && runMetricsErr && approvalMetricsErr;
+  const allDataError = runsErr && issuesErr && agentsErr && activityErr;
+
+  // If everything failed, show full-page error
+  if (allMetricsError && allDataError) {
+    return (
+      <PageErrorState
+        message="Failed to load dashboard data. Check your connection and try again."
+        onRetry={() => {
+          refetchAgentMetrics();
+          refetchIssueMetrics();
+          refetchRunMetrics();
+          refetchApprovalMetrics();
+          refetchRuns();
+          refetchIssues();
+          refetchAgents();
+          refetchActivity();
+        }}
+      />
+    );
+  }
 
   // Urgent issues: blocked, critical, or high priority (open only)
   const urgentIssues = liveIssues.filter(
@@ -353,7 +377,7 @@ function DashboardSection({ snapshot }: { snapshot: AgencySnapshot }) {
       )}
 
       {/* Metric Cards — sourced directly from Supabase */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
         <MetricCard
           icon={Bot}
           value={metricsLoading ? "…" : (agentMetrics?.total ?? 0)}
@@ -433,7 +457,7 @@ function DashboardSection({ snapshot }: { snapshot: AgencySnapshot }) {
       )}
 
       {/* Activity Charts — each uses live Supabase rows */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <ChartCard title="Run Activity" subtitle="Last 14 days">
           {runsLoading ? (
             <DashboardLoadingBlock label="Loading…" compact />
@@ -465,7 +489,7 @@ function DashboardSection({ snapshot }: { snapshot: AgencySnapshot }) {
       </div>
 
       {/* Urgent Issues + Recent Activity */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-white/10 bg-[#0d1118]">
           <CardHeader>
             <CardTitle className="text-zinc-100">Urgent / Blocked Issues</CardTitle>
@@ -567,7 +591,7 @@ function DashboardLoadingBlock({ label, compact }: { label: string; compact?: bo
 /* ------------------------------------------------------------------ */
 
 function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
-  const { data: company, isLoading: companyLoading } = useCompanySettings();
+  const { data: company, isLoading: companyLoading, isError: companyError, error: companyQueryError, refetch: refetchCompany } = useCompanySettings();
   const { data: supabaseHealthy } = useSupabaseHealth();
   const updateCompany = useUpdateCompanySettings();
   const onboarding = useOnboardingState(company?.wallet_address ?? null);
@@ -577,6 +601,23 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
   const [editName, setEditName] = useState("");
   const [editBrief, setEditBrief] = useState("");
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+
+  if (companyLoading) {
+    return <PageLoadingState label="Loading settings…" rows={3} />;
+  }
+
+  if (companyError) {
+    return (
+      <PageErrorState
+        message={
+          companyQueryError instanceof Error
+            ? companyQueryError.message
+            : "Failed to load company settings."
+        }
+        onRetry={() => refetchCompany()}
+      />
+    );
+  }
 
   if (showTour) {
     return (
