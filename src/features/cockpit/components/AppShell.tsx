@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Link2,
   Network,
+  Package,
   Plug,
   Search,
   Settings,
@@ -78,6 +79,7 @@ export const COMPANY_ITEMS: NavItem[] = [
   { to: "/costs", label: "Costs", icon: BadgeDollarSign },
   { to: "/activity", label: "Activity", icon: Activity },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/submission-proof", label: "Submission Proof", icon: Package },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

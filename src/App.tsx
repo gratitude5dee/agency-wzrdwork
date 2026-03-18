@@ -24,6 +24,7 @@ import { NewAgentPage } from "./pages/NewAgent";
 import { IntegrationsPage } from "./pages/Integrations";
 import { SkillsPage } from "./pages/Skills";
 import { DelegationsPage } from "./pages/Delegations";
+import { SubmissionProofPage } from "./pages/SubmissionProof";
 import { ThirdwebProvider } from "@/providers/ThirdwebProvider";
 import { AuthGate } from "@/components/AuthGate";
 import { OnboardingGate } from "@/features/onboarding/OnboardingGate";
@@ -96,6 +97,7 @@ const App = () => {
                           <Route path="integrations" element={<IntegrationsPage />} />
                           <Route path="skills" element={<SkillsPage />} />
                           <Route path="delegations" element={<DelegationsPage />} />
+                          <Route path="submission-proof" element={<SubmissionProofPage />} />
                           <Route path="design-guide" element={<SectionPage section="design-guide" />} />
                           <Route path="settings" element={<SectionPage section="settings" />} />
                           <Route path="runs/:runId" element={<DetailPage kind="run" />} />
