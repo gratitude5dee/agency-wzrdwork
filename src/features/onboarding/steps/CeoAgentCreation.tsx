@@ -74,6 +74,37 @@ export function CeoAgentCreation({ companyId, walletAddress, onComplete }: CeoAg
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      // Check for existing CEO agent in the same company to avoid duplicates
+      const { data: existingCeo } = await supabase
+        .from("agents")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("role", "ceo")
+        .maybeSingle();
+
+      if (existingCeo) {
+        // Reuse existing CEO agent — update its config instead of creating a duplicate
+        const adapterConfig: Record<string, unknown> = {
+          system_prompt: systemPrompt,
+          goals,
+          operational_parameters: {
+            spend_limit_usdc: spendLimit ? parseFloat(spendLimit) : null,
+            budget_cap_usdc: budgetCap ? parseFloat(budgetCap) : null,
+            authority_level: authorityLevel,
+          },
+        };
+
+        await supabase
+          .from("agents")
+          .update({
+            name: agentName,
+            adapter_config: adapterConfig as unknown as Json,
+          })
+          .eq("id", existingCeo.id);
+
+        return existingCeo as { id: string };
+      }
+
       const adapterConfig: Record<string, unknown> = {
         system_prompt: systemPrompt,
         goals,

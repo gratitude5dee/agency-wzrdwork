@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
+import { useActiveCompany } from "@/hooks/useActiveCompany";
 import { PageLoadingState, PageEmptyState, PageErrorState } from "@/components/PageStateIndicators";
 
 interface AgentRow {
@@ -33,6 +34,8 @@ function adapterLabel(type: string): string {
 }
 
 export function AgentsPage() {
+  const { companyId, isLoading: companyLoading } = useActiveCompany();
+
   const {
     data: agents = [],
     isLoading,
@@ -40,11 +43,13 @@ export function AgentsPage() {
     error,
     refetch,
   } = useQuery<AgentRow[]>({
-    queryKey: ["agents-list"],
+    queryKey: ["agents-list", companyId],
+    enabled: !companyLoading && !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agents")
         .select("id, name, role, title, status, adapter_type")
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -52,7 +57,7 @@ export function AgentsPage() {
     },
   });
 
-  if (isLoading) {
+  if (isLoading || companyLoading) {
     return <PageLoadingState label="Loading agents…" />;
   }
 

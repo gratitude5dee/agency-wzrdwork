@@ -73,6 +73,7 @@ describe("AgentsPage states", () => {
   it("shows error state with retry when fetch fails", async () => {
     const chain = {
       select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockRejectedValue(new Error("Connection failed")),
     };
     mockFrom.mockReturnValue(chain);
@@ -90,6 +91,7 @@ describe("AgentsPage states", () => {
   it("shows empty state when no agents exist", async () => {
     const chain = {
       select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
     mockFrom.mockReturnValue(chain);
@@ -107,6 +109,7 @@ describe("AgentsPage states", () => {
   it("shows agent list when agents exist", async () => {
     const chain = {
       select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: [
           {
