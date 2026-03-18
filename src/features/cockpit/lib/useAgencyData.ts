@@ -18,7 +18,11 @@ import type {
 
 const SNAPSHOT_QUERY_KEY = ["agency-snapshot"];
 
-function mapCompanyRow(row: Record<string, any>): CompanyRecord {
+/** Loose DB row shape returned by Supabase `select("*")`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase select("*") returns untyped rows
+type DbRow = Record<string, any>;
+
+function mapCompanyRow(row: DbRow): CompanyRecord {
   return {
     id: row.id,
     slug: row.slug,
@@ -32,7 +36,7 @@ function mapCompanyRow(row: Record<string, any>): CompanyRecord {
   };
 }
 
-function mapAgentRow(row: Record<string, any>): AgentRecord {
+function mapAgentRow(row: DbRow): AgentRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -49,7 +53,7 @@ function mapAgentRow(row: Record<string, any>): AgentRecord {
   };
 }
 
-function mapProjectRow(row: Record<string, any>): ProjectRecord {
+function mapProjectRow(row: DbRow): ProjectRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -62,7 +66,7 @@ function mapProjectRow(row: Record<string, any>): ProjectRecord {
   };
 }
 
-function mapGoalRow(row: Record<string, any>): GoalRecord {
+function mapGoalRow(row: DbRow): GoalRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -75,7 +79,7 @@ function mapGoalRow(row: Record<string, any>): GoalRecord {
   };
 }
 
-function mapIssueRow(row: Record<string, any>): IssueRecord {
+function mapIssueRow(row: DbRow): IssueRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -91,7 +95,7 @@ function mapIssueRow(row: Record<string, any>): IssueRecord {
   };
 }
 
-function mapApprovalRow(row: Record<string, any>): ApprovalRecord {
+function mapApprovalRow(row: DbRow): ApprovalRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -104,7 +108,7 @@ function mapApprovalRow(row: Record<string, any>): ApprovalRecord {
   };
 }
 
-function mapRunRow(row: Record<string, any>): RunRecord {
+function mapRunRow(row: DbRow): RunRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -127,7 +131,7 @@ function mapRunRow(row: Record<string, any>): RunRecord {
   };
 }
 
-function mapActivityRow(row: Record<string, any>): ActivityRecord {
+function mapActivityRow(row: DbRow): ActivityRecord {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -189,7 +193,7 @@ function createDemoIssue(snapshot: AgencySnapshot, input: CreateIssueInput): Age
   };
 }
 
-async function loadTable<T>(table: string, companyId?: string): Promise<T[]> {
+async function loadTable(table: string, companyId?: string): Promise<DbRow[]> {
   let query = supabase.from(table as never).select("*");
 
   if (companyId) {
@@ -202,7 +206,7 @@ async function loadTable<T>(table: string, companyId?: string): Promise<T[]> {
     throw error;
   }
 
-  return [...((data ?? []) as T[])].sort((left: any, right: any) => {
+  return [...((data ?? []) as DbRow[])].sort((left, right) => {
     const leftTimestamp = new Date(left.updated_at ?? left.created_at ?? 0).getTime();
     const rightTimestamp = new Date(right.updated_at ?? right.created_at ?? 0).getTime();
     return rightTimestamp - leftTimestamp;
@@ -239,13 +243,13 @@ export async function loadAgencySnapshot(companyId?: string | null): Promise<Age
     const company = mapCompanyRow(companyRow);
 
     const [agents, projects, goals, issues, approvals, runs, activity] = await Promise.all([
-      loadTable<Record<string, any>>("agents", company.id),
-      loadTable<Record<string, any>>("projects", company.id),
-      loadTable<Record<string, any>>("goals", company.id),
-      loadTable<Record<string, any>>("issues", company.id),
-      loadTable<Record<string, any>>("approvals", company.id),
-      loadTable<Record<string, any>>("runs", company.id),
-      loadTable<Record<string, any>>("activity_events", company.id),
+      loadTable("agents", company.id),
+      loadTable("projects", company.id),
+      loadTable("goals", company.id),
+      loadTable("issues", company.id),
+      loadTable("approvals", company.id),
+      loadTable("runs", company.id),
+      loadTable("activity_events", company.id),
     ]);
 
     return {

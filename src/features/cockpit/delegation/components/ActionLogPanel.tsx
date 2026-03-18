@@ -67,8 +67,8 @@ const DebugEntryView: React.FC<{ entry: DebugLogEntry }> = ({ entry }) => {
     const agent = agents.find(a => a.index === entry.agentIndex);
 
     // Parse tool calls from rawContent (only available in response entries)
-    let toolCalls: any[] = [];
-    let parsedResponse: any = null;
+    let toolCalls: Array<{ function?: { name?: string; arguments?: string }; name?: string; args?: Record<string, unknown> }> = [];
+    let parsedResponse: { text?: string; toolCalls?: typeof toolCalls } | null = null;
     if (entry.phase === 'response') {
         try {
             parsedResponse = JSON.parse(entry.rawContent);

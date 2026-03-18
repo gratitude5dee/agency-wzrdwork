@@ -200,7 +200,7 @@ export class SceneManager {
     const player = new THREE.Vector3(positions[PLAYER_INDEX * 4], 0, positions[PLAYER_INDEX * 4 + 2]);
 
     // Direction from NPC to player, stop 1.2 units away
-    let dir = new THREE.Vector3().subVectors(player, npc);
+    const dir = new THREE.Vector3().subVectors(player, npc);
     const dist = dir.length();
     if (dist < 0.01) dir.set(1, 0, 0); else dir.divideScalar(dist);
 
