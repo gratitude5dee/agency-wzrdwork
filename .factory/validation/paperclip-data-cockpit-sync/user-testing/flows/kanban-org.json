@@ -1,0 +1,93 @@
+{
+  "flowId": "kanban-org",
+  "milestone": "paperclip-data-cockpit-sync",
+  "assertions": {
+    "VAL-DATA-003": {
+      "status": "pass",
+      "evidence": [
+        "Created test issue TST-001 in Backlog column via Supabase API",
+        "Dragged issue card from Backlog to Todo column using mouse-based drag-and-drop",
+        "Issue card moved to Todo column immediately - Backlog shows 0, Todo shows 1",
+        "Supabase query confirms status changed to 'todo' for issue fc07f308-cd97-43e2-9165-851fcec68c59",
+        "After full page reload, issue card remains in Todo column with correct metadata",
+        "Activity log entry 'Status changed to Todo' appeared in Logs panel confirming mutation was tracked"
+      ],
+      "issues": []
+    },
+    "VAL-KANBAN-001": {
+      "status": "pass",
+      "evidence": [
+        "Cockpit shell shows 'Delegation Sandbox - Test Agency Co' with company name and AGENCY label",
+        "Header badges: 1 agents, 0 live, 0 approvals, 0 tasks (updated to 1 tasks after issue creation)",
+        "Toolbar controls present and functional: Org Chart button, Logs button, Recenter button, Kanban toggle",
+        "Logs button toggles ActionLogPanel on left side (requires 1500px+ viewport)",
+        "Project Info panel: Company Brief, Live Summary (Agents 1, Open Issues 0-1), IDLE/WORKING status",
+        "Console errors: none relevant"
+      ],
+      "issues": []
+    },
+    "VAL-KANBAN-002": {
+      "status": "pass",
+      "evidence": [
+        "All 7 workflow columns confirmed via DOM query: BACKLOG, TODO, IN PROGRESS, IN REVIEW, BLOCKED, DONE, CANCELLED",
+        "Column headers visible with count badges (0 for empty columns, 1 for populated)",
+        "Issue card TST-001 shows: identifier 'TST-001', title 'Validation test issue', priority badge 'medium', assignee 'CEO'",
+        "Card metadata matches Supabase record for issue fc07f308-cd97-43e2-9165-851fcec68c59"
+      ],
+      "issues": []
+    },
+    "VAL-KANBAN-003": {
+      "status": "pass",
+      "evidence": [
+        "Before drag: TST-001 in Backlog column (Backlog: 1, Todo: 0)",
+        "Drag performed via mouse move from card center (396,772) to Todo column center (648,754)",
+        "After drag: TST-001 moved to Todo column (Backlog: 0, Todo: 1)",
+        "Supabase query confirms issue status = 'todo'",
+        "After full page reload: TST-001 still in Todo column, state persisted"
+      ],
+      "issues": []
+    },
+    "VAL-KANBAN-004": {
+      "status": "pass",
+      "evidence": [
+        "Logs panel opened via Logs button in cockpit toolbar (requires 1500px+ viewport)",
+        "Panel shows ACTIVITY and TECHNICAL tabs",
+        "Activity tab shows: 'CEO - Status changed to Todo - issue update' with timestamp",
+        "Filter by agent button present for filtering log entries",
+        "With no activity: shows 'NO ACTIVITY YET...' empty state (before issue drag)",
+        "After drag-and-drop: activity entry appeared immediately in the log stream"
+      ],
+      "issues": []
+    },
+    "VAL-ORG-001": {
+      "status": "pass",
+      "evidence": [
+        "Org Chart reachable via cockpit toolbar button 'Org Chart' (data-testid='cockpit-org-chart-link')",
+        "Also reachable via sidebar link 'Org Chart' under Company section",
+        "Clicking cockpit Org Chart button navigated to /org-chart page",
+        "Page title: 'AGENCY ORG CHART'",
+        "Navigation was through in-product buttons/links, not direct URL entry"
+      ],
+      "issues": []
+    },
+    "VAL-ORG-002": {
+      "status": "pass",
+      "evidence": [
+        "Org chart shows CEO node with: name 'CEO', title 'Chief Executive Officer', adapter 'Hermes'",
+        "Single agent matches the 1 agent for Test Agency Co in Supabase",
+        "CEO node has cursor:pointer and onclick handler, confirmed as clickable",
+        "Clicking CEO node navigated to Agent Detail page at /agents/<id>",
+        "Agent Detail shows: Name CEO, Role CEO, Title Chief Executive Officer, Status idle, Adapter Type Hermes Agent, Reports To None (root)",
+        "ERC-8004 Identity section visible: Registration Status Pending, Operator Wallet 0x1234...5678",
+        "Only 1 agent exists so no reports_to hierarchy visible, but Reports To = 'None (root)' is correctly displayed"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Kanban drag-and-drop required mouse-level commands since agent-browser drag command doesn't support @refs",
+    "Logs panel requires viewport width >= 1500px due to compact mode breakpoint"
+  ],
+  "blockers": [],
+  "toolsUsed": ["agent-browser", "curl"]
+}

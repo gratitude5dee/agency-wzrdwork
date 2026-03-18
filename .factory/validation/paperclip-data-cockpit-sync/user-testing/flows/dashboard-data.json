@@ -1,0 +1,76 @@
+{
+  "flowId": "dashboard-data",
+  "milestone": "paperclip-data-cockpit-sync",
+  "assertions": {
+    "VAL-DATA-001": {
+      "status": "pass",
+      "evidence": [
+        "Dashboard at /dashboard renders live data from Supabase: 1 Agent, 0 Open Issues, 0 Live Runs, 0 Pending Approvals matching backend state for Test Agency Co company",
+        "Cockpit at /cockpit shows same company context: 1 agents, 0 live, 0 approvals, 0 tasks",
+        "No demo/fallback indicator visible - data is live from Supabase (snapshot.source === 'supabase')",
+        "Company name 'Test Agency Co' with mock wallet 0x1234...5678 displayed consistently",
+        "Console errors: only React Router v7 future flag warnings (documented noise)"
+      ],
+      "issues": []
+    },
+    "VAL-DATA-002": {
+      "status": "pass",
+      "evidence": [
+        "Dashboard shows 1 Agent - Supabase query confirms 1 agent (CEO) for company 191fee08-5fcb-4947-93dd-0b3357a0f144",
+        "Dashboard shows 0 Open Issues - Supabase query confirms 0 issues for this company",
+        "Dashboard shows 0 Live Runs, 0 Pending Approvals - consistent with empty runs/approvals tables for this company",
+        "Cockpit Live Summary: Agents 1, Open Issues 0, On Hold 0, Live Runs 0, Approvals 0 - all match backend",
+        "After creating test issue: counts updated to 1 Open Issue in both dashboard and cockpit"
+      ],
+      "issues": []
+    },
+    "VAL-DATA-004": {
+      "status": "pass",
+      "evidence": [
+        "6 companies exist in Supabase with different wallets, but UI only shows data for the mock wallet company (Test Agency Co)",
+        "Other companies' agents (CEO for test5, Acme Delegation, test555, etc.) not visible in dashboard or cockpit",
+        "Other companies' issues (ACM-1 'Create your CEO HEARTBEAT.md', test44) not shown in Kanban or dashboard",
+        "Dashboard totals (1 agent, 0 issues) match only the active company's data, not global totals (10+ agents, 3+ issues globally)",
+        "Cockpit header shows only 'Test Agency Co' context with company-scoped counts"
+      ],
+      "issues": []
+    },
+    "VAL-DASH-001": {
+      "status": "pass",
+      "evidence": [
+        "Dashboard metric cards render: '1 Agents' with '0 running, 0 active', '0 Open Issues' with 'No open issues', '0 Live Runs' with 'No runs yet', '0 Pending Approvals' with 'No pending approvals'",
+        "Each card shows meaningful supporting text (not blank)",
+        "After issue creation, Open Issues card updated to '1' with appropriate text",
+        "Console errors: none relevant"
+      ],
+      "issues": []
+    },
+    "VAL-DASH-002": {
+      "status": "pass",
+      "evidence": [
+        "Run Activity chart: 'Last 14 days' label with 'No runs yet' empty state",
+        "Issues by Priority chart: 'Last 14 days' label with 'No issues' empty state",
+        "Issues by Status chart: 'Last 14 days' label with 'No issues' empty state",
+        "Success Rate chart: 'Last 14 days' label with 'No runs yet' empty state",
+        "All 4 charts individually validated with visible labels and explicit empty-state messaging"
+      ],
+      "issues": []
+    },
+    "VAL-DASH-003": {
+      "status": "pass",
+      "evidence": [
+        "Active Agents panel: 'No active agents.' (company has 1 agent with idle status)",
+        "Urgent/Blocked Issues panel: 'No urgent issues — all clear.' (0 open issues for company)",
+        "Recent Activity panel: 'No recent activity.' (no activity_events for company)",
+        "All three panels show intentional empty states matching the backend data",
+        "After issue creation, Urgent Issues section updated to show the new issue"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Subagent spawning failed with bun-eval parsing errors - fell back to direct testing in validator session"
+  ],
+  "blockers": [],
+  "toolsUsed": ["agent-browser", "curl"]
+}
