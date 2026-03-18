@@ -89,6 +89,31 @@ function setupSchemaMissingMock() {
   return chain;
 }
 
+/**
+ * Set up the Supabase mock so the skills schema readiness probe
+ * returns PGRST205 (Supabase REST table not found in schema cache).
+ */
+function setupSchemaMissingPGRST205Mock() {
+  const missingError = {
+    code: "PGRST205",
+    message: 'Could not find the skills table in the schema cache',
+  };
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: null, error: missingError }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: missingError }),
+    order: vi.fn().mockResolvedValue({ data: [], error: missingError }),
+    limit: vi.fn().mockResolvedValue({ data: null, error: missingError }),
+  };
+  mockFrom.mockReturnValue(chain);
+  return chain;
+}
+
 // ---- Test data ----
 const MOCK_SKILLS = [
   {
@@ -518,6 +543,38 @@ describe("Skills Page — schema missing (setup-required state)", () => {
   });
 });
 
+describe("Skills Page — schema missing via PGRST205", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows schema setup required banner when Supabase REST returns PGRST205", async () => {
+    const { SkillsPage } = await import("@/pages/Skills");
+    setupSchemaMissingPGRST205Mock();
+
+    renderWithProviders(<SkillsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Schema setup required")).toBeInTheDocument();
+  });
+
+  it("disables Import and New Skill buttons when PGRST205 is returned", async () => {
+    const { SkillsPage } = await import("@/pages/Skills");
+    setupSchemaMissingPGRST205Mock();
+
+    renderWithProviders(<SkillsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Import").closest("button")).toBeDisabled();
+    expect(screen.getByText("New Skill").closest("button")).toBeDisabled();
+  });
+});
+
 describe("Agent Skill Assignment — schema missing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -548,6 +605,24 @@ describe("Agent Skill Assignment — schema missing", () => {
     // No skill assign buttons should be visible
     expect(screen.queryByText("No skills assigned yet.")).not.toBeInTheDocument();
     expect(screen.queryByText(/No skills configured/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Agent Skill Assignment — schema missing via PGRST205", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows compact setup-required banner when PGRST205 is returned", async () => {
+    const { AgentSkillAssignment } = await import("@/components/AgentSkillAssignment");
+    setupSchemaMissingPGRST205Mock();
+
+    renderWithProviders(<AgentSkillAssignment agentId="agent-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Skills schema not found")).toBeInTheDocument();
   });
 });
 
@@ -590,6 +665,32 @@ describe("Onboarding Skill Selection — schema missing", () => {
   });
 });
 
+describe("Onboarding Skill Selection — schema missing via PGRST205", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows setup-required banner with skip option when PGRST205 is returned", async () => {
+    const { SkillSelection } = await import("@/features/onboarding/steps/SkillSelection");
+    setupSchemaMissingPGRST205Mock();
+
+    const onComplete = vi.fn();
+    renderWithProviders(
+      <SkillSelection agentId="agent-1" companyId="test-co" onComplete={onComplete} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Schema setup required")).toBeInTheDocument();
+
+    // Skip button should work
+    const skipBtn = screen.getByText(/Skip.*continue without skills/i);
+    fireEvent.click(skipBtn);
+    expect(onComplete).toHaveBeenCalled();
+  });
+});
+
 describe("useSkillsSchemaReady hook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -615,6 +716,22 @@ describe("useSkillsSchemaReady hook", () => {
   it("returns ready: false when skills table does not exist (42P01)", async () => {
     const { useSkillsSchemaReady } = await import("@/hooks/useSkills");
     setupSchemaMissingMock();
+
+    function TestComponent() {
+      const { data } = useSkillsSchemaReady();
+      return <div data-testid="result">{data?.ready === false ? "not-ready" : "pending"}</div>;
+    }
+
+    renderWithProviders(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result").textContent).toBe("not-ready");
+    });
+  });
+
+  it("returns ready: false when Supabase REST returns PGRST205", async () => {
+    const { useSkillsSchemaReady } = await import("@/hooks/useSkills");
+    setupSchemaMissingPGRST205Mock();
 
     function TestComponent() {
       const { data } = useSkillsSchemaReady();

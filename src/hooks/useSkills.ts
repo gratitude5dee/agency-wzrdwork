@@ -11,8 +11,9 @@
  * at runtime; TypeScript inference is bypassed via intermediate casts.
  *
  * Schema readiness: if the `skills` or `agent_skills` tables have not
- * been created (error code 42P01), the hooks surface a clear
- * `schemaMissing` state instead of throwing raw Supabase errors.
+ * been created (Postgres error code 42P01 or Supabase REST error
+ * code PGRST205), the hooks surface a clear `schemaMissing` state
+ * instead of throwing raw Supabase errors.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,12 +38,19 @@ function fromTable(tableName: string) {
 // ---------------------------------------------------------------------------
 
 /**
- * Detect the Postgres "relation does not exist" error (42P01).
- * Matches the pattern used in useDashboardMetrics and other hooks.
+ * Detect missing-table errors from both Postgres and the Supabase REST API.
+ *
+ * - Postgres: error code `42P01` ("relation does not exist")
+ * - Supabase REST (PostgREST): error code `PGRST205` ("Could not find
+ *   the … in the schema cache") — returned when the table has not been
+ *   added to the PostgREST schema cache yet.
+ * - Fallback: message includes "does not exist" for edge cases.
  */
 function isMissingTable(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
-  return error.code === "42P01" || (error.message ?? "").includes("does not exist");
+  const code = error.code ?? "";
+  if (code === "42P01" || code === "PGRST205") return true;
+  return (error.message ?? "").includes("does not exist");
 }
 
 /** Path to the SQL snippet file that creates the skills and agent_skills tables. */
@@ -173,7 +181,7 @@ export const REFERENCE_SKILLS: Omit<CreateSkillInput, "enabled">[] = [
 /**
  * Lightweight schema readiness probe for the `skills` table.
  * Issues a `select count(*)` with `limit(0)` to avoid fetching data.
- * If the table doesn't exist (42P01), returns `{ ready: false }`.
+ * If the table doesn't exist (42P01 or PGRST205), returns `{ ready: false }`.
  *
  * Other hooks in this module use the result to short-circuit instead of
  * throwing raw Supabase errors at the UI layer.
