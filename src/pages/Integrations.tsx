@@ -19,6 +19,7 @@ import {
   Image,
   BarChart3,
   Settings2,
+  Wrench,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,7 +45,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
-import type { Database as DB } from "@/integrations/supabase/types";
+import { ComposioToolDiscovery } from "@/components/ComposioToolDiscovery";
+import type { Database as DB, Json } from "@/integrations/supabase/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,6 +110,16 @@ const INTEGRATIONS: IntegrationDef[] = [
   },
   { key: "fal", name: "fal", category: "Media Generation", icon: Image },
   { key: "bond_credit", name: "bond_credit", category: "Credit Scores", icon: BarChart3 },
+  {
+    key: "composio",
+    name: "Composio",
+    category: "MCP Tools",
+    icon: Wrench,
+    extraFields: [
+      { key: "consumer_key", label: "Consumer Key (ck_…)", placeholder: "ck_your_key_here" },
+      { key: "mcp_url", label: "MCP Server URL", placeholder: "https://connect.composio.dev/mcp" },
+    ],
+  },
 ];
 
 const CHAIN_OPTIONS = [
@@ -128,7 +140,10 @@ function deriveStatus(row?: IntegrationRow): IntegrationStatus {
   if (!row) return "disconnected";
   if (!row.enabled) return "disconnected";
   const config = row.config as Record<string, unknown> | null;
-  if (config && typeof config === "object" && config.api_key) return "connected";
+  if (config && typeof config === "object") {
+    // Standard api_key or Composio consumer_key both count as valid credentials
+    if (config.api_key || config.consumer_key) return "connected";
+  }
   return "disconnected";
 }
 
@@ -222,19 +237,29 @@ export function IntegrationsPage() {
   const [configApiKey, setConfigApiKey] = useState("");
   const [configChain, setConfigChain] = useState("");
   const [configExtra, setConfigExtra] = useState<Record<string, string>>({});
+  const [composioSelectedTools, setComposioSelectedTools] = useState<string[]>([]);
 
   const openConfigDialog = useCallback(
     (def: IntegrationDef) => {
       const existing = rowMap.get(def.key);
-      const existingConfig = (existing?.config ?? {}) as Record<string, string>;
+      const existingConfig = (existing?.config ?? {}) as Record<string, unknown>;
       setConfigDef(def);
-      setConfigApiKey(existingConfig.api_key ?? "");
-      setConfigChain(existingConfig.chain_id ?? "");
+      setConfigApiKey(String(existingConfig.api_key ?? ""));
+      setConfigChain(String(existingConfig.chain_id ?? ""));
       const extra: Record<string, string> = {};
       for (const f of def.extraFields ?? []) {
-        extra[f.key] = existingConfig[f.key] ?? "";
+        extra[f.key] = String(existingConfig[f.key] ?? "");
       }
       setConfigExtra(extra);
+
+      // Composio: restore selected tools
+      if (def.key === "composio" && Array.isArray(existingConfig.selected_tools)) {
+        setComposioSelectedTools(
+          (existingConfig.selected_tools as string[]).filter((t) => typeof t === "string"),
+        );
+      } else {
+        setComposioSelectedTools([]);
+      }
     },
     [rowMap],
   );
@@ -244,6 +269,7 @@ export function IntegrationsPage() {
     setConfigApiKey("");
     setConfigChain("");
     setConfigExtra({});
+    setComposioSelectedTools([]);
   }, []);
 
   // ---- Save config mutation ----
@@ -251,19 +277,31 @@ export function IntegrationsPage() {
     mutationFn: async () => {
       if (!companyId || !configDef) throw new Error("No company or integration selected");
 
-      const config: Record<string, string> = { api_key: configApiKey };
-      if (configDef.hasChainSelector && configChain) {
+      // For Composio, the credential is consumer_key (from extra fields), not api_key.
+      // Preserve existing config fields (e.g. selected_tools) that aren't in the form.
+      const existing = rowMap.get(configDef.key);
+      const existingConfig = (existing?.config ?? {}) as Record<string, unknown>;
+
+      const config: Record<string, unknown> = configDef.key === "composio"
+        ? { ...existingConfig }
+        : { api_key: configApiKey };
+
+      if (configDef.key !== "composio" && configDef.hasChainSelector && configChain) {
         config.chain_id = configChain;
       }
       for (const [k, v] of Object.entries(configExtra)) {
         if (v) config[k] = v;
       }
 
-      const existing = rowMap.get(configDef.key);
+      // Composio: persist selected tools
+      if (configDef.key === "composio") {
+        config.selected_tools = composioSelectedTools;
+      }
+
       if (existing) {
         const { error } = await supabase
           .from("integrations")
-          .update({ config, enabled: true })
+          .update({ config: config as unknown as Json, enabled: true })
           .eq("id", existing.id);
         if (error) throw error;
       } else {
@@ -272,13 +310,14 @@ export function IntegrationsPage() {
           integration_key: configDef.key,
           name: configDef.name,
           enabled: true,
-          config,
+          config: config as unknown as Json,
         });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["integrations", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["composio-config", companyId] });
       toast({ title: "Configuration saved" });
       closeConfigDialog();
     },
@@ -369,20 +408,22 @@ export function IntegrationsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* API key */}
-            <div className="space-y-2">
-              <Label htmlFor="config-api-key" className="text-zinc-300">
-                API Key
-              </Label>
-              <Input
-                id="config-api-key"
-                type="password"
-                placeholder="Enter API key…"
-                value={configApiKey}
-                onChange={(e) => setConfigApiKey(e.target.value)}
-                className="border-white/10 bg-black text-zinc-100 placeholder:text-zinc-600"
-              />
-            </div>
+            {/* API key — hidden for Composio which uses consumer_key via extra fields */}
+            {configDef?.key !== "composio" && (
+              <div className="space-y-2">
+                <Label htmlFor="config-api-key" className="text-zinc-300">
+                  API Key
+                </Label>
+                <Input
+                  id="config-api-key"
+                  type="password"
+                  placeholder="Enter API key…"
+                  value={configApiKey}
+                  onChange={(e) => setConfigApiKey(e.target.value)}
+                  className="border-white/10 bg-black text-zinc-100 placeholder:text-zinc-600"
+                />
+              </div>
+            )}
 
             {/* Chain selector (conditional) */}
             {configDef?.hasChainSelector && (
@@ -416,6 +457,7 @@ export function IntegrationsPage() {
                 </Label>
                 <Input
                   id={`config-${field.key}`}
+                  type={field.key === "consumer_key" ? "password" : "text"}
                   placeholder={field.placeholder ?? ""}
                   value={configExtra[field.key] ?? ""}
                   onChange={(e) =>
@@ -425,6 +467,16 @@ export function IntegrationsPage() {
                 />
               </div>
             ))}
+
+            {/* Composio tool discovery */}
+            {configDef?.key === "composio" && (
+              <ComposioToolDiscovery
+                consumerKey={configExtra.consumer_key ?? ""}
+                mcpUrl={configExtra.mcp_url || "https://connect.composio.dev/mcp"}
+                selectedTools={composioSelectedTools}
+                onSelectionChange={setComposioSelectedTools}
+              />
+            )}
           </div>
 
           <DialogFooter>

@@ -88,7 +88,7 @@ describe("IntegrationsPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders all 16 integration cards", async () => {
+  it("renders all 17 integration cards including Composio", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
     const chain = setupSupabaseMock();
     chain.single.mockResolvedValue({
@@ -103,7 +103,7 @@ describe("IntegrationsPage", () => {
       expect(screen.getByText("thirdweb")).toBeInTheDocument();
     });
 
-    // Verify all 16 integration names are present
+    // Verify all 17 integration names are present (16 original + Composio)
     const integrationNames = [
       "thirdweb",
       "supabase",
@@ -121,6 +121,7 @@ describe("IntegrationsPage", () => {
       "metamask",
       "fal",
       "bond_credit",
+      "Composio",
     ];
     for (const name of integrationNames) {
       expect(screen.getByText(name)).toBeInTheDocument();
@@ -144,7 +145,7 @@ describe("IntegrationsPage", () => {
 
     // All cards should show "Disconnected" by default
     const disconnectedBadges = screen.getAllByText("Disconnected");
-    expect(disconnectedBadges.length).toBe(16);
+    expect(disconnectedBadges.length).toBe(17);
   });
 
   it("renders Configure button on each card", async () => {
@@ -163,7 +164,7 @@ describe("IntegrationsPage", () => {
     });
 
     const configureButtons = screen.getAllByText("Configure");
-    expect(configureButtons.length).toBe(16);
+    expect(configureButtons.length).toBe(17);
   });
 
   it("renders toggle switch on each card", async () => {
@@ -182,7 +183,7 @@ describe("IntegrationsPage", () => {
     });
 
     const switches = screen.getAllByRole("switch");
-    expect(switches.length).toBe(16);
+    expect(switches.length).toBe(17);
   });
 
   it("shows category descriptions on cards", async () => {
@@ -261,6 +262,6 @@ describe("IntegrationsPage", () => {
 
     // The rest should show "Disconnected"
     const disconnectedBadges = screen.getAllByText("Disconnected");
-    expect(disconnectedBadges.length).toBe(15);
+    expect(disconnectedBadges.length).toBe(16);
   });
 });
