@@ -1,0 +1,73 @@
+{
+  "flowId": "hermes-composio",
+  "milestone": "connectors-skills-onboarding",
+  "assertions": {
+    "VAL-HERMES-001": {
+      "status": "pass",
+      "evidence": [
+        "Hermes Agent listed in New Agent adapter type dropdown (screenshot: adapter-type-dropdown.png)",
+        "Hermes Agent card shown in onboarding harness selector step 3 (screenshot: onboarding-step3-harness.png)",
+        "CEO agent persists adapter_type='hermes' in Supabase (query: agents.adapter_type)",
+        "Toast confirms 'Adapter updated to Hermes Agent' during onboarding"
+      ],
+      "issues": []
+    },
+    "VAL-HERMES-002": {
+      "status": "pass",
+      "evidence": [
+        "Hermes config exposes: Model (Claude Opus 4.6), Provider (Auto-detect), Toolsets (7 checkboxes), Memory Mode, MCP Servers (Add Server), Max Turns (screenshot: hermes-config-new-agent.png)",
+        "Saved adapter_config contains {goals, system_prompt, operational_parameters} with non-empty structure (query: agents.adapter_config)"
+      ],
+      "issues": []
+    },
+    "VAL-HERMES-003": {
+      "status": "pass",
+      "evidence": [
+        "CEO agent created via onboarding has Hermes config with valid adapter_config JSON (screenshot: ceo-agent-detail.png)",
+        "Agent status is 'idle' — immediately usable (not blocked)",
+        "Adapter config includes operational_parameters with authority_level=autonomous"
+      ],
+      "issues": []
+    },
+    "VAL-HERMES-004": {
+      "status": "pass",
+      "evidence": [
+        "adapterRegistry.has('hermes') returns true (src/adapters/registry.ts confirms hermesUIAdapter registration)",
+        "Agent detail resolves label 'Hermes Agent' through adapterRegistry.get('hermes').label",
+        "Agent list page shows 'Hermes Agent' for CEO agents (screenshot: agents page)",
+        "Test file hermes-adapter.test.ts verifies registry resolution"
+      ],
+      "issues": []
+    },
+    "VAL-COMPOSIO-001": {
+      "status": "pass",
+      "evidence": [
+        "Integrations page shows Composio card with 'MCP Tools' label, 'Disconnected' status, Configure button (screenshot: integrations-page.png)",
+        "Configure dialog exposes: Consumer Key, MCP Server URL, Composio Tools section, link to dashboard.composio.dev (screenshot: composio-config.png)"
+      ],
+      "issues": []
+    },
+    "VAL-COMPOSIO-002": {
+      "status": "blocked",
+      "evidence": [
+        "OpenClaw Gateway config shows 'Composio Tools' section with message 'Enable Composio on the Integrations page to select external tools for this agent' (screenshot: openclaw-config.png)",
+        "Composio integration is not configured with real API key — tool selection cannot be tested"
+      ],
+      "issues": ["Composio requires real API credentials to test tool selection persistence. The UI path exists but cannot be exercised without a configured Composio integration."]
+    },
+    "VAL-COMPOSIO-003": {
+      "status": "blocked",
+      "evidence": [
+        "OpenClaw config shows Composio downstream link, but actual tool discovery requires a connected Composio integration"
+      ],
+      "issues": ["Cannot verify downstream tool availability without a connected Composio integration with real API key"]
+    }
+  },
+  "frictions": [
+    "Task tool subagent spawning fails with bun-eval errors — had to fall back to direct testing"
+  ],
+  "blockers": [
+    "Composio integration requires real API credentials not available in this validation environment"
+  ],
+  "toolsUsed": ["agent-browser", "curl"]
+}
