@@ -82,9 +82,10 @@ export interface LoopResult {
   approvalId?: string;
   /**
    * Terminal status of the run. "completed" for auto policy success,
-   * "approval_pending" when paused for approval, "failed" on error.
+   * "approval_pending" when paused for approval, "failed" on error,
+   * "guardrail_rejected" when stopped by a budget/safety guardrail.
    */
-  runStatus: "completed" | "approval_pending" | "failed";
+  runStatus: "completed" | "approval_pending" | "failed" | "guardrail_rejected";
 }
 
 /** Transaction parameters for guardrail validation */
@@ -118,4 +119,59 @@ export interface BudgetData {
   totalOutputTokens: number;
   maxBudgetUsd: number;
   remainingUsd: number;
+}
+
+/* ================================================================
+   Guardrail checkpoint types
+   ================================================================ */
+
+/**
+ * Rule kind that was violated, allowing callers to distinguish
+ * between budget, safety, and other guardrail categories.
+ */
+export type GuardrailRuleKind =
+  | "budget_exceeded"
+  | "unsafe_operation"
+  | "recipient_blocked"
+  | "negative_amount"
+  | "custom";
+
+/**
+ * Structured result from a pre-action guardrail checkpoint.
+ *
+ * When `allowed` is false, `reason` contains a human-readable
+ * explanation naming the violated rule or limit source, and `ruleKind`
+ * categorises the failure for programmatic handling.
+ */
+export interface GuardrailResult {
+  /** Whether the action is permitted */
+  allowed: boolean;
+  /** Human-readable reason when the action is blocked */
+  reason?: string;
+  /** Category of the guardrail rule that was violated */
+  ruleKind?: GuardrailRuleKind;
+  /** Budget snapshot at the time of the check (present when budget was evaluated) */
+  budgetSnapshot?: BudgetData;
+}
+
+/**
+ * Parameters for the unified guardrail checkpoint.
+ *
+ * Callers provide budget context (agentId + estimated cost) and/or
+ * a transaction to validate. The checkpoint evaluates every supplied
+ * dimension and returns the first failure it encounters.
+ */
+export interface GuardrailCheckParams {
+  /** Agent ID for budget lookup */
+  agentId: string;
+  /** Company ID for logging */
+  companyId: string;
+  /** Current run ID for logging (null if check is pre-run) */
+  runId: string | null;
+  /** Estimated cost of the next action in USD (triggers budget check) */
+  estimatedCostUsd?: number;
+  /** Transaction to validate against safety rules */
+  transaction?: TransactionParams;
+  /** Spend limits for transaction validation (when transaction is provided) */
+  spendLimits?: SpendLimits;
 }

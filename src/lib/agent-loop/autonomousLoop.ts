@@ -15,10 +15,11 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { logExecution } from "@/lib/erc8004/execution-log";
-import { abortOnRepeatedFailure, logAbort } from "./guardrails";
-import { enforceBudget, trackBudget } from "./budget";
+import { abortOnRepeatedFailure, logAbort, runGuardrailCheck } from "./guardrails";
+import { trackBudget } from "./budget";
 import type {
   AuthorityPolicy,
+  GuardrailResult,
   LoopOptions,
   LoopResult,
   LoopStep,
@@ -212,8 +213,56 @@ export async function runAutonomousLoop(
   ];
 
   let loopSuccess = true;
+  let guardrailRejection: GuardrailResult | undefined;
 
   for (const step of loopSteps) {
+    // ---- Pre-step guardrail checkpoint (budget + safety) ----
+    // Runs BEFORE any side effects for this step occur.
+    if (options.spendLimitUsd) {
+      const estimatedStepCost = options.spendLimitUsd / loopSteps.length;
+      const guardrailResult = await runGuardrailCheck({
+        agentId,
+        companyId,
+        runId,
+        estimatedCostUsd: estimatedStepCost,
+        transaction: options.recipientWhitelist?.length
+          ? {
+              amount: estimatedStepCost,
+              recipient: "loop-step",
+              operation: step,
+            }
+          : undefined,
+        spendLimits: options.recipientWhitelist?.length
+          ? {
+              maxAmountUsd: options.spendLimitUsd,
+              recipientWhitelist: options.recipientWhitelist,
+            }
+          : undefined,
+      });
+
+      if (!guardrailResult.allowed) {
+        guardrailRejection = guardrailResult;
+
+        // Log the guardrail-rejected step
+        await logExecution(agentId, companyId, runId, "failure", {
+          action: "guardrail_rejected",
+          step,
+          reason: guardrailResult.reason,
+          ruleKind: guardrailResult.ruleKind ?? null,
+          budgetSnapshot: guardrailResult.budgetSnapshot ?? null,
+        });
+
+        steps.push({
+          step,
+          success: false,
+          error: guardrailResult.reason,
+        });
+
+        loopSuccess = false;
+        break;
+      }
+    }
+
     let retryCount = 0;
     let stepSuccess = false;
     let stepData: unknown = undefined;
@@ -221,12 +270,6 @@ export async function runAutonomousLoop(
 
     while (!stepSuccess && !abortOnRepeatedFailure(retryCount, maxRetries)) {
       try {
-        // Enforce budget before each step (estimated cost per step)
-        if (options.spendLimitUsd) {
-          const estimatedStepCost = options.spendLimitUsd / loopSteps.length;
-          await enforceBudget(agentId, estimatedStepCost);
-        }
-
         // Log step start
         await logExecution(agentId, companyId, runId, "decision", {
           action: "step_start",
@@ -312,8 +355,10 @@ export async function runAutonomousLoop(
     | undefined;
   const approvalId = submitStepData?.approvalId;
 
-  let runStatus: "completed" | "approval_pending" | "failed";
-  if (!loopSuccess) {
+  let runStatus: "completed" | "approval_pending" | "failed" | "guardrail_rejected";
+  if (guardrailRejection) {
+    runStatus = "guardrail_rejected";
+  } else if (!loopSuccess) {
     runStatus = "failed";
   } else if (authorityPolicy === "approval" && approvalId) {
     runStatus = "approval_pending";
@@ -332,7 +377,9 @@ export async function runAutonomousLoop(
         runStatus !== "approval_pending" ? new Date().toISOString() : null,
       error: loopSuccess
         ? null
-        : steps.find((s) => !s.success)?.error ?? "Unknown failure",
+        : guardrailRejection
+          ? `Guardrail rejected: ${guardrailRejection.reason}`
+          : steps.find((s) => !s.success)?.error ?? "Unknown failure",
     })
     .eq("id", runId);
 
@@ -345,7 +392,7 @@ export async function runAutonomousLoop(
     } else if (runStatus === "approval_pending") {
       await updateIssueStatus(issueId, "in_review");
     } else {
-      // failed — leave issue as in_progress so it can be retried
+      // failed or guardrail_rejected — leave issue as in_progress so it can be retried
       await updateIssueStatus(issueId, "in_progress");
     }
   }
@@ -367,6 +414,14 @@ export async function runAutonomousLoop(
       agentId,
       "approval_required",
       `Autonomous run paused pending operator approval for task: ${task}`,
+      issueId ?? null,
+    );
+  } else if (runStatus === "guardrail_rejected") {
+    await createActivityEvent(
+      companyId,
+      agentId,
+      "guardrail_rejected",
+      `Autonomous run rejected by guardrail: ${guardrailRejection?.reason ?? "unknown"} — task: ${task}`,
       issueId ?? null,
     );
   } else {

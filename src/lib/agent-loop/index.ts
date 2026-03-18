@@ -1,5 +1,5 @@
 export { runAutonomousLoop } from "./autonomousLoop";
-export { validateTransaction, abortOnRepeatedFailure, logValidation, logAbort } from "./guardrails";
+export { validateTransaction, abortOnRepeatedFailure, logValidation, logAbort, runGuardrailCheck } from "./guardrails";
 export { trackBudget, checkBudgetRemaining, enforceBudget } from "./budget";
 export type {
   AuthorityPolicy,
@@ -13,4 +13,7 @@ export type {
   SpendLimits,
   ValidationResult,
   BudgetData,
+  GuardrailCheckParams,
+  GuardrailResult,
+  GuardrailRuleKind,
 } from "./types";
