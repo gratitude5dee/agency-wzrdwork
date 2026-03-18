@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { History, LayoutPanelTop, ShieldCheck, Sparkles, Workflow } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { History, LayoutPanelTop, Network, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { buildCockpitRuntime } from "../lib/mappers";
 import { useAgencyData } from "../lib/useAgencyData";
 
 export function CockpitPage() {
+  const navigate = useNavigate();
   const { snapshot } = useAgencyData();
   const runtime = useMemo(() => buildCockpitRuntime(snapshot), [snapshot]);
   const { isLogOpen, setLogOpen, setRuntimeData, isKanbanOpen } = useAgencyStore();
@@ -145,6 +147,16 @@ export function CockpitPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 border border-white/10 bg-[#0d1118] text-zinc-300 hover:bg-[#141b27] hover:text-white"
+              onClick={() => navigate("/org-chart")}
+              data-testid="cockpit-org-chart-link"
+            >
+              <Network className="h-4 w-4" />
+              Org Chart
+            </Button>
             <Button
               variant="ghost"
               size="sm"

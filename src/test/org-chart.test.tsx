@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { OrgChart } from "@/pages/OrgChart";
 
@@ -116,11 +116,11 @@ function createTestQueryClient() {
   });
 }
 
-function renderWithProviders(ui: React.ReactElement) {
+function renderWithProviders(ui: React.ReactElement, { initialEntries }: { initialEntries?: string[] } = {}) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         {ui}
       </MemoryRouter>
     </QueryClientProvider>,
@@ -193,5 +193,70 @@ describe("OrgChart", () => {
 
     // No error thrown — chart still renders
     expect(screen.getByText("CEO")).toBeInTheDocument();
+  });
+
+  it("clicking a node navigates to the agent detail route", async () => {
+    // Render with routing so we can observe navigation
+    const queryClient = createTestQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/org-chart"]}>
+          <Routes>
+            <Route path="/org-chart" element={<OrgChart />} />
+            <Route path="/agents/:id" element={<div data-testid="agent-detail">Agent Detail</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Wait for the chart to render
+    const ceoCard = await screen.findByText("CEO");
+    // Click on the org card (the parent div with data-org-card)
+    const card = ceoCard.closest("[data-org-card]");
+    expect(card).toBeTruthy();
+    fireEvent.click(card!);
+
+    // Should navigate to agent detail
+    expect(await screen.findByTestId("agent-detail")).toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Sidebar navigation includes Org Chart link                         */
+/* ------------------------------------------------------------------ */
+
+// We mock the heavyweight thirdweb deps before importing AppShell
+vi.mock("thirdweb/react", () => ({
+  useActiveAccount: () => ({ address: "0xABC" }),
+  useActiveWallet: () => ({}),
+  useDisconnect: () => ({ disconnect: vi.fn() }),
+}));
+
+vi.mock("@/hooks/useWalletAddressSync", () => ({
+  useTruncatedAddress: () => "0xAB…CD",
+}));
+
+vi.mock("@/hooks/useLiveRunCount", () => ({
+  useLiveRunCount: () => ({ data: 0 }),
+}));
+
+vi.mock("@/hooks/usePendingApprovalCount", () => ({
+  usePendingApprovalCount: () => ({ data: 0 }),
+}));
+
+vi.mock("@/hooks/useSidebarAgents", () => ({
+  useSidebarAgents: () => ({ data: [] }),
+}));
+
+describe("Sidebar navigation org chart link", () => {
+  it("COMPANY_ITEMS includes Org Chart pointing to /org-chart", async () => {
+    const { COMPANY_ITEMS } = await import(
+      "@/features/cockpit/components/AppShell"
+    );
+    const orgChartItem = COMPANY_ITEMS.find(
+      (item: { to: string; label: string }) => item.to === "/org-chart",
+    );
+    expect(orgChartItem).toBeDefined();
+    expect(orgChartItem!.label).toBe("Org Chart");
   });
 });
