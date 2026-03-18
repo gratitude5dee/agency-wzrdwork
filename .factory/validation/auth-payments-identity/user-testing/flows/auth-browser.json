@@ -1,0 +1,28 @@
+{
+  "flowId": "auth-browser",
+  "milestone": "auth-payments-identity",
+  "assertions": {
+    "VAL-AUTH-001": {
+      "status": "pass",
+      "evidence": [
+        "Screenshot: auth-gate-dashboard.png — Navigating to /dashboard without auth shows 'AGENCY - Connect your wallet' gate with 'Sign in' button instead of dashboard content",
+        "Screenshot: auth-gate-cockpit.png — Navigating to /cockpit without auth shows same auth gate",
+        "No console errors observed"
+      ],
+      "issues": []
+    },
+    "VAL-AUTH-002": {
+      "status": "pass",
+      "evidence": [
+        "Screenshot: auth-sign-in-options.png — Sign-in modal shows: Continue with Google, Email address input, Passkey, and Connect a Wallet options",
+        "Powered by thirdweb branding visible",
+        "All four auth methods visible: Google (in-app), Email (in-app), Passkey (in-app), Connect a Wallet (external wallet connector)",
+        "No console errors observed"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}

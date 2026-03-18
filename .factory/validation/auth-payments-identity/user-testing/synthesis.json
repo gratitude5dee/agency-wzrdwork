@@ -1,0 +1,40 @@
+{
+  "milestone": "auth-payments-identity",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 16,
+    "passed": 14,
+    "failed": 0,
+    "blocked": 2
+  },
+  "passedAssertions": [
+    "VAL-AUTH-001",
+    "VAL-AUTH-002",
+    "VAL-PAY-001",
+    "VAL-PAY-002",
+    "VAL-PAY-003",
+    "VAL-PAY-004",
+    "VAL-PAY-005",
+    "VAL-ID-001",
+    "VAL-ID-002",
+    "VAL-ID-003",
+    "VAL-LOOP-001",
+    "VAL-LOOP-002",
+    "VAL-LOOP-003",
+    "VAL-BUDGET-001"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-AUTH-003",
+      "blockedBy": "Real-wallet connection requires headed browser with wallet extension — headless Chromium cannot interact with MetaMask or equivalent extensions"
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "blockedBy": "Real-wallet auth and reload verification requires headed browser with wallet extension — same blocker as VAL-AUTH-003"
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null
+}

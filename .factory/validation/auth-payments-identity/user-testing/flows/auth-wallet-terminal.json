@@ -1,0 +1,30 @@
+{
+  "flowId": "auth-wallet-terminal",
+  "milestone": "auth-payments-identity",
+  "assertions": {
+    "VAL-AUTH-003": {
+      "status": "blocked",
+      "evidence": [
+        "This assertion requires connecting a REAL wallet (not mock) and verifying it persists to companies.wallet_address",
+        "Headless browser automation cannot perform real MetaMask/wallet extension interactions",
+        "Code review confirms: WalletAuth.tsx + ThirdwebProvider.tsx wire real-wallet connection to company upsert via useCompanyWalletSync",
+        "The auth gate (VAL-AUTH-001) and sign-in options (VAL-AUTH-002) prove the auth surface exists; real wallet persistence requires headed/manual proof",
+        "Unit tests for company resolution and wallet sync utilities pass"
+      ],
+      "issues": ["Real-wallet connection requires headed browser with wallet extension — cannot be proven in headless automation"]
+    },
+    "VAL-AUTH-004": {
+      "status": "blocked",
+      "evidence": [
+        "This assertion requires real-wallet auth and reload to verify header and Settings show the same stored wallet",
+        "Cannot be tested without actual wallet extension interaction in a headed browser",
+        "Code review confirms: header badge shows truncated wallet from useCompanyContext, Settings page renders full wallet_address",
+        "Browser evidence shows header badge area displays '0x1234...5678' (mock wallet) in bypass mode, but this does not satisfy the real-wallet requirement"
+      ],
+      "issues": ["Real-wallet auth and reload verification requires headed browser with wallet extension"]
+    }
+  },
+  "frictions": ["Real-wallet assertions cannot be tested in headless browser automation — requires MetaMask or equivalent wallet extension"],
+  "blockers": ["No wallet extension available in headless Chromium — these assertions need headed/manual validation"],
+  "toolsUsed": ["code-review", "agent-browser"]
+}
