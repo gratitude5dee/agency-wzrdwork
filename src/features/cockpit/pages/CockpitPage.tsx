@@ -51,6 +51,11 @@ export function CockpitPage() {
       agentInspectors: runtime.agentInspectors,
       selectedAgentSetId: runtime.agentSet.id,
     });
+    // Keep scene instance count in sync with live agent population.
+    // The useStore subscription on selectedAgentSetId won't fire when the ID
+    // stays constant (always RUNTIME_AGENT_SET_ID), so we explicitly push
+    // the count whenever the agent set refreshes.
+    useStore.getState().setInstanceCount(runtime.agentSet.agents.length);
   }, [runtime, setRuntimeData, snapshot.company.brief]);
 
   useEffect(() => {

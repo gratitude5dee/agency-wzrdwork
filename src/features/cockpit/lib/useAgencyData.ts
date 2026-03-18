@@ -284,7 +284,7 @@ export function useAgencyData() {
     queryKey: snapshotQueryKey,
     queryFn: () => loadAgencySnapshot(companyId),
     enabled: !companyLoading,
-    refetchInterval: (query) => (query.state.data?.source === "supabase" ? 30_000 : false),
+    refetchInterval: (query) => (query.state.data?.source === "supabase" ? 10_000 : false),
   });
 
   const createIssueMutation = useMutation({
