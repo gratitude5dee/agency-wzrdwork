@@ -1,0 +1,59 @@
+{
+  "flowId": "settings-polish-group",
+  "milestone": "integrations-settings-polish",
+  "assertions": {
+    "VAL-SETTINGS-001": {
+      "status": "pass",
+      "evidence": [
+        "Settings page at /settings renders all required sections:",
+        "Company Information: Company Name (Test Agency Co), Brief (No brief set), Wallet Address, Edit Profile button",
+        "Backend Status: Connection (Connected green dot), Data Source (Live Supabase tables)",
+        "Feature Tour: Replay Tour button",
+        "Onboarding: Status 'Completed' label, Reset Onboarding button",
+        "Defaults: Company Type (agency), Brand Color",
+        "Danger Zone: Disconnect Wallet section with explanatory text and disabled button",
+        "No console errors beyond known React Router future flag warnings"
+      ],
+      "issues": []
+    },
+    "VAL-POLISH-001": {
+      "status": "pass",
+      "evidence": [
+        "PageLoadingState, PageEmptyState, PageErrorState reusable components exist in src/components/PageStateIndicators.tsx",
+        "PageLoadingState used in: Integrations.tsx, Agents.tsx, SectionPage.tsx (cockpit/settings)",
+        "PageEmptyState used in: Agents.tsx (no agents empty card)",
+        "PageErrorState used in: Integrations.tsx, Agents.tsx, SectionPage.tsx with Retry buttons",
+        "Dashboard has its own inline empty states: 'No active agents', 'No runs yet', 'No pending approvals', 'No urgent issues — all clear'",
+        "Cockpit/OrgChart have animate-pulse loading indicators",
+        "Skills page has skeleton card loading rows",
+        "All core pages (dashboard, cockpit, agents, integrations, settings) have intentional loading, empty, and recoverable error states"
+      ],
+      "issues": []
+    },
+    "VAL-POLISH-002": {
+      "status": "pass",
+      "evidence": [
+        "All 15 left-nav routes tested and loaded successfully without 404s or dead ends:",
+        "/dashboard, /cockpit, /inbox, /issues, /goals, /approvals, /projects, /agents, /org-chart, /skills, /delegations, /costs, /activity, /integrations, /settings",
+        "Each route navigated via direct URL and confirmed no 404/Not Found content",
+        "All routes reachable through the real left-nav navigation path"
+      ],
+      "issues": []
+    },
+    "VAL-POLISH-003": {
+      "status": "pass",
+      "evidence": [
+        "Mobile (375x812): Sidebar collapses, integration cards stack single-column, Settings sections stack vertically — all usable",
+        "Tablet (768x1024): Sidebar visible with labels, integration cards in 2-column grid, cockpit controls accessible",
+        "No clipped primary actions or overlapping panels at either breakpoint",
+        "Screenshots captured for integrations at mobile, settings at mobile, integrations at tablet, and cockpit at tablet"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Subagent spawning failed with bun-eval error — had to test directly in main session"
+  ],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}
