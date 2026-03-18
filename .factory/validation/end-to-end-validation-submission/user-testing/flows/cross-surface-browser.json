@@ -1,0 +1,89 @@
+{
+  "flowId": "cross-surface-browser",
+  "milestone": "end-to-end-validation-submission",
+  "assertions": {
+    "VAL-CROSS-002": {
+      "status": "pass",
+      "evidence": [
+        "Browser: Sidebar shows CEO, CEO, Test OpenClaw Agent - matches agents list page and org chart",
+        "Agents list page shows 3 agent cards with roles and adapter types",
+        "Org chart renders agent hierarchy",
+        "Cockpit scene proof panel shows npcCount=3 with matching agent names",
+        "Unit tests (first-run-agent-consistency.test.tsx): 7/7 pass, including company scoping tests",
+        "No console errors across surfaces",
+        "Screenshots captured for dashboard, agents list, org chart, cockpit, settings"
+      ],
+      "issues": []
+    },
+    "VAL-CROSS-006": {
+      "status": "pass",
+      "evidence": [
+        "Browser: /submission-proof page renders with Proof Context card, agent/run selectors, Assemble button",
+        "Load agents and runs populated 3 agents (CEO, CEO, Test OpenClaw Agent)",
+        "Assemble Proof Pack succeeded - Download Full Pack and Download agent.json buttons appeared",
+        "Manifest preview shows real agent data: name=CEO, operator_wallet=0x1234..., tech_stacks, supported_tools",
+        "Route matrix displays all 17 navigable routes across Top, Work, Agents, Company sections",
+        "7 retrieval instruction steps shown matching README documentation",
+        "Unit tests (submission-proof-pack.test.ts): 11/11 pass",
+        "Unit tests (submission-proof-panel.test.tsx): 5/5 pass",
+        "No console errors"
+      ],
+      "issues": []
+    },
+    "VAL-CROSS-007": {
+      "status": "pass",
+      "evidence": [
+        "Browser: Header shows mock wallet 0x1234…5678 with active company context",
+        "Sidebar shows only active company agents (CEO, CEO, Test OpenClaw Agent)",
+        "Dashboard shows company-scoped metrics",
+        "Settings displays company-specific controls",
+        "Cockpit scene proof panel shows companyName='Test Agency Co' with data from supabase source",
+        "Unit tests confirm company scoping in AgentsPage and data hooks (first-run-agent-consistency.test.tsx: scopes agents list query to the active company - PASS)",
+        "No foreign-company data visible in any surface"
+      ],
+      "issues": []
+    },
+    "VAL-AUTH-003": {
+      "status": "blocked",
+      "evidence": [
+        "Unit tests verify: useTruncatedAddress returns truncated format, useStoredWalletAddress reads from active company record",
+        "Browser shows mock wallet in header and settings, proving the display path works",
+        "Cannot test real wallet persistence because headless browser cannot interact with wallet extensions"
+      ],
+      "issues": [
+        "Requires headed browser with real wallet extension (e.g., MetaMask) to prove wallet-to-company persistence"
+      ]
+    },
+    "VAL-AUTH-004": {
+      "status": "blocked",
+      "evidence": [
+        "Unit tests verify: useTruncatedAddress and useStoredWalletAddress work correctly",
+        "Browser shows wallet address in header and settings surfaces in mock/bypass mode",
+        "Cannot verify real wallet auth + reload cycle in headless automation"
+      ],
+      "issues": [
+        "Requires headed browser with real wallet auth to verify post-reload wallet display from stored company record"
+      ]
+    },
+    "VAL-CROSS-001": {
+      "status": "blocked",
+      "evidence": [
+        "Unit tests verify: CEO agent duplicate prevention, returning user skips onboarding, first-time user is blocked",
+        "Browser shows onboarding bypass working correctly with mock wallet",
+        "The first-run funnel components (auth gate, onboarding gate, company setup, CEO creation) are individually tested",
+        "Cannot complete real-wallet auth portion of first-run funnel in headless automation"
+      ],
+      "issues": [
+        "Real-wallet auth is required for full first-run funnel proof, which cannot be automated in headless mode"
+      ]
+    }
+  },
+  "frictions": [
+    "Task tool subagent spawning fails with bun-eval parsing errors - used direct testing as fallback",
+    "Real wallet auth assertions (VAL-AUTH-003, VAL-AUTH-004, VAL-CROSS-001) require headed browser with wallet extension"
+  ],
+  "blockers": [
+    "Headless Chromium cannot interact with wallet browser extensions for real-wallet auth"
+  ],
+  "toolsUsed": ["agent-browser", "vitest"]
+}

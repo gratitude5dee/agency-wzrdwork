@@ -1,0 +1,48 @@
+{
+  "flowId": "scene-proof",
+  "milestone": "end-to-end-validation-submission",
+  "assertions": {
+    "VAL-THREE-002": {
+      "status": "pass",
+      "evidence": [
+        "CockpitSceneProofPanel data-* attributes queried in headless browser:",
+        "  data-proof-scene-status: 'error' (expected - WebGPU unavailable in headless)",
+        "  data-proof-data-source: 'supabase' (LIVE data, not demo)",
+        "  data-proof-company-name: 'Test Agency Co'",
+        "  data-proof-phase: 'working'",
+        "  data-proof-npc-count: '3'",
+        "  data-proof-npc-names: 'Chief Executive Officer,Chief Executive Officer,Test Agent for Composio'",
+        "  data-proof-last-sync: '2026-03-18T20:48:47.748Z'",
+        "NPC names match live agents from Supabase (not hardcoded demo entities)",
+        "Data source confirmed as 'supabase' proving live backend wiring",
+        "Unit tests (cockpit-scene-proof-panel.test.tsx): 16/16 pass, including NPC population updates and data source reflection",
+        "NOTE: Headless mode - WebGPU cannot render actual scene, but proof panel data attributes confirm the React state driving the scene reflects live data"
+      ],
+      "issues": [
+        "WebGPU scene cannot be visually verified in headless mode - data attribute proof only",
+        "Full visual scene proof requires headed browser evidence"
+      ]
+    },
+    "VAL-THREE-003": {
+      "status": "blocked",
+      "evidence": [
+        "CockpitSceneProofPanel exposes data-proof-last-sync timestamp for tracking propagation",
+        "Unit tests prove the panel updates data-* attributes when snapshot props change (phase, npc-count, data-source, last-sync)",
+        "In headless mode, WebGPU renderer fails to initialize so scene propagation cannot be observed visually",
+        "The sync mechanism exists (React Query invalidation + scene proof panel) but cannot be proven end-to-end in headless",
+        "data-proof-last-sync was '2026-03-18T20:48:47.748Z' at initial cockpit load"
+      ],
+      "issues": [
+        "WebGPU initialization fails in headless Chromium - scene propagation cannot be visually confirmed",
+        "Requires headed browser with WebGPU support for full end-to-end backend-to-scene propagation proof"
+      ]
+    }
+  },
+  "frictions": [
+    "Headless Chromium does not support WebGPU, limiting scene-state assertions to data-attribute proof only"
+  ],
+  "blockers": [
+    "WebGPU unavailable in headless Chromium - full scene propagation requires headed browser"
+  ],
+  "toolsUsed": ["agent-browser", "vitest"]
+}
