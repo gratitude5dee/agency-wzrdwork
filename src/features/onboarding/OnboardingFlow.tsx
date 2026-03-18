@@ -33,7 +33,7 @@ export function OnboardingFlow({ walletAddress }: OnboardingFlowProps) {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
 
-  // Sync from persisted state on load
+  // Sync from persisted state on load — recover companyId and agentId
   useEffect(() => {
     if (!onboarding.isLoading && onboarding.currentStep > 0) {
       setStep(onboarding.currentStep);
@@ -41,7 +41,10 @@ export function OnboardingFlow({ walletAddress }: OnboardingFlowProps) {
     if (onboarding.companyId && onboarding.companyId !== "pending") {
       setCompanyId(onboarding.companyId);
     }
-  }, [onboarding.isLoading, onboarding.currentStep, onboarding.companyId]);
+    if (onboarding.ceoAgentId) {
+      setAgentId(onboarding.ceoAgentId);
+    }
+  }, [onboarding.isLoading, onboarding.currentStep, onboarding.companyId, onboarding.ceoAgentId]);
 
   const goToStep = useCallback(
     (newStep: number) => {
@@ -62,9 +65,10 @@ export function OnboardingFlow({ walletAddress }: OnboardingFlowProps) {
   const handleCeoComplete = useCallback(
     (id: string) => {
       setAgentId(id);
+      onboarding.setCeoAgentId(id);
       goToStep(2);
     },
-    [goToStep],
+    [goToStep, onboarding],
   );
 
   const handleHarnessComplete = useCallback(() => {

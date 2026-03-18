@@ -342,14 +342,14 @@ describe("FeatureTour", () => {
     vi.clearAllMocks();
   });
 
-  it("renders tour with first stop (Cockpit)", async () => {
+  it("renders tour with first stop (Sandbox)", async () => {
     const { FeatureTour } = await import("@/features/onboarding/steps/FeatureTour");
 
     renderWithProviders(<FeatureTour onComplete={vi.fn()} />);
 
-    // "Cockpit" appears in both main card and thumbnail, so use getAllByText
-    const cockpitElements = screen.getAllByText("Cockpit");
-    expect(cockpitElements.length).toBeGreaterThanOrEqual(1);
+    // "Sandbox" appears in both main card and thumbnail, so use getAllByText
+    const sandboxElements = screen.getAllByText("Sandbox");
+    expect(sandboxElements.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/mission control center/i)).toBeInTheDocument();
     expect(screen.getByText("1 of 7")).toBeInTheDocument();
   });
@@ -464,5 +464,164 @@ describe("OnboardingFlow", () => {
     });
 
     expect(screen.getByText("Getting Started")).toBeInTheDocument();
+  });
+
+  it("resumes at CEO Agent step when persisted state has step=1 and companyId", async () => {
+    const { OnboardingFlow } = await import("@/features/onboarding/OnboardingFlow");
+    // Simulate a persisted onboarding state at step 1 with a company
+    setupSupabaseMock({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "ob-1",
+          wallet_address: "0xTestWallet",
+          company_id: "co-resume",
+          current_step: 1,
+          onboarding_completed: false,
+          metadata: {},
+        },
+        error: null,
+      }),
+    });
+
+    renderWithProviders(<OnboardingFlow walletAddress="0xTestWallet" />);
+
+    // Should show the CEO Agent creation step, not Company Setup
+    await waitFor(() => {
+      expect(screen.getByText("Create your CEO agent")).toBeInTheDocument();
+    });
+  });
+
+  it("resumes at Harness step when persisted state has step=2, companyId, and ceoAgentId", async () => {
+    const { OnboardingFlow } = await import("@/features/onboarding/OnboardingFlow");
+    // Simulate a persisted onboarding state at step 2 with company + CEO agent
+    setupSupabaseMock({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "ob-1",
+          wallet_address: "0xTestWallet",
+          company_id: "co-resume",
+          current_step: 2,
+          onboarding_completed: false,
+          metadata: { ceo_agent_id: "agent-resume" },
+        },
+        error: null,
+      }),
+    });
+
+    renderWithProviders(<OnboardingFlow walletAddress="0xTestWallet" />);
+
+    // Should show the Harness selector step
+    await waitFor(() => {
+      expect(screen.getByText("Choose a harness adapter")).toBeInTheDocument();
+    });
+  });
+
+  it("resumes at Tour step when persisted state has step=4", async () => {
+    const { OnboardingFlow } = await import("@/features/onboarding/OnboardingFlow");
+    setupSupabaseMock({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "ob-1",
+          wallet_address: "0xTestWallet",
+          company_id: "co-resume",
+          current_step: 4,
+          onboarding_completed: false,
+          metadata: { ceo_agent_id: "agent-resume" },
+        },
+        error: null,
+      }),
+    });
+
+    renderWithProviders(<OnboardingFlow walletAddress="0xTestWallet" />);
+
+    // Should show the Feature Tour step
+    await waitFor(() => {
+      expect(screen.getByText("Quick Tour")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("CompanySetup duplicate prevention", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("checks for existing company with same wallet before creating", async () => {
+    const { CompanySetup } = await import("@/features/onboarding/steps/CompanySetup");
+    const onComplete = vi.fn();
+
+    // First call (companies.select.eq.maybeSingle) returns existing company
+    // Second call (companies.update.eq.select.single) returns updated company
+    // Third call (user_onboarding.select.eq.maybeSingle) returns existing row
+    // Fourth call (user_onboarding.update.eq) succeeds
+    let callCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      callCount++;
+      if (table === "companies") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { id: "existing-co" }, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "existing-co" }, error: null }),
+        };
+      }
+      // user_onboarding table
+      return {
+        select: vi.fn().mockReturnThis(),
+        insert: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { id: "ob-1" }, error: null }),
+      };
+    });
+
+    renderWithProviders(
+      <CompanySetup walletAddress="0xTestWallet" onComplete={onComplete} />,
+    );
+
+    // Fill in the company name and submit
+    fireEvent.change(screen.getByLabelText(/company name/i), {
+      target: { value: "My Company" },
+    });
+    fireEvent.click(screen.getByText("Create Company"));
+
+    // Should call onComplete with the existing company id
+    await waitFor(() => {
+      expect(onComplete).toHaveBeenCalledWith("existing-co");
+    });
+  });
+});
+
+describe("useOnboardingState", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("exposes ceoAgentId from metadata", async () => {
+    // This tests the hook behavior indirectly through OnboardingFlow
+    const { OnboardingFlow } = await import("@/features/onboarding/OnboardingFlow");
+    setupSupabaseMock({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "ob-1",
+          wallet_address: "0xTestWallet",
+          company_id: "co-1",
+          current_step: 2,
+          onboarding_completed: false,
+          metadata: { ceo_agent_id: "agent-from-metadata" },
+        },
+        error: null,
+      }),
+    });
+
+    renderWithProviders(<OnboardingFlow walletAddress="0xTestWallet" />);
+
+    // If ceoAgentId is recovered, step 2 (Harness) should render with the agent
+    await waitFor(() => {
+      expect(screen.getByText("Choose a harness adapter")).toBeInTheDocument();
+    });
   });
 });

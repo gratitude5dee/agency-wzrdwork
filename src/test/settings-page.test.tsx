@@ -232,4 +232,56 @@ describe("SettingsPage", () => {
       screen.getByText("Revisit the guided walkthrough of the platform."),
     ).toBeInTheDocument();
   });
+
+  it("replay tour returns to settings when tour is completed or skipped", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    setupSupabaseMock();
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    // Click Replay Tour
+    await waitFor(() => {
+      expect(screen.getByText("Replay Tour")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Replay Tour"));
+
+    // Verify tour is showing
+    await waitFor(() => {
+      expect(screen.getByText("Quick Tour")).toBeInTheDocument();
+    });
+
+    // Click Skip Tour to return to settings
+    fireEvent.click(screen.getByText("Skip Tour"));
+
+    // Should be back on settings page
+    await waitFor(() => {
+      expect(screen.getByText("Company Information")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Replay Tour")).toBeInTheDocument();
+  });
+
+  it("replay tour starts from stop 1 (Sandbox)", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    setupSupabaseMock();
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Replay Tour")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Replay Tour"));
+
+    // Should start at stop 1 (Sandbox)
+    await waitFor(() => {
+      expect(screen.getByText("1 of 7")).toBeInTheDocument();
+    });
+    const sandboxElements = screen.getAllByText("Sandbox");
+    expect(sandboxElements.length).toBeGreaterThanOrEqual(1);
+  });
 });

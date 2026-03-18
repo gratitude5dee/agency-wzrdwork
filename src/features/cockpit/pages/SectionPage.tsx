@@ -571,6 +571,7 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
   const { data: supabaseHealthy } = useSupabaseHealth();
   const onboarding = useOnboardingState(company?.wallet_address ?? null);
   const [showTour, setShowTour] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   if (showTour) {
     return (
@@ -704,14 +705,18 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
           </p>
           <Button
             onClick={() => {
+              setIsResetting(true);
               onboarding.resetOnboarding();
               toast.success("Onboarding reset. The wizard will appear on next visit.");
+              // Small delay to allow the mutation to settle before the gate re-evaluates
+              setTimeout(() => setIsResetting(false), 500);
             }}
+            disabled={isResetting}
             variant="outline"
             className="border-white/10 text-zinc-200 hover:bg-[#141b27] hover:text-white"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
-            Reset Onboarding
+            {isResetting ? "Resetting…" : "Reset Onboarding"}
           </Button>
         </CardContent>
       </Card>
