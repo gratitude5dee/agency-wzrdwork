@@ -1,0 +1,17 @@
+{
+  "featureId": "m2-run-scoped-execution-log-export-core",
+  "milestone": "auth-payments-identity",
+  "reviewer": "scrutiny-validator-direct",
+  "reviewMethod": "direct-review-fallback",
+  "verdict": "pass",
+  "fulfills": ["VAL-ID-003"],
+  "summary": "Added exportRunLog(runId) that produces a Protocol Labs-style agent_log.json envelope with run metadata (run_id, agent_id, company_id, status, timing), usage summary (token/cost totals), and entries with log_id for traceability to persisted agent_execution_logs rows. Clean TypeScript interfaces (RunLogEntry, RunUsage, RunLogExport). 6 new tests.",
+  "codeQuality": {
+    "structure": "exportRunLog is well-structured: fetches run record, fetches scoped log rows, maps to Protocol Labs format. Entries are ordered ascending by created_at for correct chronological order. RunLogExport envelope provides comprehensive metadata.",
+    "security": "No secrets exposed. Uses existing Supabase client. Data is read-only from the agent's perspective.",
+    "testCoverage": "6 tests covering: run-scoped envelope with metadata, summary and token usage, error on missing run, empty entries handling, log_id traceability, and module re-export.",
+    "patterns": "Preserves existing exportAgentLog for agent-global exports. New function follows the same pattern. TypeScript interfaces are well-documented."
+  },
+  "issues": [],
+  "sharedStateObservations": []
+}

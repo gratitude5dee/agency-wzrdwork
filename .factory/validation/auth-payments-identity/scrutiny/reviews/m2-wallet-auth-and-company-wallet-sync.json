@@ -1,0 +1,17 @@
+{
+  "featureId": "m2-wallet-auth-and-company-wallet-sync",
+  "milestone": "auth-payments-identity",
+  "reviewer": "scrutiny-validator-direct",
+  "reviewMethod": "direct-review-fallback",
+  "verdict": "pass",
+  "fulfills": ["VAL-AUTH-001", "VAL-AUTH-002", "VAL-AUTH-003", "VAL-AUTH-004"],
+  "summary": "AuthGate now renders WalletAuthScreen inline on protected routes instead of redirect. Sign-in exposes in-app auth methods (google, email, passkey) and external wallet connectors (MetaMask, Coinbase, Rainbow, Rabby). useWalletAddressSync persists real-wallet to the active company row. useStoredWalletAddress provides fallback for post-reload header consistency. 13 passing tests cover all assertion paths.",
+  "codeQuality": {
+    "structure": "Clean separation: AuthGate (route protection), WalletAuthScreen (UI), useWalletAddressSync (persistence), useStoredWalletAddress (fallback). All use the existing Supabase client.",
+    "security": "No secrets exposed in browser code. Wallet address sync operates through supabase client which handles auth headers.",
+    "testCoverage": "13 tests covering ThirdwebProvider init, WalletAuthScreen rendering, AuthGate behavior (connected/disconnected/bypass), wallet-to-company sync, and truncated address display.",
+    "patterns": "Follows existing hook patterns. Uses supabase.functions.invoke for edge function calls."
+  },
+  "issues": [],
+  "sharedStateObservations": []
+}
