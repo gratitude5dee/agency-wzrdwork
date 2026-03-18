@@ -9,6 +9,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { exportRunLog } from "./execution-log";
+import { redactRunLogExport } from "@/lib/venice/private-reasoning";
 import type { AgentManifest } from "./types";
 import type { RunLogExport } from "./execution-log";
 import type { Database } from "@/integrations/supabase/types";
@@ -73,13 +74,16 @@ export async function getAgentManifestJson(agentId: string): Promise<AgentManife
 /**
  * Retrieve the run-scoped agent_log.json data for a given run.
  *
- * Delegates to exportRunLog which already builds the Protocol Labs envelope.
+ * Delegates to exportRunLog which builds the Protocol Labs envelope,
+ * then applies Venice private reasoning redaction to ensure operator-
+ * visible artifacts never expose private cognition content.
  *
  * @param runId - The run's UUID
- * @returns The run-scoped agent_log.json export data
+ * @returns The run-scoped agent_log.json export data with private reasoning redacted
  */
 export async function getRunLogJson(runId: string): Promise<RunLogExport> {
-  return exportRunLog(runId);
+  const rawExport = await exportRunLog(runId);
+  return redactRunLogExport(rawExport);
 }
 
 /**

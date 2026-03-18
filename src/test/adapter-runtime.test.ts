@@ -146,6 +146,7 @@ describe("executeAdapterStep", () => {
       agentName: "CEO Agent",
       agentRole: "ceo",
       resolved: true,
+      privateCognitionEnabled: false,
     };
 
     const result = await executeAdapterStep("discover", ctx, {
@@ -173,6 +174,7 @@ describe("executeAdapterStep", () => {
       agentName: "Engineer",
       agentRole: "engineer",
       resolved: true,
+      privateCognitionEnabled: false,
     };
 
     const discoveryData = {
@@ -212,6 +214,7 @@ describe("executeAdapterStep", () => {
       agentName: "Engineer",
       agentRole: "engineer",
       resolved: true,
+      privateCognitionEnabled: false,
     };
 
     const subtasks = [
@@ -250,6 +253,7 @@ describe("executeAdapterStep", () => {
       agentName: "QA",
       agentRole: "analyst",
       resolved: true,
+      privateCognitionEnabled: false,
     };
 
     const completed = [

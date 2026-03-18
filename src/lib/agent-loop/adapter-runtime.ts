@@ -12,6 +12,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
+import { executeVeniceStep } from "@/lib/venice/private-reasoning";
 import type { LoopStep, StepResult, Subtask } from "./types";
 
 /* ================================================================
@@ -30,6 +31,10 @@ export interface AdapterRuntimeContext {
   agentRole: string;
   /** Whether the runtime was successfully resolved */
   resolved: boolean;
+  /** Whether Venice private cognition is enabled for this agent */
+  privateCognitionEnabled: boolean;
+  /** The Venice model to use when private cognition is enabled */
+  veniceModel?: string;
 }
 
 /** Input context for a step execution */
@@ -85,7 +90,7 @@ export async function resolveAdapterRuntime(
 ): Promise<AdapterRuntimeContext> {
   const { data: agent, error } = await supabase
     .from("agents")
-    .select("id, adapter_type, adapter_config, company_id, name, role")
+    .select("id, adapter_type, adapter_config, company_id, name, role, private_cognition_enabled, venice_model")
     .eq("id", agentId)
     .single();
 
@@ -98,12 +103,18 @@ export async function resolveAdapterRuntime(
   const adapterConfig =
     (agent.adapter_config as Record<string, unknown> | null) ?? {};
 
+  const privateCognitionEnabled = agent.private_cognition_enabled === true;
+
   return {
     adapterType: agent.adapter_type,
     adapterConfig,
     agentName: agent.name,
     agentRole: agent.role ?? "general",
     resolved: true,
+    privateCognitionEnabled,
+    ...(privateCognitionEnabled && agent.venice_model
+      ? { veniceModel: agent.venice_model }
+      : {}),
   };
 }
 
@@ -134,6 +145,18 @@ export async function executeAdapterStep(
   ctx: AdapterRuntimeContext,
   input: StepExecutionInput,
 ): Promise<unknown> {
+  // Route through Venice when private cognition is enabled
+  if (ctx.privateCognitionEnabled && ctx.veniceModel && step !== "submit") {
+    return executeVeniceStep(step, {
+      task: input.task,
+      veniceModel: ctx.veniceModel,
+      agentName: ctx.agentName,
+      agentRole: ctx.agentRole,
+      adapterType: ctx.adapterType,
+      previousSteps: input.previousSteps,
+    });
+  }
+
   switch (step) {
     case "discover":
       return adapterDiscover(ctx, input);

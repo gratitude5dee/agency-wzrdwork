@@ -22,6 +22,7 @@ import {
   executeAdapterStep,
   type AdapterRuntimeContext,
 } from "./adapter-runtime";
+import { redactPrivateReasoning } from "@/lib/venice/private-reasoning";
 import type {
   AuthorityPolicy,
   GuardrailResult,
@@ -211,6 +212,9 @@ export async function runAutonomousLoop(
     issueId: issueId ?? null,
     authorityPolicy,
     ...(adapterCtx ? { adapterType: adapterCtx.adapterType, adapterResolved: true } : {}),
+    ...(adapterCtx?.privateCognitionEnabled
+      ? { privateCognitionEnabled: true, veniceModel: adapterCtx.veniceModel }
+      : {}),
     options: {
       maxRetries,
       spendLimitUsd: options.spendLimitUsd ?? null,
@@ -320,14 +324,24 @@ export async function runAutonomousLoop(
 
         await trackBudget(runId, stepTokens, stepCost);
 
-        // Log step completion
-        await logExecution(agentId, companyId, runId, "output", {
+        // Log step completion — redact private reasoning when Venice-routed
+        const logContent: Record<string, unknown> = {
           action: "step_complete",
           step,
           success: true,
           data: stepData,
           ...(adapterCtx ? { adapterType: adapterCtx.adapterType } : {}),
-        });
+          ...(adapterCtx?.privateCognitionEnabled ? { veniceRouted: true } : {}),
+        };
+        await logExecution(
+          agentId,
+          companyId,
+          runId,
+          "output",
+          adapterCtx?.privateCognitionEnabled
+            ? redactPrivateReasoning(logContent)
+            : logContent,
+        );
 
         stepSuccess = true;
       } catch (err) {
