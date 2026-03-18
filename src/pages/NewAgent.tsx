@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
-import { createAgentIdentity } from "@/lib/erc8004/identity";
+import { createAgentIdentity, isPlaceholderWallet } from "@/lib/erc8004/identity";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
 import type { CreateConfigValues } from "@/adapters/types";
 import type { Json } from "@/integrations/supabase/types";
@@ -144,16 +144,24 @@ export function NewAgentPage() {
       return data as { id: string };
     },
     onSuccess: async (data) => {
-      // Auto-create ERC-8004 identity for the new agent
+      // Auto-create ERC-8004 identity for the new agent.
+      // Requires a real (non-placeholder) operator wallet from the active company.
       const companyId = company?.id;
       const walletAddress = company?.wallet_address;
-      if (companyId) {
+      if (companyId && !isPlaceholderWallet(walletAddress)) {
         try {
-          await createAgentIdentity(data.id, companyId, walletAddress ?? "0x0");
-        } catch {
+          await createAgentIdentity(data.id, companyId, walletAddress!);
+        } catch (err) {
           // Non-blocking: identity can be created later from the detail page
-          console.warn("ERC-8004 identity auto-creation failed; can be retried from agent detail.");
+          console.warn(
+            "ERC-8004 identity auto-creation failed; can be retried from agent detail.",
+            err instanceof Error ? err.message : err,
+          );
         }
+      } else {
+        console.warn(
+          "ERC-8004 identity skipped: no active company wallet. Connect a wallet and retry from agent detail.",
+        );
       }
 
       queryClient.invalidateQueries({ queryKey: ["agents-list"] });
