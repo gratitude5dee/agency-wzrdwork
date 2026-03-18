@@ -117,8 +117,8 @@ export function SkillsPage() {
     return skills.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q),
+        (s.description ?? "").toLowerCase().includes(q) ||
+        (s.category ?? "").toLowerCase().includes(q),
     );
   }, [skills, searchQuery]);
 
@@ -169,8 +169,8 @@ export function SkillsPage() {
   const openEditDialog = useCallback((skill: Skill) => {
     setEditingSkill(skill);
     setFormName(skill.name);
-    setFormDescription(skill.description);
-    setFormCategory(skill.category);
+    setFormDescription(skill.description ?? "");
+    setFormCategory(skill.category ?? "general");
     setFormPrerequisite(skill.prerequisite_integration ?? "");
   }, []);
 
@@ -432,9 +432,9 @@ export function SkillsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={CATEGORY_COLORS[skill.category] ?? CATEGORY_COLORS.general}
+                      className={CATEGORY_COLORS[skill.category ?? "general"] ?? CATEGORY_COLORS.general}
                     >
-                      {skill.category}
+                      {skill.category ?? "general"}
                     </Badge>
                     {skill.prerequisite_integration && (
                       <Badge

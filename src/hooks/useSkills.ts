@@ -5,10 +5,9 @@
  * assignment join table. Uses the existing Supabase client with
  * company scoping from useActiveCompany.
  *
- * The skills and agent_skills tables are not yet in the auto-generated
- * Supabase types, so we use `supabase.from(tableName)` with explicit
- * result type annotations. The `.from()` overloads accept any string
- * at runtime; TypeScript inference is bypassed via intermediate casts.
+ * The skills and agent_skills tables are now part of the auto-generated
+ * Supabase types, so all table access is fully type-safe via
+ * `supabase.from("skills")` and `supabase.from("agent_skills")`.
  *
  * Schema readiness: if the `skills` or `agent_skills` tables have not
  * been created (Postgres error code 42P01 or Supabase REST error
@@ -19,19 +18,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
-
-// ---------------------------------------------------------------------------
-// Untyped Supabase table accessor
-// ---------------------------------------------------------------------------
-
-/**
- * Access a Supabase table that isn't in the generated types yet.
- * The Supabase JS client's `.from(tableName)` works at runtime for
- * any existing table; we just need to bypass the TS overload.
- */
-function fromTable(tableName: string) {
-  return (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from(tableName);
-}
+import type { Tables } from "@/integrations/supabase/types";
+import type { Json } from "@/integrations/supabase/types";
 
 // ---------------------------------------------------------------------------
 // Schema readiness helpers
@@ -60,26 +48,11 @@ export const SKILLS_SQL_SNIPPET_PATH = "src/db/migration-snippets.sql";
 // Types
 // ---------------------------------------------------------------------------
 
-export interface Skill {
-  id: string;
-  company_id: string;
-  name: string;
-  description: string;
-  category: string;
-  enabled: boolean;
-  prerequisite_integration: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
+/** Row type from the generated Supabase `skills` table. */
+export type Skill = Tables<"skills">;
 
-export interface AgentSkill {
-  id: string;
-  agent_id: string;
-  skill_id: string;
-  company_id: string;
-  created_at: string;
-}
+/** Row type from the generated Supabase `agent_skills` table. */
+export type AgentSkill = Tables<"agent_skills">;
 
 export interface CreateSkillInput {
   name: string;
@@ -191,7 +164,8 @@ export function useSkillsSchemaReady() {
     queryKey: ["skills-schema-ready"],
     staleTime: 60_000, // re-check at most once per minute
     queryFn: async () => {
-      const { error } = await fromTable("skills")
+      const { error } = await supabase
+        .from("skills")
         .select("id", { count: "exact", head: true })
         .limit(0);
 
@@ -211,7 +185,8 @@ export function useCompanySkills() {
     queryKey: ["skills", companyId],
     enabled: !!companyId && schemaState?.ready !== false,
     queryFn: async () => {
-      const { data, error } = await fromTable("skills")
+      const { data, error } = await supabase
+        .from("skills")
         .select("*")
         .eq("company_id", companyId!)
         .order("name", { ascending: true });
@@ -234,7 +209,8 @@ export function useAgentSkills(agentId: string | undefined) {
     queryKey: ["agent-skills", agentId],
     enabled: !!agentId && !!companyId && schemaState?.ready !== false,
     queryFn: async () => {
-      const { data, error } = await fromTable("agent_skills")
+      const { data, error } = await supabase
+        .from("agent_skills")
         .select("*")
         .eq("agent_id", agentId!)
         .order("created_at", { ascending: true });
@@ -257,7 +233,8 @@ export function useCreateSkill() {
     mutationFn: async (input: CreateSkillInput) => {
       if (!companyId) throw new Error("No active company");
 
-      const { data, error } = await fromTable("skills")
+      const { data, error } = await supabase
+        .from("skills")
         .insert({
           company_id: companyId,
           name: input.name,
@@ -265,7 +242,7 @@ export function useCreateSkill() {
           category: input.category ?? "general",
           enabled: input.enabled ?? true,
           prerequisite_integration: input.prerequisite_integration ?? null,
-          metadata: input.metadata ?? {},
+          metadata: (input.metadata ?? {}) as unknown as Json,
         })
         .select("*")
         .single();
@@ -295,8 +272,13 @@ export function useUpdateSkill() {
 
   return useMutation({
     mutationFn: async (input: UpdateSkillInput) => {
-      const { id, ...updates } = input;
-      const { error } = await fromTable("skills")
+      const { id, metadata, ...rest } = input;
+      const updates: Record<string, unknown> = { ...rest };
+      if (metadata !== undefined) {
+        updates.metadata = metadata as unknown as Json;
+      }
+      const { error } = await supabase
+        .from("skills")
         .update(updates)
         .eq("id", id);
 
@@ -315,7 +297,8 @@ export function useToggleSkill() {
 
   return useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { error } = await fromTable("skills")
+      const { error } = await supabase
+        .from("skills")
         .update({ enabled })
         .eq("id", id);
 
@@ -336,7 +319,8 @@ export function useAssignSkill() {
     mutationFn: async ({ agentId, skillId }: { agentId: string; skillId: string }) => {
       if (!companyId) throw new Error("No active company");
 
-      const { error } = await fromTable("agent_skills")
+      const { error } = await supabase
+        .from("agent_skills")
         .insert({
           agent_id: agentId,
           skill_id: skillId,
@@ -366,7 +350,8 @@ export function useUnassignSkill() {
 
   return useMutation({
     mutationFn: async ({ agentId, skillId }: { agentId: string; skillId: string }) => {
-      const { error } = await fromTable("agent_skills")
+      const { error } = await supabase
+        .from("agent_skills")
         .delete()
         .eq("agent_id", agentId)
         .eq("skill_id", skillId);
@@ -395,7 +380,8 @@ export function useBulkAssignSkills() {
         company_id: companyId,
       }));
 
-      const { error } = await fromTable("agent_skills")
+      const { error } = await supabase
+        .from("agent_skills")
         .insert(rows);
 
       if (error) {

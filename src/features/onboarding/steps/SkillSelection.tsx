@@ -28,10 +28,6 @@ import {
 } from "@/hooks/useSkills";
 import { SkillsSchemaSetup } from "@/components/SkillsSchemaSetup";
 
-function fromTable(tableName: string) {
-  return (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from(tableName);
-}
-
 interface SkillSelectionProps {
   agentId: string;
   companyId: string;
@@ -110,7 +106,8 @@ export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectio
         company_id: companyId,
       }));
 
-      const { error } = await fromTable("agent_skills")
+      const { error } = await supabase
+        .from("agent_skills")
         .insert(rows);
 
       if (error) throw error;
@@ -231,7 +228,7 @@ export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectio
                       variant="outline"
                       className="text-[10px] border-white/10 text-zinc-400"
                     >
-                      {skill.category}
+                      {skill.category ?? "general"}
                     </Badge>
                     {skill.prerequisite_integration && !prereqMet && (
                       <Badge
