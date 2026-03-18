@@ -17,6 +17,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { logExecution } from "@/lib/erc8004/execution-log";
 import { abortOnRepeatedFailure, logAbort, runGuardrailCheck } from "./guardrails";
 import { trackBudget } from "./budget";
+import {
+  resolveAdapterRuntime,
+  executeAdapterStep,
+  type AdapterRuntimeContext,
+} from "./adapter-runtime";
 import type {
   AuthorityPolicy,
   GuardrailResult,
@@ -145,7 +150,15 @@ export async function runAutonomousLoop(
   options: LoopOptions,
 ): Promise<LoopResult> {
   const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-  const { companyId, issueId, authorityPolicy = "auto" } = options;
+  const { companyId, issueId, authorityPolicy = "auto", useAdapterRuntime = false } = options;
+
+  // ------------------------------------------------------------------
+  // 0. Resolve adapter runtime context when requested
+  // ------------------------------------------------------------------
+  let adapterCtx: AdapterRuntimeContext | undefined;
+  if (useAdapterRuntime) {
+    adapterCtx = await resolveAdapterRuntime(agentId);
+  }
 
   // ------------------------------------------------------------------
   // 1. Create a run entry linked to the issue (if any)
@@ -197,10 +210,12 @@ export async function runAutonomousLoop(
     task,
     issueId: issueId ?? null,
     authorityPolicy,
+    ...(adapterCtx ? { adapterType: adapterCtx.adapterType, adapterResolved: true } : {}),
     options: {
       maxRetries,
       spendLimitUsd: options.spendLimitUsd ?? null,
       maxTokens: options.maxTokens ?? null,
+      useAdapterRuntime,
     },
   });
 
@@ -275,19 +290,27 @@ export async function runAutonomousLoop(
           action: "step_start",
           step,
           attempt: retryCount + 1,
+          ...(adapterCtx ? { adapterType: adapterCtx.adapterType } : {}),
         });
 
-        // Execute the step
-        stepData = await executeStep(
-          step,
-          agentId,
-          companyId,
-          runId,
-          task,
-          steps,
-          issueId,
-          authorityPolicy,
-        );
+        // Execute the step — use adapter runtime when resolved
+        if (adapterCtx && step !== "submit") {
+          stepData = await executeAdapterStep(step, adapterCtx, {
+            task,
+            previousSteps: steps,
+          });
+        } else {
+          stepData = await executeStep(
+            step,
+            agentId,
+            companyId,
+            runId,
+            task,
+            steps,
+            issueId,
+            authorityPolicy,
+          );
+        }
 
         // Track token usage for this step (simulated estimation)
         const stepTokens = { input: 500, output: 200 };
@@ -303,6 +326,7 @@ export async function runAutonomousLoop(
           step,
           success: true,
           data: stepData,
+          ...(adapterCtx ? { adapterType: adapterCtx.adapterType } : {}),
         });
 
         stepSuccess = true;
@@ -443,6 +467,7 @@ export async function runAutonomousLoop(
     runStatus,
     issueId: issueId ?? null,
     approvalId: approvalId ?? null,
+    ...(adapterCtx ? { adapterType: adapterCtx.adapterType } : {}),
     stepsCompleted: steps.filter((s) => s.success).length,
     totalSteps: loopSteps.length,
     totalTokensUsed,
@@ -460,6 +485,7 @@ export async function runAutonomousLoop(
     issueId,
     approvalId,
     runStatus,
+    ...(adapterCtx ? { adapterType: adapterCtx.adapterType } : {}),
   };
 }
 

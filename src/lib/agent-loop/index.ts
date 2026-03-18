@@ -1,6 +1,8 @@
 export { runAutonomousLoop } from "./autonomousLoop";
 export { validateTransaction, abortOnRepeatedFailure, logValidation, logAbort, runGuardrailCheck } from "./guardrails";
 export { trackBudget, checkBudgetRemaining, enforceBudget } from "./budget";
+export { resolveAdapterRuntime, executeAdapterStep } from "./adapter-runtime";
+export type { AdapterRuntimeContext } from "./adapter-runtime";
 export type {
   AuthorityPolicy,
   LoopStep,

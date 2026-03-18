@@ -54,6 +54,13 @@ export interface LoopOptions {
    * record instead of completing the run.
    */
   authorityPolicy?: AuthorityPolicy;
+  /**
+   * When true, the loop resolves the agent's adapter_type and
+   * adapter_config from the database and dispatches step internals
+   * through real adapter-backed execution paths instead of placeholder
+   * outputs. Defaults to false for backwards compatibility.
+   */
+  useAdapterRuntime?: boolean;
 }
 
 /** Result of a single loop step */
@@ -86,6 +93,11 @@ export interface LoopResult {
    * "guardrail_rejected" when stopped by a budget/safety guardrail.
    */
   runStatus: "completed" | "approval_pending" | "failed" | "guardrail_rejected";
+  /**
+   * The adapter type used for this run when `useAdapterRuntime` was true.
+   * Undefined when the legacy simulated path was used.
+   */
+  adapterType?: string;
 }
 
 /** Transaction parameters for guardrail validation */
