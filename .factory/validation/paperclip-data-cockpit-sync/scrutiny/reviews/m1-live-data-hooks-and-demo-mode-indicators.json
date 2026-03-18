@@ -1,0 +1,14 @@
+{
+  "featureId": "m1-live-data-hooks-and-demo-mode-indicators",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [],
+  "sharedStateObservations": [
+    {
+      "observation": "DemoModeBanner component is the standard visible fallback indicator for surfaces showing demo/snapshot data instead of live Supabase data. All dashboard and cockpit surfaces must use it when in demo mode.",
+      "suggestedTarget": "library"
+    }
+  ],
+  "summary": "Replaced silent mixed demo/live reads across dashboard, cockpit, sidebar, and org chart hooks with explicit company-scoped Supabase queries. Added visible DemoModeBanner component. 10 new tests verify company scoping across all 7 shared data hooks and demo banner visibility. Solid implementation with no regressions."
+}

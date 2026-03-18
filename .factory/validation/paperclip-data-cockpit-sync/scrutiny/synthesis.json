@@ -1,0 +1,69 @@
+{
+  "milestone": "paperclip-data-cockpit-sync",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "NODE_OPTIONS=--max-old-space-size=8192 npm test -- --maxWorkers=1",
+      "exitCode": 1,
+      "note": "Exit code 1 from 9 pre-existing test failures in non-milestone test files (uniswap-client: 6, bankr-gateway: 2, onboarding FeatureTour: 1). All 87 milestone-relevant tests pass with exit code 0. Failures are caused by edge-function proxy URL expectations and a FeatureTour text query, none related to milestone 1 work."
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc -p tsconfig.app.json --noEmit",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "npm run lint",
+      "exitCode": 0,
+      "note": "0 errors, 14 warnings (all pre-existing react-refresh/only-export-components and react-hooks/exhaustive-deps)"
+    }
+  },
+  "reviewsSummary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add guidance: pre-existing test failures in uniswap-client (6), bankr-gateway (2), and onboarding FeatureTour (1) are known and caused by edge-function proxy URL expectations. Workers on those milestones should fix these tests as part of their feature work.",
+      "evidence": "All 7 milestone 1 workers independently documented these as pre-existing failures. The pattern is consistent: tests expect direct API URLs (e.g. https://trade-api.gateway.uniswap.org) but code now routes through Supabase edge function proxies (e.g. ${SUPABASE_URL}/functions/v1/uniswap-proxy?endpoint=...).",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add guidance: VAL-THREE-* assertions require headed/manual browser evidence since headless Chromium lacks WebGPU support. Unit tests covering data-sync and overlay states provide primary validation in CI.",
+      "evidence": "Feature m1-three-scene-live-agent-sync noted that 3D scene rendering cannot be fully validated in headless environments. The 20-case test suite covers the data pipeline and graceful degradation overlays but not actual WebGPU rendering.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "useActiveCompany is the canonical active-company resolution hook",
+      "reason": "already-documented - architecture.md already has 'Active company resolution is a hard requirement' section covering this pattern"
+    },
+    {
+      "observation": "DemoModeBanner is the standard visible fallback indicator",
+      "reason": "already-documented - architecture.md already has 'Demo fallback must never be silent' section"
+    },
+    {
+      "observation": "Drag-drop status changes now persist to Supabase and create activity_event records",
+      "reason": "already-documented - architecture.md covers 'Runtime artifacts must be traceable by shared identifiers' pattern"
+    },
+    {
+      "observation": "Test suite needs --max-old-space-size=8192",
+      "reason": "already-documented - services.yaml test command already includes NODE_OPTIONS=--max-old-space-size=8192"
+    },
+    {
+      "observation": "Three.js scene assertions need special handling",
+      "reason": "promoted to suggestedGuidanceUpdates since this is a normative decision for the orchestrator about validation strategy"
+    }
+  ],
+  "previousRound": null
+}
