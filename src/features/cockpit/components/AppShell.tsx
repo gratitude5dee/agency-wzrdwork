@@ -11,6 +11,7 @@ import {
   Home,
   Inbox,
   LayoutDashboard,
+  Link2,
   Network,
   Plug,
   Search,
@@ -73,6 +74,7 @@ const WORK_ITEMS: NavItem[] = [
 export const COMPANY_ITEMS: NavItem[] = [
   { to: "/org-chart", label: "Org Chart", icon: Network },
   { to: "/skills", label: "Skills", icon: Zap },
+  { to: "/delegations", label: "Delegations", icon: Link2 },
   { to: "/costs", label: "Costs", icon: BadgeDollarSign },
   { to: "/activity", label: "Activity", icon: Activity },
   { to: "/integrations", label: "Integrations", icon: Plug },
