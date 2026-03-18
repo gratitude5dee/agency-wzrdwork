@@ -284,4 +284,139 @@ describe("SettingsPage", () => {
     const sandboxElements = screen.getAllByText("Sandbox");
     expect(sandboxElements.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("renders Defaults section with company type", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    const companiesChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "co-1",
+          name: "Acme Agents",
+          wallet_address: "0xDeadBeef",
+          company_type: "agency",
+          brand_color: "#3b82f6",
+          brief: "AI-powered agency",
+        },
+        error: null,
+      }),
+    };
+    const agentsChain = {
+      select: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [{ id: "a1" }], error: null }),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      in: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+    };
+    const onboardingChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "ob-1",
+          wallet_address: "0xABC123",
+          company_id: "co-1",
+          current_step: 4,
+          onboarding_completed: true,
+          metadata: {},
+        },
+        error: null,
+      }),
+    };
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "companies") return companiesChain;
+      if (table === "user_onboarding") return onboardingChain;
+      return agentsChain;
+    });
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Defaults")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Company Type")).toBeInTheDocument();
+  });
+
+  it("renders Danger Zone section with warning controls", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    setupSupabaseMock();
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Danger Zone")).toBeInTheDocument();
+    });
+    // Both a heading and a button use "Disconnect Wallet"
+    const disconnectElements = screen.getAllByText("Disconnect Wallet");
+    expect(disconnectElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("displays company brief in profile section", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    const companiesChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "co-1",
+          name: "Acme Agents",
+          wallet_address: "0xDeadBeef",
+          company_type: "agency",
+          brand_color: "#3b82f6",
+          brief: "AI-powered agency platform",
+        },
+        error: null,
+      }),
+    };
+    const agentsChain = {
+      select: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [{ id: "a1" }], error: null }),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      in: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+    };
+    const onboardingChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "ob-1",
+          wallet_address: "0xABC123",
+          company_id: "co-1",
+          current_step: 4,
+          onboarding_completed: true,
+          metadata: {},
+        },
+        error: null,
+      }),
+    };
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "companies") return companiesChain;
+      if (table === "user_onboarding") return onboardingChain;
+      return agentsChain;
+    });
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("AI-powered agency platform")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Brief")).toBeInTheDocument();
+  });
 });

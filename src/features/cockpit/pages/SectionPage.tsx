@@ -13,10 +13,10 @@ import { ActiveAgentsPanel } from "@/components/ActiveAgentsPanel";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { useAgentMetrics, useIssueMetrics, useRunMetrics, useApprovalMetrics } from "@/hooks/useDashboardMetrics";
 import { useDashboardRuns, useDashboardIssues, useDashboardAgents, useDashboardActivity } from "@/hooks/useDashboardData";
-import { useCompanySettings, useSupabaseHealth } from "@/hooks/useCompanySettings";
+import { useCompanySettings, useSupabaseHealth, useUpdateCompanySettings } from "@/hooks/useCompanySettings";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { FeatureTour } from "@/features/onboarding/steps/FeatureTour";
-import { Bot, Building2, CircleDot, Database, Loader2, MapPin, Play, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
+import { AlertTriangle, Bot, Building2, CircleDot, Database, Loader2, MapPin, Palette, Play, RotateCcw, Settings2, ShieldCheck, Unplug, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import type { AgencySnapshot } from "../lib/domain";
 
@@ -569,9 +569,14 @@ function DashboardLoadingBlock({ label, compact }: { label: string; compact?: bo
 function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
   const { data: company, isLoading: companyLoading } = useCompanySettings();
   const { data: supabaseHealthy } = useSupabaseHealth();
+  const updateCompany = useUpdateCompanySettings();
   const onboarding = useOnboardingState(company?.wallet_address ?? null);
   const [showTour, setShowTour] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editBrief, setEditBrief] = useState("");
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   if (showTour) {
     return (
@@ -586,140 +591,353 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
     );
   }
 
+  const handleStartEdit = () => {
+    setEditName(company?.name ?? snapshot.company.name);
+    setEditBrief(company?.brief ?? "");
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    const patch: Record<string, string> = {};
+    if (editName.trim() && editName !== company?.name) {
+      patch.name = editName.trim();
+    }
+    if (editBrief !== (company?.brief ?? "")) {
+      patch.brief = editBrief.trim();
+    }
+    if (Object.keys(patch).length > 0) {
+      updateCompany.mutate(patch, {
+        onSuccess: () => {
+          toast.success("Company profile updated.");
+          setIsEditing(false);
+        },
+        onError: () => {
+          toast.error("Failed to update company profile.");
+        },
+      });
+    } else {
+      setIsEditing(false);
+    }
+  };
+
   return (
-    <div className="grid gap-4 p-6 xl:grid-cols-2">
-      {/* Company Information */}
-      <Card className="border-white/10 bg-[#0d1118]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
-            <Building2 className="h-4 w-4" />
-            Company Information
-          </CardTitle>
-          <CardDescription className="text-zinc-500">
-            Your organization details from Supabase.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-zinc-300">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
-              Company Name
-            </p>
-            <p className="mt-2 text-sm">
-              {companyLoading ? "Loading…" : company?.name ?? snapshot.company.name}
-            </p>
-          </div>
-          <Separator className="bg-white/10" />
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
-              Wallet Address
-            </p>
-            <p className="mt-2 flex items-center gap-2 text-sm font-mono">
-              <Wallet className="h-3.5 w-3.5 text-zinc-500" />
-              {companyLoading
-                ? "Loading…"
-                : company?.wallet_address ?? "Not connected"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Backend Status */}
-      <Card className="border-white/10 bg-[#0d1118]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
-            <Database className="h-4 w-4" />
-            Backend Status
-          </CardTitle>
-          <CardDescription className="text-zinc-500">
-            Supabase connection and data source.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-zinc-300">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
-              Connection
-            </p>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full ${
-                  supabaseHealthy ? "bg-emerald-500" : "bg-red-500"
-                }`}
-              />
-              {supabaseHealthy ? "Connected" : "Disconnected"}
+    <div className="space-y-6 p-6">
+      <div className="grid gap-4 xl:grid-cols-2">
+        {/* Company Information */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <Building2 className="h-4 w-4" />
+              Company Information
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Your organization details from Supabase.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-zinc-300">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Company Name
+              </p>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="mt-2 w-full rounded border border-white/10 bg-[#080c14] px-2 py-1 text-sm text-zinc-200 focus:border-blue-500/50 focus:outline-none"
+                />
+              ) : (
+                <p className="mt-2 text-sm">
+                  {companyLoading ? "Loading…" : company?.name ?? snapshot.company.name}
+                </p>
+              )}
             </div>
-          </div>
-          <Separator className="bg-white/10" />
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
-              Data Source
-            </p>
-            <p className="mt-2 text-sm">
-              {snapshot.source === "supabase"
-                ? "Live Supabase tables"
-                : "Demo fallback snapshot"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            <Separator className="bg-white/10" />
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Brief
+              </p>
+              {isEditing ? (
+                <textarea
+                  value={editBrief}
+                  onChange={(e) => setEditBrief(e.target.value)}
+                  rows={2}
+                  className="mt-2 w-full rounded border border-white/10 bg-[#080c14] px-2 py-1 text-sm text-zinc-200 focus:border-blue-500/50 focus:outline-none resize-none"
+                />
+              ) : (
+                <p className="mt-2 text-sm">
+                  {companyLoading ? "Loading…" : company?.brief || "No brief set"}
+                </p>
+              )}
+            </div>
+            <Separator className="bg-white/10" />
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Wallet Address
+              </p>
+              <p className="mt-2 flex items-center gap-2 text-sm font-mono">
+                <Wallet className="h-3.5 w-3.5 text-zinc-500" />
+                {companyLoading
+                  ? "Loading…"
+                  : company?.wallet_address ?? "Not connected"}
+              </p>
+            </div>
+            <div className="pt-2">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={updateCompany.isPending}
+                    size="sm"
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    {updateCompany.isPending ? "Saving…" : "Save Changes"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsEditing(false)}
+                    disabled={updateCompany.isPending}
+                    variant="outline"
+                    size="sm"
+                    className="border-white/10 text-zinc-300 hover:bg-[#141b27]"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleStartEdit}
+                  variant="outline"
+                  size="sm"
+                  className="border-white/10 text-zinc-200 hover:bg-[#141b27] hover:text-white"
+                >
+                  <Building2 className="mr-2 h-3.5 w-3.5" />
+                  Edit Profile
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Replay Tour */}
-      <Card className="border-white/10 bg-[#0d1118]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
-            <MapPin className="h-4 w-4" />
-            Feature Tour
-          </CardTitle>
-          <CardDescription className="text-zinc-500">
-            Revisit the guided walkthrough of the platform.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            onClick={() => setShowTour(true)}
-            variant="outline"
-            className="border-white/10 text-zinc-200 hover:bg-[#141b27] hover:text-white"
-          >
-            <MapPin className="mr-2 h-4 w-4" />
-            Replay Tour
-          </Button>
-        </CardContent>
-      </Card>
+        {/* Backend Status */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <Database className="h-4 w-4" />
+              Backend Status
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Supabase connection and data source.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-zinc-300">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Connection
+              </p>
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <span
+                  className={`inline-block h-2.5 w-2.5 rounded-full ${
+                    supabaseHealthy ? "bg-emerald-500" : "bg-red-500"
+                  }`}
+                />
+                {supabaseHealthy ? "Connected" : "Disconnected"}
+              </div>
+            </div>
+            <Separator className="bg-white/10" />
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Data Source
+              </p>
+              <p className="mt-2 text-sm">
+                {snapshot.source === "supabase"
+                  ? "Live Supabase tables"
+                  : "Demo fallback snapshot"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Onboarding Reset */}
-      <Card className="border-white/10 bg-[#0d1118]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
-            <RotateCcw className="h-4 w-4" />
-            Onboarding
-          </CardTitle>
-          <CardDescription className="text-zinc-500">
-            Reset onboarding to re-run the setup wizard on next visit.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-zinc-400">
-            Status:{" "}
-            <span className={onboarding.isCompleted ? "text-emerald-400" : "text-amber-400"}>
-              {onboarding.isCompleted ? "Completed" : "In progress"}
-            </span>
-          </p>
-          <Button
-            onClick={() => {
-              setIsResetting(true);
-              onboarding.resetOnboarding();
-              toast.success("Onboarding reset. The wizard will appear on next visit.");
-              // Small delay to allow the mutation to settle before the gate re-evaluates
-              setTimeout(() => setIsResetting(false), 500);
-            }}
-            disabled={isResetting}
-            variant="outline"
-            className="border-white/10 text-zinc-200 hover:bg-[#141b27] hover:text-white"
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            {isResetting ? "Resetting…" : "Reset Onboarding"}
-          </Button>
-        </CardContent>
-      </Card>
+        {/* Replay Tour */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <MapPin className="h-4 w-4" />
+              Feature Tour
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Revisit the guided walkthrough of the platform.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => setShowTour(true)}
+              variant="outline"
+              className="border-white/10 text-zinc-200 hover:bg-[#141b27] hover:text-white"
+            >
+              <MapPin className="mr-2 h-4 w-4" />
+              Replay Tour
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Onboarding Reset */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <RotateCcw className="h-4 w-4" />
+              Onboarding
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Reset onboarding to re-run the setup wizard on next visit.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-zinc-400">
+              Status:{" "}
+              <span className={onboarding.isCompleted ? "text-emerald-400" : "text-amber-400"}>
+                {onboarding.isCompleted ? "Completed" : "In progress"}
+              </span>
+            </p>
+            <Button
+              onClick={() => {
+                setIsResetting(true);
+                onboarding.resetOnboarding();
+                toast.success("Onboarding reset. The wizard will appear on next visit.");
+                // Small delay to allow the mutation to settle before the gate re-evaluates
+                setTimeout(() => setIsResetting(false), 500);
+              }}
+              disabled={isResetting}
+              variant="outline"
+              className="border-white/10 text-zinc-200 hover:bg-[#141b27] hover:text-white"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {isResetting ? "Resetting…" : "Reset Onboarding"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Defaults */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <Settings2 className="h-4 w-4" />
+              Defaults
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Company-wide default settings and preferences.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-zinc-300">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Company Type
+              </p>
+              <p className="mt-2 text-sm">
+                {companyLoading ? "Loading…" : company?.company_type ?? snapshot.company.companyType ?? "—"}
+              </p>
+            </div>
+            <Separator className="bg-white/10" />
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Brand Color
+              </p>
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <Palette className="h-3.5 w-3.5 text-zinc-500" />
+                {companyLoading ? (
+                  "Loading…"
+                ) : company?.brand_color ? (
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-4 w-4 rounded border border-white/10"
+                      style={{ backgroundColor: company.brand_color }}
+                    />
+                    {company.brand_color}
+                  </span>
+                ) : (
+                  "Not set"
+                )}
+              </div>
+            </div>
+            <Separator className="bg-white/10" />
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Slug
+              </p>
+              <p className="mt-2 text-sm font-mono">
+                {companyLoading ? "Loading…" : company?.slug ?? "—"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="border-red-500/20 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+              Danger Zone
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Destructive actions that affect your company and wallet association.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+              <p className="text-sm font-bold text-red-300">Disconnect Wallet</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Removes the wallet address from this company. You will need to
+                reconnect a wallet to manage this organization.
+              </p>
+              {showDisconnectConfirm ? (
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    onClick={() => {
+                      updateCompany.mutate(
+                        { name: company?.name ?? "" },
+                        {
+                          onSuccess: () => {
+                            toast.success("This action requires wallet management.");
+                            setShowDisconnectConfirm(false);
+                          },
+                          onError: () => {
+                            toast.error("Action could not be completed.");
+                            setShowDisconnectConfirm(false);
+                          },
+                        },
+                      );
+                      setShowDisconnectConfirm(false);
+                    }}
+                    size="sm"
+                    variant="destructive"
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    <Unplug className="mr-2 h-3.5 w-3.5" />
+                    Confirm Disconnect
+                  </Button>
+                  <Button
+                    onClick={() => setShowDisconnectConfirm(false)}
+                    size="sm"
+                    variant="outline"
+                    className="border-white/10 text-zinc-300 hover:bg-[#141b27]"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => setShowDisconnectConfirm(true)}
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 border-red-500/20 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+                >
+                  <Unplug className="mr-2 h-3.5 w-3.5" />
+                  Disconnect Wallet
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

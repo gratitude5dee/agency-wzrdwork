@@ -1,10 +1,11 @@
 /**
- * useCompanySettings — fetches company info (name, wallet_address) from Supabase
+ * useCompanySettings — fetches company info from Supabase
  * using the active-company resolution (wallet → onboarding → company).
- * Also provides a Supabase connection health check.
+ * Also provides a Supabase connection health check and a mutation
+ * for updating company profile fields.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveCompany } from "./useActiveCompany";
 
@@ -12,6 +13,12 @@ export interface CompanySettings {
   id: string;
   name: string;
   wallet_address: string | null;
+  company_type?: string;
+  brand_color?: string;
+  brief?: string;
+  slug?: string;
+  description?: string;
+  created_at?: string;
 }
 
 /**
@@ -29,7 +36,7 @@ export function useCompanySettings() {
 
       const { data, error } = await supabase
         .from("companies")
-        .select("id, name, wallet_address")
+        .select("id, name, wallet_address, company_type, brand_color, brief, slug, description, created_at")
         .eq("id", companyId)
         .maybeSingle();
 
@@ -43,6 +50,35 @@ export function useCompanySettings() {
       return data as CompanySettings | null;
     },
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Mutation hook for updating company profile fields (name, brief, company_type, brand_color).
+ * Scoped to the active company via companyId.
+ */
+export function useUpdateCompanySettings() {
+  const { companyId } = useActiveCompany();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (patch: Partial<Pick<CompanySettings, "name" | "brief" | "company_type" | "brand_color">>) => {
+      if (!companyId) throw new Error("No active company");
+
+      const { data, error } = await supabase
+        .from("companies")
+        .update(patch)
+        .eq("id", companyId)
+        .select("id, name, wallet_address, company_type, brand_color, brief, slug, description, created_at")
+        .single();
+
+      if (error) throw error;
+      return data as CompanySettings;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["active-company"] });
+    },
   });
 }
 
