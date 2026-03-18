@@ -1,17 +1,21 @@
 import type { ReactNode } from "react";
 import { useActiveAccount, useActiveWalletConnectionStatus } from "thirdweb/react";
-import { Navigate, useLocation } from "react-router-dom";
 import { useWalletAddressSync } from "@/hooks/useWalletAddressSync";
+import { WalletAuthScreen } from "@/components/WalletAuth";
 
 /**
- * Auth gate: redirects to /auth when no wallet is connected.
- * Once connected, renders children (the main app) and syncs the wallet
- * address to Supabase companies table.
+ * Auth gate: shows the wallet-auth surface on protected routes when no
+ * wallet is connected.  Once connected, renders children (the main app)
+ * and syncs the wallet address to the Supabase companies table.
+ *
+ * VAL-AUTH-001: Protected routes require wallet authentication.
+ * Instead of redirecting to /auth, the gate renders the auth surface
+ * inline so the user sees it directly on whatever protected route they
+ * tried to reach.
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const account = useActiveAccount();
   const status = useActiveWalletConnectionStatus();
-  const location = useLocation();
 
   // Sync wallet address to Supabase whenever connected
   useWalletAddressSync();
@@ -28,9 +32,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  // No wallet connected → redirect to auth page
+  // No wallet connected → show wallet auth surface inline
   if (!account) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <WalletAuthScreen />;
   }
 
   // Wallet connected → render the app

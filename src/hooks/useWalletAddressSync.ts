@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveCompany } from "@/hooks/useActiveCompany";
 
 /**
  * Syncs the connected wallet address to the companies table in Supabase.
@@ -9,6 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
  * Resolution: looks up the company via the user_onboarding row for this
  * wallet, or falls back to companies.wallet_address match. Does NOT use
  * an unscoped limit(1) lookup.
+ *
+ * VAL-AUTH-003: Real-wallet auth writes the active company wallet
+ * address to the correct company row. This works with or without
+ * bypass mode.
  *
  * When VITE_DEV_MOCK_WALLET is set, uses that value as the wallet address
  * so wallet persistence works even when auth is bypassed.
@@ -71,4 +76,22 @@ export function useTruncatedAddress(): string | null {
   const addr = account?.address ?? mockWallet ?? null;
   if (!addr) return null;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+/**
+ * Returns the stored wallet address from the active company record.
+ * This is the persisted wallet in Supabase, not the live thirdweb connection.
+ *
+ * VAL-AUTH-004: Used by header and settings to show the same stored wallet
+ * after reload, ensuring consistency between surfaces.
+ */
+export function useStoredWalletAddress(): {
+  storedAddress: string | null;
+  isLoading: boolean;
+} {
+  const { company, isLoading } = useActiveCompany();
+  return {
+    storedAddress: company?.wallet_address ?? null,
+    isLoading,
+  };
 }

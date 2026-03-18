@@ -19,7 +19,7 @@ import {
   Wallet,
   Workflow,
 } from "lucide-react";
-import { useTruncatedAddress } from "@/hooks/useWalletAddressSync";
+import { useTruncatedAddress, useStoredWalletAddress } from "@/hooks/useWalletAddressSync";
 import { useLiveRunCount } from "@/hooks/useLiveRunCount";
 import { usePendingApprovalCount } from "@/hooks/usePendingApprovalCount";
 import { useSidebarAgents } from "@/hooks/useSidebarAgents";
@@ -135,7 +135,14 @@ function AccountFooter() {
 export function AppShell() {
   const location = useLocation();
   const { snapshot } = useAgencyData();
-  const walletAddress = useTruncatedAddress();
+  const liveWalletAddress = useTruncatedAddress();
+  const { storedAddress } = useStoredWalletAddress();
+  // VAL-AUTH-004: Show live wallet address, or fall back to stored company
+  // wallet so header and settings agree after reload.
+  const storedTruncated = storedAddress
+    ? `${storedAddress.slice(0, 6)}…${storedAddress.slice(-4)}`
+    : null;
+  const walletAddress = liveWalletAddress ?? storedTruncated;
   const { data: liveRunCount = 0 } = useLiveRunCount();
   const { data: pendingApprovals = 0 } = usePendingApprovalCount();
   const { data: sidebarAgents = [] } = useSidebarAgents();
