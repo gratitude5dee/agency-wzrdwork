@@ -16,8 +16,8 @@ A unified autonomous agent operating system built for the **Synthesis hackathon*
 - **MetaMask Delegation Framework** — CEO → department → task agent delegation chains
 - **Bankr LLM Gateway + Celo multi-chain** — cross-chain agent operations
 - **4-step user onboarding wizard** — with interactive feature tour (Joyride)
-- **Integrations management page** — 16 integrations with connect/disconnect UI
-- **460+ unit & component tests** across 22 test suites
+- **Integrations management page** — 17 integrations with connect/disconnect UI
+- **918 unit & component tests** across 52 test suites
 
 ## Tech Stack
 
@@ -28,7 +28,7 @@ React 18 · TypeScript · Vite · Supabase · Three.js · thirdweb · TanStack R
 ```sh
 npm install
 # Copy .env.example or create .env with required variables
-npm run dev          # starts on http://localhost:8080
+npm run dev          # starts on http://localhost:5173 by default
 ```
 
 The app runs in demo mode if the Supabase schema hasn't been applied yet.
@@ -43,7 +43,7 @@ Run the SQL files in the Supabase SQL Editor (in order):
 ## Verification
 
 ```sh
-npm test                                    # 460+ tests across 22 suites
+npm test                                    # 918 tests across 52 suites
 npx tsc -p tsconfig.app.json --noEmit       # clean typecheck
 npm run build                               # production build, zero errors
 ```
