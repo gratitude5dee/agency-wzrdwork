@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bot, Settings, Activity, CircleDot, ShieldCheck, Wrench } from "lucide-react";
+import { ArrowLeft, Bot, Settings, Activity, CircleDot, ShieldCheck, Wrench, Download, Loader2 as Spinner } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import { AgentIdentitySection } from "@/components/AgentIdentitySection";
 import { AgentSkillAssignment } from "@/components/AgentSkillAssignment";
 import { useAgentComposioTools } from "@/hooks/useAgentComposioTools";
 import { VENICE_MODELS, VENICE_DEFAULT_MODEL } from "@/lib/venice/config";
+import { getRunLogJson, triggerJsonDownload } from "@/lib/erc8004/download";
+import { toast } from "sonner";
 
 const STATUS_COLORS: Record<string, string> = {
   running: "bg-cyan-500",
@@ -64,6 +66,40 @@ interface IssueRow {
   title: string;
   status: string;
   priority: string;
+}
+
+/** Small button to download a run's agent_log.json */
+function RunLogDownloadButton({ runId }: { runId: string }) {
+  const [busy, setBusy] = useState(false);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigating via the parent <Link>
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      const log = await getRunLogJson(runId);
+      triggerJsonDownload(log, "agent_log.json");
+      toast.success("agent_log.json downloaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to download run log");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleDownload}
+      disabled={busy}
+      className="h-6 gap-1 border-white/10 text-[10px] text-zinc-400 hover:bg-[#141b27] hover:text-white shrink-0"
+      title="Download agent_log.json for this run"
+    >
+      {busy ? <Spinner className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+      Log
+    </Button>
+  );
 }
 
 function PropertyRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -368,9 +404,12 @@ export function AgentDetailPage() {
                     <p className="font-bold text-zinc-100 truncate">
                       {run.summary ?? run.id.slice(0, 8)}
                     </p>
-                    <Badge variant="outline" className="border-white/10 bg-black text-zinc-400 shrink-0">
-                      {run.status}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <RunLogDownloadButton runId={run.id} />
+                      <Badge variant="outline" className="border-white/10 bg-black text-zinc-400">
+                        {run.status}
+                      </Badge>
+                    </div>
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">{relativeTime(run.created_at)}</p>
                 </Link>
