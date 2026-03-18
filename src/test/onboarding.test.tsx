@@ -436,7 +436,7 @@ describe("OnboardingFlow", () => {
     vi.clearAllMocks();
   });
 
-  it("renders step indicator with 4 steps", async () => {
+  it("renders step indicator with 5 steps including skills", async () => {
     const { OnboardingFlow } = await import("@/features/onboarding/OnboardingFlow");
     setupSupabaseMock();
 
@@ -449,6 +449,7 @@ describe("OnboardingFlow", () => {
 
     expect(screen.getByText("CEO Agent")).toBeInTheDocument();
     expect(screen.getByText("Harness")).toBeInTheDocument();
+    expect(screen.getByText("Skills")).toBeInTheDocument();
     expect(screen.getByText("Tour")).toBeInTheDocument();
   });
 

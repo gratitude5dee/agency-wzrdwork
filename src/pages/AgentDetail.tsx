@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
 import { relativeTime } from "@/features/cockpit/lib/format";
 import { AgentIdentitySection } from "@/components/AgentIdentitySection";
+import { AgentSkillAssignment } from "@/components/AgentSkillAssignment";
 import { useAgentComposioTools } from "@/hooks/useAgentComposioTools";
 import { VENICE_MODELS, VENICE_DEFAULT_MODEL } from "@/lib/venice/config";
 
@@ -333,6 +334,9 @@ export function AgentDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Skills Assignment */}
+      <AgentSkillAssignment agentId={id!} />
 
       {/* ERC-8004 Identity */}
       <AgentIdentitySection agentId={id!} />
