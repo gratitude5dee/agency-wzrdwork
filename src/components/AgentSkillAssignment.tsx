@@ -20,8 +20,10 @@ import {
   useAssignSkill,
   useUnassignSkill,
   useIntegrationStatuses,
+  useSkillsSchemaReady,
   type Skill,
 } from "@/hooks/useSkills";
+import { SkillsSchemaSetup } from "@/components/SkillsSchemaSetup";
 import { toast } from "sonner";
 
 interface AgentSkillAssignmentProps {
@@ -29,6 +31,8 @@ interface AgentSkillAssignmentProps {
 }
 
 export function AgentSkillAssignment({ agentId }: AgentSkillAssignmentProps) {
+  const { data: schemaState } = useSkillsSchemaReady();
+  const schemaMissing = schemaState?.ready === false;
   const { data: companySkills = [] } = useCompanySkills();
   const { data: agentSkillRows = [] } = useAgentSkills(agentId);
   const { data: integrationStatuses = {} } = useIntegrationStatuses();
@@ -107,8 +111,11 @@ export function AgentSkillAssignment({ agentId }: AgentSkillAssignmentProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Schema setup required */}
+        {schemaMissing && <SkillsSchemaSetup compact />}
+
         {/* Assigned skills */}
-        {assignedSkills.length > 0 ? (
+        {!schemaMissing && assignedSkills.length > 0 && (
           <div className="space-y-2">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
               Assigned ({assignedSkills.length})
@@ -133,12 +140,14 @@ export function AgentSkillAssignment({ agentId }: AgentSkillAssignmentProps) {
               ))}
             </div>
           </div>
-        ) : (
+        )}
+
+        {!schemaMissing && assignedSkills.length === 0 && (
           <p className="text-sm text-zinc-500">No skills assigned yet.</p>
         )}
 
         {/* Available skills */}
-        {availableSkills.length > 0 && (
+        {!schemaMissing && availableSkills.length > 0 && (
           <div className="space-y-2">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
               Available
@@ -175,7 +184,7 @@ export function AgentSkillAssignment({ agentId }: AgentSkillAssignmentProps) {
           </div>
         )}
 
-        {companySkills.length === 0 && (
+        {!schemaMissing && companySkills.length === 0 && (
           <p className="text-sm text-zinc-500">
             No skills configured yet. Visit the{" "}
             <a href="/skills" className="text-blue-400 underline">

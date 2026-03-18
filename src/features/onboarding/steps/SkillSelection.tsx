@@ -22,9 +22,11 @@ import {
   useCompanySkills,
   useCreateSkill,
   useIntegrationStatuses,
+  useSkillsSchemaReady,
   REFERENCE_SKILLS,
   type Skill,
 } from "@/hooks/useSkills";
+import { SkillsSchemaSetup } from "@/components/SkillsSchemaSetup";
 
 function fromTable(tableName: string) {
   return (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from(tableName);
@@ -38,6 +40,8 @@ interface SkillSelectionProps {
 
 export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectionProps) {
   const queryClient = useQueryClient();
+  const { data: schemaState, isLoading: schemaLoading } = useSkillsSchemaReady();
+  const schemaMissing = schemaState?.ready === false;
   const { data: companySkills = [], isLoading } = useCompanySkills();
   const { data: integrationStatuses = {} } = useIntegrationStatuses();
   const createSkill = useCreateSkill();
@@ -123,7 +127,7 @@ export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectio
     },
   });
 
-  if (isLoading) {
+  if (schemaLoading || isLoading) {
     return (
       <div className="flex items-center justify-center p-12 text-zinc-500">
         <p className="text-sm uppercase tracking-[0.2em]">Loading skills…</p>
@@ -143,8 +147,24 @@ export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectio
         </p>
       </div>
 
+      {/* Schema setup required — allow skip so onboarding isn't blocked */}
+      {schemaMissing && (
+        <div className="space-y-4">
+          <SkillsSchemaSetup />
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              className="border-white/10 text-zinc-400"
+              onClick={() => onComplete()}
+            >
+              Skip — continue without skills
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Import reference skills if empty */}
-      {enabledSkills.length === 0 && (
+      {!schemaMissing && enabledSkills.length === 0 && (
         <Card className="border-white/10 bg-[#0d1118]">
           <CardContent className="flex flex-col items-center gap-4 p-8">
             <p className="text-sm text-zinc-400 text-center">
@@ -164,7 +184,7 @@ export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectio
       )}
 
       {/* Skill selection grid */}
-      {enabledSkills.length > 0 && (
+      {!schemaMissing && enabledSkills.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {enabledSkills.map((skill) => {
             const prereqMet = isPrerequisiteMet(skill);
@@ -229,28 +249,30 @@ export function SkillSelection({ agentId, companyId, onComplete }: SkillSelectio
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="flex items-center justify-center gap-3">
-        <Button
-          variant="outline"
-          className="border-white/10 text-zinc-400"
-          onClick={() => onComplete()}
-          disabled={assignMutation.isPending}
-        >
-          Skip
-        </Button>
-        <Button
-          onClick={() => assignMutation.mutate()}
-          disabled={assignMutation.isPending}
-          className="min-w-[200px]"
-        >
-          {assignMutation.isPending
-            ? "Assigning…"
-            : selectedSkillIds.size > 0
-              ? `Assign ${selectedSkillIds.size} Skill${selectedSkillIds.size === 1 ? "" : "s"}`
-              : "Continue Without Skills"}
-        </Button>
-      </div>
+      {/* Action buttons — hidden when schema is missing (skip button is shown above) */}
+      {!schemaMissing && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            className="border-white/10 text-zinc-400"
+            onClick={() => onComplete()}
+            disabled={assignMutation.isPending}
+          >
+            Skip
+          </Button>
+          <Button
+            onClick={() => assignMutation.mutate()}
+            disabled={assignMutation.isPending}
+            className="min-w-[200px]"
+          >
+            {assignMutation.isPending
+              ? "Assigning…"
+              : selectedSkillIds.size > 0
+                ? `Assign ${selectedSkillIds.size} Skill${selectedSkillIds.size === 1 ? "" : "s"}`
+                : "Continue Without Skills"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

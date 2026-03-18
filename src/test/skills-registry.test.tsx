@@ -58,8 +58,32 @@ function setupSupabaseMock(overrides?: Record<string, unknown>) {
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     order: vi.fn().mockResolvedValue({ data: [], error: null }),
-    limit: vi.fn().mockReturnThis(),
+    // limit() is a terminal call for schema-readiness checks —
+    // resolve to success by default (table exists).
+    limit: vi.fn().mockResolvedValue({ data: null, error: null }),
     ...overrides,
+  };
+  mockFrom.mockReturnValue(chain);
+  return chain;
+}
+
+/**
+ * Set up the Supabase mock so the skills schema readiness probe
+ * returns 42P01 (relation does not exist).
+ */
+function setupSchemaMissingMock() {
+  const missingError = { code: "42P01", message: 'relation "public.skills" does not exist' };
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: null, error: missingError }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: missingError }),
+    order: vi.fn().mockResolvedValue({ data: [], error: missingError }),
+    limit: vi.fn().mockResolvedValue({ data: null, error: missingError }),
   };
   mockFrom.mockReturnValue(chain);
   return chain;
@@ -440,6 +464,175 @@ describe("Onboarding Skill Selection (VAL-SKILLS-004)", () => {
     await waitFor(() => {
       expect(screen.getByText("Assign 1 Skill")).toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Schema-missing setup-required state tests
+// ---------------------------------------------------------------------------
+
+describe("Skills Page — schema missing (setup-required state)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows schema setup required banner when skills table does not exist", async () => {
+    const { SkillsPage } = await import("@/pages/Skills");
+    setupSchemaMissingMock();
+
+    renderWithProviders(<SkillsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Schema setup required")).toBeInTheDocument();
+    expect(screen.getByText(/migration-snippets\.sql/)).toBeInTheDocument();
+  });
+
+  it("disables Import and New Skill buttons when schema is missing", async () => {
+    const { SkillsPage } = await import("@/pages/Skills");
+    setupSchemaMissingMock();
+
+    renderWithProviders(<SkillsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Import").closest("button")).toBeDisabled();
+    expect(screen.getByText("New Skill").closest("button")).toBeDisabled();
+  });
+
+  it("does not render skill cards or empty state when schema is missing", async () => {
+    const { SkillsPage } = await import("@/pages/Skills");
+    setupSchemaMissingMock();
+
+    renderWithProviders(<SkillsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+
+    // Should NOT show the normal empty state
+    expect(screen.queryByText("No skills yet")).not.toBeInTheDocument();
+  });
+});
+
+describe("Agent Skill Assignment — schema missing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows compact setup-required banner when schema is missing", async () => {
+    const { AgentSkillAssignment } = await import("@/components/AgentSkillAssignment");
+    setupSchemaMissingMock();
+
+    renderWithProviders(<AgentSkillAssignment agentId="agent-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Skills schema not found")).toBeInTheDocument();
+  });
+
+  it("does not show assign buttons when schema is missing", async () => {
+    const { AgentSkillAssignment } = await import("@/components/AgentSkillAssignment");
+    setupSchemaMissingMock();
+
+    renderWithProviders(<AgentSkillAssignment agentId="agent-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+
+    // No skill assign buttons should be visible
+    expect(screen.queryByText("No skills assigned yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No skills configured/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Onboarding Skill Selection — schema missing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows setup-required banner with skip option when schema is missing", async () => {
+    const { SkillSelection } = await import("@/features/onboarding/steps/SkillSelection");
+    setupSchemaMissingMock();
+
+    const onComplete = vi.fn();
+    renderWithProviders(
+      <SkillSelection agentId="agent-1" companyId="test-co" onComplete={onComplete} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Schema setup required")).toBeInTheDocument();
+  });
+
+  it("skip button calls onComplete when schema is missing", async () => {
+    const { SkillSelection } = await import("@/features/onboarding/steps/SkillSelection");
+    setupSchemaMissingMock();
+
+    const onComplete = vi.fn();
+    renderWithProviders(
+      <SkillSelection agentId="agent-1" companyId="test-co" onComplete={onComplete} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("skills-schema-setup")).toBeInTheDocument();
+    });
+
+    const skipBtn = screen.getByText(/Skip.*continue without skills/i);
+    fireEvent.click(skipBtn);
+    expect(onComplete).toHaveBeenCalled();
+  });
+});
+
+describe("useSkillsSchemaReady hook", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns ready: true when skills table exists", async () => {
+    const { useSkillsSchemaReady } = await import("@/hooks/useSkills");
+    const chain = setupSupabaseMock();
+    chain.limit.mockResolvedValue({ data: null, error: null });
+
+    function TestComponent() {
+      const { data } = useSkillsSchemaReady();
+      return <div data-testid="result">{data?.ready ? "ready" : "not-ready"}</div>;
+    }
+
+    renderWithProviders(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result").textContent).toBe("ready");
+    });
+  });
+
+  it("returns ready: false when skills table does not exist (42P01)", async () => {
+    const { useSkillsSchemaReady } = await import("@/hooks/useSkills");
+    setupSchemaMissingMock();
+
+    function TestComponent() {
+      const { data } = useSkillsSchemaReady();
+      return <div data-testid="result">{data?.ready === false ? "not-ready" : "pending"}</div>;
+    }
+
+    renderWithProviders(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result").textContent).toBe("not-ready");
+    });
+  });
+});
+
+describe("SKILLS_SQL_SNIPPET_PATH constant", () => {
+  it("exports the path to migration snippets", async () => {
+    const { SKILLS_SQL_SNIPPET_PATH } = await import("@/hooks/useSkills");
+    expect(SKILLS_SQL_SNIPPET_PATH).toBe("src/db/migration-snippets.sql");
   });
 });
 

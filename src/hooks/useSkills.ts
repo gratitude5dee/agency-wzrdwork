@@ -9,6 +9,10 @@
  * Supabase types, so we use `supabase.from(tableName)` with explicit
  * result type annotations. The `.from()` overloads accept any string
  * at runtime; TypeScript inference is bypassed via intermediate casts.
+ *
+ * Schema readiness: if the `skills` or `agent_skills` tables have not
+ * been created (error code 42P01), the hooks surface a clear
+ * `schemaMissing` state instead of throwing raw Supabase errors.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +31,22 @@ import { useActiveCompany } from "@/hooks/useActiveCompany";
 function fromTable(tableName: string) {
   return (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from(tableName);
 }
+
+// ---------------------------------------------------------------------------
+// Schema readiness helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect the Postgres "relation does not exist" error (42P01).
+ * Matches the pattern used in useDashboardMetrics and other hooks.
+ */
+function isMissingTable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "42P01" || (error.message ?? "").includes("does not exist");
+}
+
+/** Path to the SQL snippet file that creates the skills and agent_skills tables. */
+export const SKILLS_SQL_SNIPPET_PATH = "src/db/migration-snippets.sql";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -150,20 +170,48 @@ export const REFERENCE_SKILLS: Omit<CreateSkillInput, "enabled">[] = [
 // Hooks
 // ---------------------------------------------------------------------------
 
+/**
+ * Lightweight schema readiness probe for the `skills` table.
+ * Issues a `select count(*)` with `limit(0)` to avoid fetching data.
+ * If the table doesn't exist (42P01), returns `{ ready: false }`.
+ *
+ * Other hooks in this module use the result to short-circuit instead of
+ * throwing raw Supabase errors at the UI layer.
+ */
+export function useSkillsSchemaReady() {
+  return useQuery<{ ready: boolean }>({
+    queryKey: ["skills-schema-ready"],
+    staleTime: 60_000, // re-check at most once per minute
+    queryFn: async () => {
+      const { error } = await fromTable("skills")
+        .select("id", { count: "exact", head: true })
+        .limit(0);
+
+      if (error && isMissingTable(error)) return { ready: false };
+      if (error) throw error; // unexpected error — let React Query handle
+      return { ready: true };
+    },
+  });
+}
+
 /** Fetch all skills for the active company. */
 export function useCompanySkills() {
   const { companyId } = useActiveCompany();
+  const { data: schemaState } = useSkillsSchemaReady();
 
   return useQuery<Skill[]>({
     queryKey: ["skills", companyId],
-    enabled: !!companyId,
+    enabled: !!companyId && schemaState?.ready !== false,
     queryFn: async () => {
       const { data, error } = await fromTable("skills")
         .select("*")
         .eq("company_id", companyId!)
         .order("name", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTable(error)) return [];
+        throw error;
+      }
       return (data ?? []) as Skill[];
     },
   });
@@ -172,17 +220,21 @@ export function useCompanySkills() {
 /** Fetch skills assigned to a specific agent. */
 export function useAgentSkills(agentId: string | undefined) {
   const { companyId } = useActiveCompany();
+  const { data: schemaState } = useSkillsSchemaReady();
 
   return useQuery<AgentSkill[]>({
     queryKey: ["agent-skills", agentId],
-    enabled: !!agentId && !!companyId,
+    enabled: !!agentId && !!companyId && schemaState?.ready !== false,
     queryFn: async () => {
       const { data, error } = await fromTable("agent_skills")
         .select("*")
         .eq("agent_id", agentId!)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTable(error)) return [];
+        throw error;
+      }
       return (data ?? []) as AgentSkill[];
     },
   });
@@ -210,7 +262,16 @@ export function useCreateSkill() {
         .select("*")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTable(error)) {
+          throw new Error(
+            "Skills table not found. Apply the SQL snippet from " +
+            SKILLS_SQL_SNIPPET_PATH +
+            " in the Supabase SQL Editor first."
+          );
+        }
+        throw error;
+      }
       return data as Skill;
     },
     onSuccess: () => {
@@ -274,7 +335,16 @@ export function useAssignSkill() {
           company_id: companyId,
         });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTable(error)) {
+          throw new Error(
+            "Agent skills table not found. Apply the SQL snippet from " +
+            SKILLS_SQL_SNIPPET_PATH +
+            " in the Supabase SQL Editor first."
+          );
+        }
+        throw error;
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["agent-skills", variables.agentId] });
@@ -320,7 +390,16 @@ export function useBulkAssignSkills() {
       const { error } = await fromTable("agent_skills")
         .insert(rows);
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTable(error)) {
+          throw new Error(
+            "Agent skills table not found. Apply the SQL snippet from " +
+            SKILLS_SQL_SNIPPET_PATH +
+            " in the Supabase SQL Editor first."
+          );
+        }
+        throw error;
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["agent-skills", variables.agentId] });

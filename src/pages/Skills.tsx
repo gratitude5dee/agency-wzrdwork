@@ -50,10 +50,12 @@ import {
   useUpdateSkill,
   useToggleSkill,
   useIntegrationStatuses,
+  useSkillsSchemaReady,
   REFERENCE_SKILLS,
   type Skill,
   type CreateSkillInput,
 } from "@/hooks/useSkills";
+import { SkillsSchemaSetup } from "@/components/SkillsSchemaSetup";
 
 // ---------------------------------------------------------------------------
 // Category metadata
@@ -86,6 +88,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 export function SkillsPage() {
+  const { data: schemaState, isLoading: schemaLoading } = useSkillsSchemaReady();
+  const schemaMissing = schemaState?.ready === false;
   const { data: skills = [], isLoading } = useCompanySkills();
   const { data: integrationStatuses = {} } = useIntegrationStatuses();
   const createSkill = useCreateSkill();
@@ -333,11 +337,12 @@ export function SkillsPage() {
             variant="outline"
             className="border-white/10 text-zinc-300 gap-2"
             onClick={openImportDialog}
+            disabled={schemaMissing}
           >
             <Download className="h-4 w-4" />
             Import
           </Button>
-          <Button className="gap-2" onClick={openCreateDialog}>
+          <Button className="gap-2" onClick={openCreateDialog} disabled={schemaMissing}>
             <Plus className="h-4 w-4" />
             New Skill
           </Button>
@@ -355,8 +360,11 @@ export function SkillsPage() {
         />
       </div>
 
+      {/* Schema setup required */}
+      {schemaMissing && <SkillsSchemaSetup />}
+
       {/* Skills list */}
-      {isLoading ? (
+      {schemaMissing ? null : (schemaLoading || isLoading) ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse border-white/10 bg-[#0d1118]">
