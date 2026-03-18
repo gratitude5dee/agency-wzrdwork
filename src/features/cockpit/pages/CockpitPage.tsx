@@ -21,6 +21,10 @@ import {
   isCompactCockpitViewport,
   type CockpitSceneStatus,
 } from "../components/CockpitSceneOverlay";
+import {
+  CockpitSceneProofPanel,
+  type SceneProofSnapshot,
+} from "../components/CockpitSceneProofPanel";
 import { buildCockpitRuntime } from "../lib/mappers";
 import { useAgencyData } from "../lib/useAgencyData";
 
@@ -37,6 +41,26 @@ export function CockpitPage() {
   const [compact, setCompact] = useState(() =>
     typeof window === "undefined" ? false : isCompactCockpitViewport(window.innerWidth),
   );
+  const lastSyncRef = useRef<string>(new Date().toISOString());
+
+  // Track snapshot sync timestamp for the proof panel
+  useEffect(() => {
+    lastSyncRef.current = new Date().toISOString();
+  }, [snapshot]);
+
+  const proofSnapshot = useMemo<SceneProofSnapshot>(() => {
+    const npcAgents = runtime.agentSet.agents.filter((a) => !a.isPlayer);
+    return {
+      sceneStatus,
+      dataSource: snapshot.source ?? "demo",
+      companyName: snapshot.company.name,
+      phase: runtime.phase,
+      npcNames: npcAgents.map((a) => a.role),
+      npcCount: npcAgents.length,
+      lastSyncAt: lastSyncRef.current,
+      errorMessage: sceneError,
+    };
+  }, [sceneStatus, snapshot, runtime, sceneError]);
 
   useEffect(() => {
     setRuntimeAgentSet(runtime.agentSet);
@@ -105,7 +129,14 @@ export function CockpitPage() {
 
   return (
     <SceneContext.Provider value={sceneManagerRef.current}>
-      <div className="flex h-full flex-col bg-[#05070c] text-zinc-100 overflow-hidden">
+      <div
+        className="flex h-full flex-col bg-[#05070c] text-zinc-100 overflow-hidden"
+        data-testid="cockpit-page"
+        data-cockpit-source={snapshot.source ?? "demo"}
+        data-cockpit-phase={runtime.phase}
+        data-cockpit-agent-count={runtime.agentSet.agents.filter((a) => !a.isPlayer).length}
+        data-cockpit-scene-status={sceneStatus}
+      >
         <div className="flex items-center justify-between border-b border-white/10 glass-panel px-4 py-2">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">
@@ -237,6 +268,7 @@ export function CockpitPage() {
                         </p>
                       </div>
                     </div>
+                    <CockpitSceneProofPanel snapshot={proofSnapshot} />
                   </div>
                 </ResizablePanel>
 
