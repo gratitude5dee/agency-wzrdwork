@@ -59,6 +59,7 @@ Targeted shell/API validations are much lighter than browser sessions, but some 
 ### Auth and onboarding modes
 
 - **Real auth mode:** use when validating `VAL-AUTH-*` and `VAL-CROSS-001`.
+- `VAL-AUTH-003` and `VAL-AUTH-004` require a headed/manual browser session with a real wallet extension; headless browser proof is insufficient for wallet-address persistence and post-reload wallet display.
 - **Bypass smoke mode:** allowed for non-auth route exploration and some setup checks.
   - `VITE_DEV_SKIP_AUTH=true`
   - `VITE_DEV_SKIP_ONBOARDING=true`
@@ -166,6 +167,15 @@ Issues table uses `assignee_agent_id` (not `assignee_id`). Required fields: `tit
 
 ### WebGPU / Three.js Limitations
 Headless Chromium does not support WebGPU. The cockpit scene degrades gracefully with a clear error overlay. Surrounding cockpit UI (Kanban, Inspector, Logs, toolbar) remains fully functional. VAL-THREE-002 and VAL-THREE-003 require headed browser evidence for full verification.
+
+### Skills Schema Gotcha
+The `skills` table migration snippet (`src/db/migration-snippets.sql`) defines `enabled` and `prerequisite_integration` columns, but the actual Supabase table may have been created without them. If skills import/create operations fail with 400 errors, check for missing columns and add them via `ALTER TABLE public.skills ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true, ADD COLUMN IF NOT EXISTS prerequisite_integration text;` followed by `NOTIFY pgrst, 'reload schema';`.
+
+### Composio Tool Discovery Fallback
+When testing Composio integration without real API credentials, entering any consumer key triggers the ComposioToolDiscovery component. The MCP fetch will fail, but the component falls back to 20 well-known tools (GMAIL_SEND_EMAIL, SLACK_SEND_MESSAGE, etc.). This fallback is sufficient for testing tool selection persistence and downstream tool availability on OpenClaw agents.
+
+### Composio Card Position
+The Composio card is the 17th (last) on the Integrations page. The grid may require significant scrolling or a taller viewport to reach it. Use JS `scrollIntoView` on the card element if normal scrolling doesn't reach it.
 
 ## Evidence Rules
 

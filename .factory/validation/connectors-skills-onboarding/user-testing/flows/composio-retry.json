@@ -1,0 +1,38 @@
+{
+  "flowId": "composio-retry",
+  "milestone": "connectors-skills-onboarding",
+  "round": 2,
+  "assertions": {
+    "VAL-COMPOSIO-002": {
+      "status": "pass",
+      "evidence": [
+        "Composio card visible on Integrations page as 17th card with 'MCP Tools' category (screenshot: composio-card-visible.png)",
+        "Configure dialog shows Consumer Key, MCP Server URL, Composio Tools section (screenshot: composio-config-dialog.png)",
+        "Entered test consumer key — MCP fetch failed as expected, well-known tools fallback activated with 20 tools (screenshot: composio-tools-fallback.png)",
+        "Selected GMAIL_SEND_EMAIL, SLACK_SEND_MESSAGE, GITHUB_CREATE_ISSUE from company-level catalog",
+        "Saved config to DB: integrations row enabled with credential and 3 selected tools (GMAIL_SEND_EMAIL, SLACK_SEND_MESSAGE, GITHUB_CREATE_ISSUE)",
+        "Created OpenClaw Gateway agent 'Test OpenClaw Agent' — COMPOSIO TOOLS section appeared in create form since Composio was enabled",
+        "Selected agent-specific tools: GITHUB_CREATE_ISSUE, GITHUB_CREATE_PR",
+        "After reload, agent detail shows Composio Tools section with GITHUB_CREATE_ISSUE and GITHUB_CREATE_PR badges (screenshot: openclaw-detail-top.png)",
+        "adapter_config in DB confirms composioTools: ['GITHUB_CREATE_ISSUE', 'GITHUB_CREATE_PR']"
+      ],
+      "issues": []
+    },
+    "VAL-COMPOSIO-003": {
+      "status": "pass",
+      "evidence": [
+        "Agent detail page for OpenClaw agent shows 'Composio Tools' section with 'External tools available to this agent via Composio MCP. (Agent-specific selection)' (screenshot: openclaw-detail-top.png)",
+        "Agent-level composioTools override (GITHUB_CREATE_ISSUE, GITHUB_CREATE_PR) shown as badges in the Composio Tools section",
+        "useAgentComposioTools hook resolves effective tools from adapter_config.composioTools when agent has override, falling back to company-level selected_tools otherwise",
+        "Adapter Configuration JSON on detail page shows the full composioTools array proving persistence and availability"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Composio card is the last (17th) in the grid and requires scrolling to reach",
+    "Task tool subagent spawning fails with bun-eval errors — tested directly"
+  ],
+  "blockers": [],
+  "toolsUsed": ["agent-browser", "supabase-mcp"]
+}

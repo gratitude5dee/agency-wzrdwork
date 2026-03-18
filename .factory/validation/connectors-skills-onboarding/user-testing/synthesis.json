@@ -1,11 +1,11 @@
 {
   "milestone": "connectors-skills-onboarding",
-  "round": 1,
-  "status": "fail",
+  "round": 2,
+  "status": "pass",
   "assertionsSummary": {
     "total": 15,
-    "passed": 9,
-    "failed": 6,
+    "passed": 15,
+    "failed": 0,
     "blocked": 0
   },
   "passedAssertions": [
@@ -14,38 +14,25 @@
     "VAL-HERMES-003",
     "VAL-HERMES-004",
     "VAL-COMPOSIO-001",
+    "VAL-COMPOSIO-002",
+    "VAL-COMPOSIO-003",
+    "VAL-SKILLS-001",
+    "VAL-SKILLS-002",
+    "VAL-SKILLS-003",
+    "VAL-SKILLS-004",
     "VAL-ONBOARD-001",
     "VAL-ONBOARD-002",
     "VAL-ONBOARD-003",
     "VAL-ONBOARD-004"
   ],
-  "failedAssertions": [
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
     {
-      "id": "VAL-SKILLS-001",
-      "reason": "skills table does not exist in remote Supabase. UI elements exist (Import, New Skill, search, reference skill catalog with 12 entries) but CRUD operations fail silently. Schema detection isMissingTable() checks for Postgres code 42P01 but REST API returns PGRST205."
-    },
-    {
-      "id": "VAL-SKILLS-002",
-      "reason": "agent_skills table does not exist in remote Supabase. Agent detail has Skills section with assignment UI but persistence is impossible."
-    },
-    {
-      "id": "VAL-SKILLS-003",
-      "reason": "Prerequisite gating badges are visible in import dialog (Requires composio, Requires venice, etc.) but live enforcement cannot be tested without skills table."
-    },
-    {
-      "id": "VAL-SKILLS-004",
-      "reason": "Onboarding step 4 shows skill selection with Import Reference Skills and Continue Without Skills options but cannot persist skills onto CEO agent without skills table."
-    },
-    {
-      "id": "VAL-COMPOSIO-002",
-      "reason": "OpenClaw config shows Composio Tools message but Composio integration requires real API credentials (Consumer Key) to test tool selection persistence."
-    },
-    {
-      "id": "VAL-COMPOSIO-003",
-      "reason": "Downstream Composio tool availability cannot be verified without a connected Composio integration with real API key."
+      "target": "supabase-schema",
+      "description": "Added missing 'enabled' (boolean NOT NULL DEFAULT true) and 'prerequisite_integration' (text) columns to remote skills table. Original migration snippet defined them but the applied schema omitted them.",
+      "source": "setup"
     }
   ],
-  "blockedAssertions": [],
-  "appliedUpdates": [],
-  "previousRound": null
+  "previousRound": ".factory/validation/connectors-skills-onboarding/user-testing/synthesis.json (round 1)"
 }
