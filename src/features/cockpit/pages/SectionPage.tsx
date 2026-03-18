@@ -12,12 +12,13 @@ import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRa
 import { ActiveAgentsPanel } from "@/components/ActiveAgentsPanel";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { useAgentMetrics, useIssueMetrics, useRunMetrics, useApprovalMetrics } from "@/hooks/useDashboardMetrics";
+import { useDashboardRuns, useDashboardIssues, useDashboardAgents, useDashboardActivity } from "@/hooks/useDashboardData";
 import { useCompanySettings, useSupabaseHealth } from "@/hooks/useCompanySettings";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { FeatureTour } from "@/features/onboarding/steps/FeatureTour";
-import { Bot, Building2, CircleDot, Database, MapPin, Play, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
+import { Bot, Building2, CircleDot, Database, Loader2, MapPin, Play, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import type { ActivityRecord, AgencySnapshot, IssueRecord } from "../lib/domain";
+import type { AgencySnapshot } from "../lib/domain";
 
 type SectionName =
   | "dashboard"
@@ -70,25 +71,7 @@ export function SectionPage({ section }: { section: SectionName }) {
   const totalCost = snapshot.runs.reduce((sum, run) => sum + (run.totalCostUsd ?? 0), 0);
 
   if (section === "dashboard") {
-    const urgentIssues = openIssues.filter((i) => i.status === "blocked" || i.priority === "critical" || i.priority === "high");
-    const recentActivity = snapshot.activity.slice(0, 10);
-    const agentRows = snapshot.agents.map((a) => ({
-      id: a.id,
-      name: a.name,
-      role: a.role,
-      title: a.title,
-      status: a.status,
-      adapter_type: a.adapterType,
-    }));
-
-    return (
-      <DashboardSection
-        agentRows={agentRows}
-        urgentIssues={urgentIssues}
-        recentActivity={recentActivity}
-        snapshot={snapshot}
-      />
-    );
+    return <DashboardSection snapshot={snapshot} />;
   }
 
   if (section === "inbox") {
@@ -328,24 +311,39 @@ export function SectionPage({ section }: { section: SectionName }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Dashboard section — metric cards query Supabase directly          */
-/*  (VAL-CROSS-006) so counts match the Agents / Issues pages.       */
+/*  Dashboard section — all data queries Supabase directly, scoped    */
+/*  to the active company. Every panel has intentional empty states.   */
+/*  (VAL-DASH-001, VAL-DASH-002, VAL-DASH-003)                       */
 /* ------------------------------------------------------------------ */
 
-interface DashboardSectionProps {
-  agentRows: { id: string; name: string; role: string; title: string | null; status: string; adapter_type: string }[];
-  urgentIssues: IssueRecord[];
-  recentActivity: ActivityRecord[];
-  snapshot: AgencySnapshot;
-}
+function DashboardSection({ snapshot }: { snapshot: AgencySnapshot }) {
+  // Metric card aggregates
+  const { data: agentMetrics, isLoading: agentMetricsLoading } = useAgentMetrics();
+  const { data: issueMetrics, isLoading: issueMetricsLoading } = useIssueMetrics();
+  const { data: runMetrics, isLoading: runMetricsLoading } = useRunMetrics();
+  const { data: approvalCount, isLoading: approvalMetricsLoading } = useApprovalMetrics();
 
-function DashboardSection({ agentRows, urgentIssues, recentActivity, snapshot }: DashboardSectionProps) {
-  const { data: agentMetrics } = useAgentMetrics();
-  const { data: issueMetrics } = useIssueMetrics();
-  const { data: runMetrics } = useRunMetrics();
-  const { data: approvalCount } = useApprovalMetrics();
+  // Chart + panel row data — from dedicated Supabase hooks
+  const { data: liveRuns = [], isLoading: runsLoading } = useDashboardRuns();
+  const { data: liveIssues = [], isLoading: issuesLoading } = useDashboardIssues();
+  const { data: liveAgents = [], isLoading: agentsLoading } = useDashboardAgents();
+  const { data: liveActivity = [], isLoading: activityLoading } = useDashboardActivity();
 
   const isDemoMode = snapshot.source !== "supabase";
+
+  // Determine if we're in initial loading of core data
+  const metricsLoading = agentMetricsLoading || issueMetricsLoading || runMetricsLoading || approvalMetricsLoading;
+
+  // Urgent issues: blocked, critical, or high priority (open only)
+  const urgentIssues = liveIssues.filter(
+    (i) =>
+      i.status !== "done" &&
+      i.status !== "cancelled" &&
+      (i.status === "blocked" || i.priority === "critical" || i.priority === "high"),
+  );
+
+  // Build an agent name lookup from live agents for activity display
+  const agentNameMap = new Map(liveAgents.map((a) => [a.id, a.name]));
 
   return (
     <div className="space-y-6 p-6">
@@ -358,70 +356,111 @@ function DashboardSection({ agentRows, urgentIssues, recentActivity, snapshot }:
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
         <MetricCard
           icon={Bot}
-          value={agentMetrics?.total ?? 0}
+          value={metricsLoading ? "…" : (agentMetrics?.total ?? 0)}
           label="Agents"
           to="/org"
           description={
-            <span>
-              {agentMetrics?.running ?? 0} running
-              {", "}
-              {agentMetrics?.active ?? 0} active
-            </span>
+            metricsLoading ? (
+              <span className="text-muted-foreground/50">Loading…</span>
+            ) : agentMetrics && agentMetrics.total > 0 ? (
+              <span>
+                {agentMetrics.running} running{", "}
+                {agentMetrics.active} active
+              </span>
+            ) : (
+              <span>No agents yet</span>
+            )
           }
         />
         <MetricCard
           icon={CircleDot}
-          value={issueMetrics?.open ?? 0}
+          value={metricsLoading ? "…" : (issueMetrics?.open ?? 0)}
           label="Open Issues"
           to="/issues"
           description={
-            <span>
-              {issueMetrics?.inProgress ?? 0} in progress
-              {", "}
-              {issueMetrics?.blocked ?? 0} blocked
-            </span>
+            metricsLoading ? (
+              <span className="text-muted-foreground/50">Loading…</span>
+            ) : issueMetrics && issueMetrics.open > 0 ? (
+              <span>
+                {issueMetrics.inProgress} in progress{", "}
+                {issueMetrics.blocked} blocked
+              </span>
+            ) : (
+              <span>No open issues</span>
+            )
           }
         />
         <MetricCard
           icon={Play}
-          value={runMetrics?.live ?? 0}
+          value={metricsLoading ? "…" : (runMetrics?.live ?? 0)}
           label="Live Runs"
           to="/cockpit"
           description={
-            <span>
-              {runMetrics?.succeeded ?? 0} succeeded
-              {", "}
-              {runMetrics?.failed ?? 0} failed
-            </span>
+            metricsLoading ? (
+              <span className="text-muted-foreground/50">Loading…</span>
+            ) : runMetrics && (runMetrics.succeeded > 0 || runMetrics.failed > 0) ? (
+              <span>
+                {runMetrics.succeeded} succeeded{", "}
+                {runMetrics.failed} failed
+              </span>
+            ) : (
+              <span>No runs yet</span>
+            )
           }
         />
         <MetricCard
           icon={ShieldCheck}
-          value={approvalCount ?? 0}
+          value={metricsLoading ? "…" : (approvalCount ?? 0)}
           label="Pending Approvals"
           to="/approvals"
           description={
-            <span>Awaiting review</span>
+            metricsLoading ? (
+              <span className="text-muted-foreground/50">Loading…</span>
+            ) : approvalCount && approvalCount > 0 ? (
+              <span>Awaiting review</span>
+            ) : (
+              <span>No pending approvals</span>
+            )
           }
         />
       </div>
 
-      {/* Active Agents Panel */}
-      <ActiveAgentsPanel agents={agentRows} />
+      {/* Active Agents Panel — from dedicated Supabase hook */}
+      {agentsLoading ? (
+        <DashboardLoadingBlock label="Loading agents…" />
+      ) : (
+        <ActiveAgentsPanel agents={liveAgents} />
+      )}
 
-      {/* Activity Charts */}
+      {/* Activity Charts — each uses live Supabase rows */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <ChartCard title="Run Activity" subtitle="Last 14 days">
-          <RunActivityChart runs={snapshot.runs} />
+          {runsLoading ? (
+            <DashboardLoadingBlock label="Loading…" compact />
+          ) : (
+            <RunActivityChart runs={liveRuns} />
+          )}
         </ChartCard>
         <ChartCard title="Issues by Priority" subtitle="Last 14 days">
-          <PriorityChart issues={snapshot.issues} />
+          {issuesLoading ? (
+            <DashboardLoadingBlock label="Loading…" compact />
+          ) : (
+            <PriorityChart issues={liveIssues} />
+          )}
         </ChartCard>
         <ChartCard title="Issues by Status" subtitle="Last 14 days">
-          <IssueStatusChart issues={snapshot.issues} />
+          {issuesLoading ? (
+            <DashboardLoadingBlock label="Loading…" compact />
+          ) : (
+            <IssueStatusChart issues={liveIssues} />
+          )}
         </ChartCard>
         <ChartCard title="Success Rate" subtitle="Last 14 days">
-          <SuccessRateChart runs={snapshot.runs} />
+          {runsLoading ? (
+            <DashboardLoadingBlock label="Loading…" compact />
+          ) : (
+            <SuccessRateChart runs={liveRuns} />
+          )}
         </ChartCard>
       </div>
 
@@ -430,21 +469,43 @@ function DashboardSection({ agentRows, urgentIssues, recentActivity, snapshot }:
         <Card className="border-white/10 bg-[#0d1118]">
           <CardHeader>
             <CardTitle className="text-zinc-100">Urgent / Blocked Issues</CardTitle>
-            <CardDescription className="text-zinc-500">Critical, high-priority, or blocked work items.</CardDescription>
+            <CardDescription className="text-zinc-500">
+              Critical, high-priority, or blocked work items.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {urgentIssues.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No urgent issues.</p>
+            {issuesLoading ? (
+              <DashboardLoadingBlock label="Loading issues…" compact />
+            ) : urgentIssues.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No urgent issues — all clear.</p>
             ) : (
               urgentIssues.slice(0, 5).map((issue) => (
-                <Link key={issue.id} to={issueHref(issue.id)} className="block rounded-xl border border-white/10 bg-[#080c14] p-3 hover:border-blue-500/30">
+                <Link
+                  key={issue.id}
+                  to={issueHref(issue.id)}
+                  className="block rounded-xl border border-white/10 bg-[#080c14] p-3 hover:border-blue-500/30"
+                >
                   <div className="flex items-center justify-between gap-3">
-                    <p className="font-bold text-zinc-100">{issue.identifier ?? issue.title}</p>
-                    <Badge variant="outline" className="border-white/10 bg-black text-zinc-400">
-                      {issue.status}
-                    </Badge>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-xs text-muted-foreground shrink-0">
+                        {issue.identifier ?? issue.id.slice(0, 8)}
+                      </span>
+                      <span className="font-bold text-zinc-100 truncate">{issue.title}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="border-white/10 bg-black text-zinc-400 text-[10px]">
+                        {issue.priority}
+                      </Badge>
+                      <Badge variant="outline" className="border-white/10 bg-black text-zinc-400 text-[10px]">
+                        {issue.status.replace(/_/g, " ")}
+                      </Badge>
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm text-zinc-400">{issue.title}</p>
+                  {issue.assignee_agent_id && agentNameMap.has(issue.assignee_agent_id) && (
+                    <p className="mt-1.5 text-xs text-muted-foreground/70">
+                      Assigned to {agentNameMap.get(issue.assignee_agent_id)}
+                    </p>
+                  )}
                 </Link>
               ))
             )}
@@ -454,23 +515,48 @@ function DashboardSection({ agentRows, urgentIssues, recentActivity, snapshot }:
         <Card className="border-white/10 bg-[#0d1118]">
           <CardHeader>
             <CardTitle className="text-zinc-100">Recent Activity</CardTitle>
-            <CardDescription className="text-zinc-500">Latest events from the company timeline.</CardDescription>
+            <CardDescription className="text-zinc-500">
+              Latest events from the company timeline.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentActivity.length === 0 ? (
+            {activityLoading ? (
+              <DashboardLoadingBlock label="Loading activity…" compact />
+            ) : liveActivity.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent activity.</p>
             ) : (
-              recentActivity.map((entry) => (
+              liveActivity.slice(0, 10).map((entry) => (
                 <div key={entry.id} className="rounded-xl border border-white/10 bg-[#080c14] p-3">
-                  <p className="font-bold text-zinc-100">{entry.action.replace(/[._]/g, " ")}</p>
-                  <p className="mt-1 text-sm text-zinc-400">{entry.details}</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.22em] text-zinc-600">{relativeTime(entry.createdAt)}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-zinc-100">{entry.action.replace(/[._]/g, " ")}</p>
+                    {entry.agent_id && agentNameMap.has(entry.agent_id) && (
+                      <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                        {agentNameMap.get(entry.agent_id)}
+                      </span>
+                    )}
+                  </div>
+                  {entry.details && (
+                    <p className="mt-1 text-sm text-zinc-400">{entry.details}</p>
+                  )}
+                  <p className="mt-2 text-xs uppercase tracking-[0.22em] text-zinc-600">
+                    {relativeTime(entry.created_at)}
+                  </p>
                 </div>
               ))
             )}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** Reusable loading indicator for dashboard sections */
+function DashboardLoadingBlock({ label, compact }: { label: string; compact?: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 ${compact ? "py-2" : "rounded-xl border border-border p-4 bg-[#0d1118]"}`}>
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">{label}</span>
     </div>
   );
 }
