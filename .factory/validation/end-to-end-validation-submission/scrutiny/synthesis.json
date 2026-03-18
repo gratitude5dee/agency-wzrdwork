@@ -1,0 +1,76 @@
+{
+  "milestone": "end-to-end-validation-submission",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "NODE_OPTIONS=--max-old-space-size=8192 npm test -- --maxWorkers=1",
+      "exitCode": 0,
+      "details": "52 test files, 918 tests passed. No failures."
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc -p tsconfig.app.json --noEmit",
+      "exitCode": 0,
+      "details": "Clean typecheck, zero errors."
+    },
+    "lint": {
+      "passed": true,
+      "command": "npm run lint",
+      "exitCode": 0,
+      "details": "0 errors, 13 pre-existing warnings (react-refresh/fast-refresh and one exhaustive-deps in useWalletAddressSync.ts)."
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "failedFeatures": [],
+    "reviewMethod": "direct-review (subagent fallback due to bun-eval parsing error per AGENTS.md guidance)"
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "m6-submission-proof-pack-and-readme",
+      "severity": "non_blocking",
+      "description": "React act() warning in SubmissionProofPage test for async state update. Test environment issue only; does not affect production behavior."
+    },
+    {
+      "featureId": "m6-submission-proof-pack-and-readme",
+      "severity": "non_blocking",
+      "description": "Playwright e2e tests cannot run because lovable-agent-playwright-config dependency is not resolvable. Pre-existing issue tracked in AGENTS.md."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [],
+  "rejectedObservations": [
+    {
+      "observation": "headed-cockpit-proof.md library doc already applied by the worker during feature work",
+      "reason": "already-documented"
+    }
+  ],
+  "previousRound": null,
+  "featureReviews": [
+    {
+      "featureId": "m6-first-run-and-agent-consistency-flows",
+      "verdict": "pass",
+      "summary": "Correctly scopes AgentsPage to active company and prevents CEO duplication in onboarding. 7 new tests."
+    },
+    {
+      "featureId": "m6-issue-runtime-finance-and-integration-crossflows",
+      "verdict": "pass",
+      "summary": "Well-structured crossflows module with 3 trace utilities proving shared-ID coherence for VAL-CROSS-003/004/005. 29 new tests."
+    },
+    {
+      "featureId": "m6-headed-cockpit-scene-proof-and-regression",
+      "verdict": "pass",
+      "summary": "CockpitSceneProofPanel exposes DOM-queryable validation affordances for headed browser proof of VAL-THREE-002/003. 16 new tests."
+    },
+    {
+      "featureId": "m6-submission-proof-pack-and-readme",
+      "verdict": "pass",
+      "summary": "Self-contained /submission-proof route with proof-pack assembly, individual/full-pack downloads, and README integration for VAL-CROSS-006. 16 new tests."
+    }
+  ]
+}

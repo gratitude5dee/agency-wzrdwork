@@ -1,0 +1,27 @@
+{
+  "featureId": "m6-first-run-and-agent-consistency-flows",
+  "milestone": "end-to-end-validation-submission",
+  "reviewer": "scrutiny-validator-direct-review",
+  "reviewedAt": "2026-03-18T20:42:00.000Z",
+  "fallbackReason": "Task subagent bun-eval parsing error; direct review per AGENTS.md guidance",
+
+  "summary": "Feature correctly scopes AgentsPage to the active company via useActiveCompany() and prevents CEO agent duplication in onboarding by checking for an existing CEO before insert. Added 7 well-structured tests covering company scoping, duplicate prevention, returning-user skip, and wallet display. Updated loading-error-empty-states tests to match new .eq() chain. All code follows existing patterns and conventions.",
+
+  "codeQuality": {
+    "rating": "good",
+    "observations": [
+      "Agent query scoping uses the established useActiveCompany() hook pattern consistently",
+      "CEO duplicate prevention uses maybeSingle() check-then-update instead of upsert, which is the safer pattern for this use case",
+      "Test mocking follows the project's established chain mock pattern",
+      "Loading state correctly waits for company resolution before showing agents"
+    ]
+  },
+
+  "issues": [],
+
+  "blockingIssues": [],
+
+  "sharedStateObservations": [],
+
+  "verdict": "pass"
+}
