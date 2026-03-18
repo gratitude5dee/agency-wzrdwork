@@ -1,0 +1,43 @@
+{
+  "featureId": "m3-composio-openclaw-product-surface",
+  "milestone": "connectors-skills-onboarding",
+  "reviewer": "direct-review (subagent spawn failed due to bun-eval parsing error)",
+  "status": "pass",
+  "summary": "Composio integration surface is fully implemented with tool discovery from MCP endpoint, well-known tool fallback, company-scoped configuration persistence, and downstream availability in OpenClaw config fields and AgentDetail. Tests cover config CRUD, tool selection, and integration page rendering.",
+  "filesReviewed": [
+    "src/components/ComposioToolDiscovery.tsx",
+    "src/hooks/useComposioConfig.ts",
+    "src/hooks/useAgentComposioTools.ts",
+    "src/adapters/openclaw-gateway/build-config.ts",
+    "src/adapters/openclaw-gateway/config-fields.tsx",
+    "src/pages/AgentDetail.tsx",
+    "src/pages/Integrations.tsx",
+    "src/test/composio-integration.test.tsx",
+    "src/test/integrations-page.test.tsx"
+  ],
+  "codeQuality": {
+    "strengths": [
+      "MCP-based tool discovery with graceful fallback to well-known tools catalog",
+      "Company-scoped configuration using useActiveCompany hook",
+      "useComposioConfig hook handles full CRUD lifecycle with proper cache invalidation",
+      "ComposioToolDiscovery component reused in both Integrations page and OpenClaw config",
+      "Consumer key validation shown clearly when not provided"
+    ],
+    "concerns": [
+      {
+        "severity": "non_blocking",
+        "description": "Integrations.tsx has a lint warning about rowMap construction affecting useCallback dependencies (react-hooks/exhaustive-deps). This is a performance concern but not a correctness issue.",
+        "location": "src/pages/Integrations.tsx:194"
+      }
+    ]
+  },
+  "issues": [
+    {
+      "severity": "non_blocking",
+      "description": "Lint warning: rowMap object construction makes useCallback dependencies change on every render in Integrations.tsx. Should be wrapped in useMemo().",
+      "location": "src/pages/Integrations.tsx:194"
+    }
+  ],
+  "blockingIssues": [],
+  "sharedStateObservations": []
+}

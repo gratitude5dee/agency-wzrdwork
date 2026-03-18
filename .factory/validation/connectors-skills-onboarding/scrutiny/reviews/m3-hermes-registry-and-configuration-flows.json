@@ -1,0 +1,26 @@
+{
+  "featureId": "m3-hermes-registry-and-configuration-flows",
+  "milestone": "connectors-skills-onboarding",
+  "reviewer": "direct-review (subagent spawn failed due to bun-eval parsing error)",
+  "status": "pass",
+  "summary": "Hermes adapter is properly registered in the adapter registry, selectable in onboarding harness selector, and produces valid default config with non-empty runtime fields. Tests cover registry resolution, config serialization, and onboarding defaults.",
+  "filesReviewed": [
+    "src/adapters/defaults.ts",
+    "src/features/onboarding/steps/AgentHarnessSelector.tsx",
+    "src/test/hermes-registry-and-config.test.ts",
+    "src/test/onboarding.test.tsx"
+  ],
+  "codeQuality": {
+    "strengths": [
+      "Clean separation of adapter defaults into reusable buildDefaultConfigValues helper",
+      "AgentHarnessSelector uses adapter registry to build valid config at selection time, not after",
+      "Tests explicitly verify hermes doesn't fall back to process adapter (VAL-HERMES-004)",
+      "Config serialization round-trip test ensures persistence integrity",
+      "Keyboard accessibility on adapter cards (Enter/Space)"
+    ],
+    "concerns": []
+  },
+  "issues": [],
+  "blockingIssues": [],
+  "sharedStateObservations": []
+}

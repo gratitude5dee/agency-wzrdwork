@@ -1,0 +1,40 @@
+{
+  "featureId": "m3-skills-registry-and-agent-assignment",
+  "milestone": "connectors-skills-onboarding",
+  "reviewer": "direct-review (subagent spawn failed due to bun-eval parsing error)",
+  "status": "pass",
+  "summary": "Skills registry page, agent-skill assignment, prerequisite gating, onboarding skill selection, and schema-readiness detection are all implemented. The useSkillsSchemaReady hook probes the skills table and surfaces a clear SkillsSchemaSetup banner when tables are missing instead of raw Supabase errors. Tests cover skill CRUD, assignment, prerequisites, import, and schema-missing states.",
+  "filesReviewed": [
+    "src/hooks/useSkills.ts",
+    "src/pages/Skills.tsx",
+    "src/components/AgentSkillAssignment.tsx",
+    "src/components/SkillsSchemaSetup.tsx",
+    "src/features/onboarding/steps/SkillSelection.tsx",
+    "src/features/onboarding/OnboardingFlow.tsx",
+    "src/features/cockpit/components/AppShell.tsx",
+    "src/App.tsx",
+    "src/db/migration-snippets.sql",
+    "src/test/skills-registry.test.tsx",
+    "src/test/onboarding.test.tsx"
+  ],
+  "codeQuality": {
+    "strengths": [
+      "Schema readiness check via useSkillsSchemaReady prevents raw 42P01 errors from reaching UI",
+      "SkillsSchemaSetup component provides clear actionable instructions with SQL snippet path",
+      "Skills hooks use fromTable() workaround for untyped tables while maintaining type safety",
+      "Prerequisite gating checks integration statuses before allowing skill assignment",
+      "Reference skills import with duplicate detection",
+      "Comprehensive test suite (474+ lines for skills-registry.test.tsx alone)"
+    ],
+    "concerns": [
+      {
+        "severity": "non_blocking",
+        "description": "The fromTable() pattern bypasses TypeScript's Supabase types for ungenerated tables. This is a known workaround documented in the hook file, acceptable until types are regenerated.",
+        "location": "src/hooks/useSkills.ts:32"
+      }
+    ]
+  },
+  "issues": [],
+  "blockingIssues": [],
+  "sharedStateObservations": []
+}

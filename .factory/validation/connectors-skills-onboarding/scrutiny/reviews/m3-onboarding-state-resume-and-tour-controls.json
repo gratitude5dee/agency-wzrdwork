@@ -1,0 +1,35 @@
+{
+  "featureId": "m3-onboarding-state-resume-and-tour-controls",
+  "milestone": "connectors-skills-onboarding",
+  "reviewer": "direct-review (subagent spawn failed due to bun-eval parsing error)",
+  "status": "pass",
+  "summary": "Onboarding is now resumable across refresh: useOnboardingState persists current_step and ceo_agent_id in metadata, CompanySetup checks for existing wallet company to prevent duplicates, OnboardingFlow recovers companyId and agentId from persisted state. Tour replay from Settings works without clearing completion state, and reset reruns cleanly. Tests cover resume at each step, duplicate prevention, and tour replay/skip behavior.",
+  "filesReviewed": [
+    "src/hooks/useOnboardingState.ts",
+    "src/features/onboarding/OnboardingFlow.tsx",
+    "src/features/onboarding/steps/CompanySetup.tsx",
+    "src/features/cockpit/pages/SectionPage.tsx",
+    "src/test/onboarding.test.tsx",
+    "src/test/settings-page.test.tsx"
+  ],
+  "codeQuality": {
+    "strengths": [
+      "useOnboardingState provides clean API with setStep, setCeoAgentId, markCompleted, resetOnboarding",
+      "CompanySetup checks for existing wallet-scoped company before insert, preventing duplicates",
+      "CEO agent ID persisted in metadata.ceo_agent_id for cross-refresh recovery",
+      "Tour replay via SectionPage doesn't reset onboarding completion state",
+      "FeatureTour test updated to match actual first stop name (Sandbox)",
+      "Comprehensive test coverage including resume at step 1, 2, and 4"
+    ],
+    "concerns": [
+      {
+        "severity": "non_blocking",
+        "description": "useOnboardingState upsert pattern does select+update or insert — could be simplified with Supabase upsert on conflict, but current approach is correct and safe.",
+        "location": "src/hooks/useOnboardingState.ts:66-100"
+      }
+    ]
+  },
+  "issues": [],
+  "blockingIssues": [],
+  "sharedStateObservations": []
+}
