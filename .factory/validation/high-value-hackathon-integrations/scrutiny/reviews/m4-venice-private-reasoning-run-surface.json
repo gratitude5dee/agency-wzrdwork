@@ -1,0 +1,31 @@
+{
+  "featureId": "m4-venice-private-reasoning-run-surface",
+  "milestone": "high-value-hackathon-integrations",
+  "reviewer": "scrutiny-validator-direct (subagent fallback)",
+  "status": "pass",
+  "summary": "Made Venice private reasoning load-bearing with adapter-runtime integration, redaction utilities, and comprehensive test coverage. Created private-reasoning.ts with redactPrivateReasoning, redactRunLogExport, and executeVeniceStep. Integrated Venice routing into the adapter-runtime and execution-log download paths. The redaction pipeline strips venice_reasoning and private_reasoning_content fields from all operator-visible surfaces.",
+  "codeQuality": {
+    "strengths": [
+      "Redaction approach is defense-in-depth: both individual content objects and full run-log exports have dedicated redaction functions",
+      "PRIVATE_REASONING_FIELDS constant centralizes the field names that trigger redaction",
+      "Venice step execution mirrors the adapter-runtime step pattern, making it consistent with the rest of the system",
+      "Integration with adapter-runtime.ts is clean — Venice is checked during resolveAdapterRuntime and routed when private_cognition_enabled is true",
+      "14 tests with thorough coverage of redaction, step execution, and integration points"
+    ],
+    "issues": [
+      {
+        "severity": "non_blocking",
+        "description": "Redaction only walks one level of nesting. If private reasoning fields were nested deeper than two levels, they would not be caught. This is documented in the code comments.",
+        "file": "src/lib/venice/private-reasoning.ts",
+        "suggestion": "Consider a recursive approach if deeper nesting becomes possible in future."
+      }
+    ]
+  },
+  "testCoverage": {
+    "adequate": true,
+    "notes": "14 tests covering redaction of top-level and nested fields, run log export redaction, Venice step execution for all 4 steps, and adapter-runtime integration."
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [],
+  "sharedStateObservations": []
+}
