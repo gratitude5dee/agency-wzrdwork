@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { useCompanySettings, useSupabaseHealth, useUpdateCompanySettings } from 
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { FeatureTour } from "@/features/onboarding/steps/FeatureTour";
 import { AlertTriangle, Bot, Building2, CircleDot, Database, Loader2, MapPin, Palette, Play, RotateCcw, Settings2, ShieldCheck, Unplug, Wallet } from "lucide-react";
+import { useDisconnect, useActiveWallet } from "thirdweb/react";
 import { toast } from "sonner";
 import type { AgencySnapshot } from "../lib/domain";
 
@@ -595,6 +596,9 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
   const { data: supabaseHealthy } = useSupabaseHealth();
   const updateCompany = useUpdateCompanySettings();
   const onboarding = useOnboardingState(company?.wallet_address ?? null);
+  const wallet = useActiveWallet();
+  const { disconnect } = useDisconnect();
+  const navigate = useNavigate();
   const [showTour, setShowTour] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -919,33 +923,26 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
               Danger Zone
             </CardTitle>
             <CardDescription className="text-zinc-500">
-              Destructive actions that affect your company and wallet association.
+              Destructive actions that affect your session and wallet connection.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
               <p className="text-sm font-bold text-red-300">Disconnect Wallet</p>
               <p className="mt-1 text-xs text-zinc-400">
-                Removes the wallet address from this company. You will need to
-                reconnect a wallet to manage this organization.
+                {wallet
+                  ? "Disconnects your wallet and signs you out of this session. Your company data will remain intact and you can reconnect at any time."
+                  : "No wallet is currently connected. Connect a wallet to enable this action."}
               </p>
               {showDisconnectConfirm ? (
                 <div className="mt-3 flex items-center gap-2">
                   <Button
                     onClick={() => {
-                      updateCompany.mutate(
-                        { name: company?.name ?? "" },
-                        {
-                          onSuccess: () => {
-                            toast.success("This action requires wallet management.");
-                            setShowDisconnectConfirm(false);
-                          },
-                          onError: () => {
-                            toast.error("Action could not be completed.");
-                            setShowDisconnectConfirm(false);
-                          },
-                        },
-                      );
+                      if (wallet) {
+                        disconnect(wallet);
+                        toast.success("Wallet disconnected. You have been signed out.");
+                        navigate("/");
+                      }
                       setShowDisconnectConfirm(false);
                     }}
                     size="sm"
@@ -967,6 +964,7 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
               ) : (
                 <Button
                   onClick={() => setShowDisconnectConfirm(true)}
+                  disabled={!wallet}
                   size="sm"
                   variant="outline"
                   className="mt-3 border-red-500/20 text-red-300 hover:bg-red-500/10 hover:text-red-200"

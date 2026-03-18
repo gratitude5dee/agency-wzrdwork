@@ -22,6 +22,15 @@ vi.mock("@/hooks/useActiveCompany", () => ({
   }),
 }));
 
+// ---- thirdweb mock (for wallet disconnect) ----
+const mockDisconnect = vi.fn();
+const mockActiveWallet = { id: "mock-wallet" };
+vi.mock("thirdweb/react", () => ({
+  useActiveAccount: () => ({ address: "0xABC123" }),
+  useDisconnect: () => ({ disconnect: mockDisconnect }),
+  useActiveWallet: () => mockActiveWallet,
+}));
+
 // ---- Helpers ----
 
 function createTestQueryClient() {
@@ -418,5 +427,55 @@ describe("SettingsPage", () => {
       expect(screen.getByText("AI-powered agency platform")).toBeInTheDocument();
     });
     expect(screen.getByText("Brief")).toBeInTheDocument();
+  });
+
+  it("disconnect wallet button triggers real thirdweb disconnect and navigates away", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    setupSupabaseMock();
+    mockDisconnect.mockClear();
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    // Find the first "Disconnect Wallet" button (the reveal button)
+    await waitFor(() => {
+      expect(screen.getByText("Danger Zone")).toBeInTheDocument();
+    });
+
+    // Click the initial Disconnect Wallet button to reveal confirmation
+    const disconnectButtons = screen.getAllByText("Disconnect Wallet");
+    fireEvent.click(disconnectButtons[disconnectButtons.length - 1]); // click the button, not the heading
+
+    // Confirm disconnect
+    await waitFor(() => {
+      expect(screen.getByText("Confirm Disconnect")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Confirm Disconnect"));
+
+    // Should have called the real thirdweb disconnect
+    await waitFor(() => {
+      expect(mockDisconnect).toHaveBeenCalledWith(mockActiveWallet);
+    });
+  });
+
+  it("danger zone copy truthfully describes wallet disconnect as signing out", async () => {
+    const { SectionPage } = await import(
+      "@/features/cockpit/pages/SectionPage"
+    );
+
+    setupSupabaseMock();
+
+    renderWithProviders(<SectionPage section="settings" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Danger Zone")).toBeInTheDocument();
+    });
+
+    // The copy should truthfully describe what disconnect does —
+    // it should NOT say "Removes the wallet address from this company"
+    // (which was the old misleading copy that did a no-op)
+    expect(screen.queryByText(/Removes the wallet address from this company/)).not.toBeInTheDocument();
   });
 });
