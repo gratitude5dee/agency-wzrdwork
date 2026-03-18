@@ -1,0 +1,125 @@
+{
+  "milestone": "high-value-hackathon-integrations",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-PROTOCOL-001",
+    "VAL-PROTOCOL-002",
+    "VAL-VENICE-001",
+    "VAL-UNISWAP-001",
+    "VAL-DELEGATION-001",
+    "VAL-DELEGATION-002",
+    "VAL-BANKR-001",
+    "VAL-CELO-001",
+    "VAL-LIDO-001",
+    "VAL-OPENSERV-001",
+    "VAL-AGENTCASH-001"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "evidence": {
+    "VAL-PROTOCOL-001": {
+      "status": "pass",
+      "evidence": [
+        "Browser: 'Download agent.json' button exists on agent detail page for Identity Test Agent (52b2f9e3)",
+        "API: agent_identities query returns manifest with real identity data (erc8004_identity, operator_wallet, supported_tools, task_categories, compute_constraints)",
+        "Unit test: protocol-labs-download.test.ts passes - getAgentManifestJson returns correct manifest shape",
+        "Values match created agent and company wallet, not a static template"
+      ]
+    },
+    "VAL-PROTOCOL-002": {
+      "status": "pass",
+      "evidence": [
+        "Browser: 'Log' button with title='Download agent_log.json for this run' exists on agent detail page for Founding Engineer (00000000-0000-4000-8000-000000000102) run",
+        "Unit test: protocol-labs-download.test.ts passes - getRunLogJson returns run-scoped log export with Protocol Labs envelope",
+        "Download functionality works end-to-end via triggerJsonDownload helper"
+      ]
+    },
+    "VAL-VENICE-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (11 pass): private cognition toggle routing, Venice step execution (discover/plan/execute/verify), redaction of venice_reasoning fields",
+        "resolveAdapterRuntime includes Venice context when private_cognition_enabled=true",
+        "redactRunLogExport replaces venice_reasoning with '[Private Reasoning Redacted]' placeholder",
+        "runAutonomousLoop routes through Venice when agent has private_cognition_enabled",
+        "Browser: Private Cognition toggle visible on agent detail page"
+      ]
+    },
+    "VAL-UNISWAP-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (20 pass): config persistence (load/save), quote flow with evidence recording, swap flow with transaction evidence, approval-needed detection, chainId override support",
+        "Evidence recording uses shared identifiers (company_id, agent_id, run_id) in agent_execution_logs",
+        "Browser: Uniswap card visible on Integrations page with Configure button"
+      ]
+    },
+    "VAL-DELEGATION-001": {
+      "status": "pass",
+      "evidence": [
+        "Browser: Created CEO-to-DEPARTMENT-to-TASK_AGENT delegation chain via /delegations page",
+        "Browser: Inspected chain showing spend limits (10000 USDC/daily for CEO, 2000 USDC/daily for Dept), time windows, task permissions (swap, transfer, stake, bridge), active status",
+        "Browser: Revoked chain, status changed to 'revoked' badge, Revoke button disabled",
+        "Unit tests (16 pass): delegation-surface.test.tsx covers create, inspect, revoke, persist",
+        "Supabase persistence: chains saved to integrations table with integration_key='metamask_delegations'"
+      ]
+    },
+    "VAL-DELEGATION-002": {
+      "status": "pass",
+      "evidence": [
+        "Browser screenshot: 'Action Rejected: Action type \"nuke\" is not in the allowed task permissions: [swap, transfer]'",
+        "Unit tests: rejection for overscoped action type, over-budget amount, expired delegation, revoked delegation - all with human-readable reasons",
+        "delegations.test.ts: validatePermission denies action type not in taskPermissions, amount exceeding spend limit, before/after time window, revoked delegation"
+      ]
+    },
+    "VAL-BANKR-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (16 pass): config persistence, inference execution via BankrGateway proxy, spend trace with model/token usage/cost recording",
+        "Evidence includes estimatedCostCusd, model, usage.total_tokens in agent_execution_logs",
+        "Browser: Bankr card visible on Integrations page with Configure button"
+      ]
+    },
+    "VAL-CELO-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (14 pass): config persistence with network/stablecoin/treasury, payment flow with cUSD/cEUR, chain config details in evidence",
+        "Evidence includes chainId (42220), network, stablecoin, tokenAddress, amountSmallestUnit, senderAddress, recipientAddress",
+        "Browser: Celo card visible on Integrations page with Configure button"
+      ]
+    },
+    "VAL-LIDO-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (13 pass): config persistence, position snapshot with stETH/wstETH balances, APR, daily reward estimates",
+        "Evidence includes dry-run position data: stethBalance, wstethBalance, currentApr, estimatedDailyRewardEth, totalPositionEth",
+        "Chain config details (stETH/wstETH addresses, withdrawal queue) included in evidence",
+        "Browser: Lido card visible on Integrations page with Configure button"
+      ]
+    },
+    "VAL-OPENSERV-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (11 pass): config persistence, workflow registration with agent identity resolution, x402 pricing",
+        "Registration record includes registrationId, serviceName, workflowType, agentIdentity (agentId, operatorWallet, erc8004Identity, name)",
+        "Evidence tied to agent identity via agent_identities table lookup",
+        "Browser: OpenServ card visible on Integrations page with Configure button"
+      ]
+    },
+    "VAL-AGENTCASH-001": {
+      "status": "pass",
+      "evidence": [
+        "Unit tests (14 pass): config persistence with wallet/chain, payment flow with wallet balance snapshot, x402 linkage",
+        "Evidence includes walletAddress, chain, balanceBefore/After, x402TransactionCount, invoiceId linkage",
+        "Browser: AgentCash card visible on Integrations page with Configure button"
+      ]
+    }
+  }
+}
