@@ -2,13 +2,14 @@
  * MetaMask Delegation Surface — Product Page
  *
  * Allows users to create, inspect, and revoke scoped CEO-to-department-to-task
- * delegation chains. Exposes guardrail messaging for invalid, expired, or
- * overscoped delegation actions with readable rejection reasons.
+ * delegation chains. Chains are persisted to Supabase (company-scoped) so they
+ * survive page reload and can be queried during validation.
  *
- * Uses the in-memory delegation framework from `@/lib/delegations`.
+ * Exposes guardrail messaging for invalid, expired, or overscoped delegation
+ * actions with readable rejection reasons.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Wallet,
   Plus,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   Zap,
   Link2,
+  Loader2,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,16 +38,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+import { useActiveCompany } from "@/hooks/useActiveCompany";
 import {
   buildDelegationChain,
   revokeDelegation,
   getDelegationStatus,
   validatePermission,
-  clearDelegations,
+  loadDelegationChains,
+  saveDelegationChains,
+  rehydrateDelegationStore,
 } from "@/lib/delegations";
 import type {
   DelegationChain,
-  DelegationChainNode,
   Permission,
   DelegationAction,
   PermissionValidationResult,
@@ -113,7 +117,7 @@ function ChainCard({
   // Get the effective status of the chain from the leaf delegation
   const leafDelegation = chain.nodes[chain.nodes.length - 1]?.delegation;
   const leafStatus = leafDelegation
-    ? getDelegationStatus(leafDelegation.id) ?? "unknown"
+    ? getDelegationStatus(leafDelegation.id) ?? leafDelegation.status ?? "unknown"
     : "root";
 
   const isRevocable = leafStatus === "active";
@@ -246,9 +250,11 @@ function InspectionPanel({
                     <p className="text-[10px] font-bold uppercase text-zinc-500">Status</p>
                     <Badge
                       variant="outline"
-                      className={statusColor(getDelegationStatus(node.delegation.id) ?? "unknown")}
+                      className={statusColor(
+                        getDelegationStatus(node.delegation.id) ?? node.delegation.status ?? "unknown",
+                      )}
                     >
-                      {getDelegationStatus(node.delegation.id) ?? "unknown"}
+                      {getDelegationStatus(node.delegation.id) ?? node.delegation.status ?? "unknown"}
                     </Badge>
                   </div>
                 </div>
@@ -395,16 +401,64 @@ function InspectionPanel({
 // ---------------------------------------------------------------------------
 
 export function DelegationsPage() {
+  const { companyId } = useActiveCompany();
   const [chains, setChains] = useState<DelegationChain[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [inspectedChain, setInspectedChain] = useState<DelegationChain | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Create form state
   const [ceoWallet, setCeoWallet] = useState("");
   const [deptAgent, setDeptAgent] = useState("");
   const [taskAgent, setTaskAgent] = useState("");
 
-  const handleCreate = useCallback(() => {
+  // Load persisted chains on mount / company change
+  useEffect(() => {
+    if (!companyId) {
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function load() {
+      setIsLoading(true);
+      try {
+        const loaded = await loadDelegationChains(companyId!);
+        if (!cancelled) {
+          // Re-hydrate into in-memory store so getDelegationStatus / validatePermission work
+          rehydrateDelegationStore(loaded);
+          setChains(loaded);
+        }
+      } catch {
+        // Silently handle — surface will show empty state
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  // Persist helper — saves current chains to Supabase
+  const persistChains = useCallback(
+    async (updatedChains: DelegationChain[]) => {
+      if (!companyId) return;
+      setIsSaving(true);
+      try {
+        await saveDelegationChains(companyId, updatedChains);
+      } catch {
+        // Persistence failure is non-blocking for the UI — chains still live in memory
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [companyId],
+  );
+
+  const handleCreate = useCallback(async () => {
     if (!ceoWallet || !deptAgent || !taskAgent) return;
 
     const chain = buildDelegationChain(
@@ -415,23 +469,47 @@ export function DelegationsPage() {
       DEFAULT_DEPT_PERMISSIONS,
     );
 
-    setChains((prev) => [...prev, chain]);
+    const updatedChains = [...chains, chain];
+    setChains(updatedChains);
     setCreateOpen(false);
     setCeoWallet("");
     setDeptAgent("");
     setTaskAgent("");
-  }, [ceoWallet, deptAgent, taskAgent]);
 
-  const handleRevoke = useCallback((chain: DelegationChain) => {
-    // Revoke all delegations in the chain
-    for (const node of chain.nodes) {
-      if (node.delegation) {
-        revokeDelegation(node.delegation.id);
+    // Persist to Supabase
+    await persistChains(updatedChains);
+  }, [ceoWallet, deptAgent, taskAgent, chains, persistChains]);
+
+  const handleRevoke = useCallback(
+    async (chain: DelegationChain) => {
+      // Revoke all delegations in the chain (in-memory store)
+      for (const node of chain.nodes) {
+        if (node.delegation) {
+          revokeDelegation(node.delegation.id);
+        }
       }
-    }
-    // Force re-render by creating a new array
-    setChains((prev) => [...prev]);
-  }, []);
+
+      // Update the chain objects to reflect revoked status for persistence
+      const updatedChains = chains.map((c) => {
+        if (c.id !== chain.id) return c;
+        return {
+          ...c,
+          nodes: c.nodes.map((node) => ({
+            ...node,
+            delegation: node.delegation
+              ? { ...node.delegation, status: "revoked" as const, updatedAt: new Date().toISOString() }
+              : null,
+          })),
+        };
+      });
+
+      setChains(updatedChains);
+
+      // Persist to Supabase
+      await persistChains(updatedChains);
+    },
+    [chains, persistChains],
+  );
 
   const handleInspect = useCallback((chain: DelegationChain) => {
     setInspectedChain(chain);
@@ -450,14 +528,27 @@ export function DelegationsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Create Chain
-        </Button>
+        <div className="flex items-center gap-2">
+          {isSaving && (
+            <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Saving…
+            </span>
+          )}
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Create Chain
+          </Button>
+        </div>
       </div>
 
-      {/* Chain list or inspection view */}
-      {inspectedChain ? (
+      {/* Loading state */}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Loader2 className="h-8 w-8 text-zinc-600 animate-spin mb-4" />
+          <p className="text-zinc-500 text-sm">Loading delegation chains…</p>
+        </div>
+      ) : inspectedChain ? (
         <InspectionPanel
           chain={inspectedChain}
           onClose={() => setInspectedChain(null)}

@@ -3,6 +3,9 @@
  *
  * Tests the DelegationsPage component: rendering, creating delegation chains,
  * inspecting them, revoking them, and exercising invalid/expired action rejection paths.
+ *
+ * The page now loads persisted chains from Supabase on mount and saves back after
+ * create/revoke. Tests mock the Supabase layer to return empty chains initially.
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -54,21 +57,40 @@ function renderWithProviders(ui: React.ReactElement) {
   );
 }
 
-function setupSupabaseMock(overrides?: Record<string, unknown>) {
+/**
+ * Sets up the Supabase mock to handle both load (maybeSingle with config) and
+ * save (select for existing row, then insert/update) operations.
+ */
+function setupSupabaseMock(overrides?: {
+  loadResult?: { data: unknown; error: unknown };
+}) {
   const chain = {
     select: vi.fn().mockReturnThis(),
-    insert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnValue({ error: null, data: null }),
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({ error: null, data: null }),
+    }),
     upsert: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    maybeSingle: vi.fn().mockResolvedValue(
+      overrides?.loadResult ?? { data: null, error: null },
+    ),
     order: vi.fn().mockResolvedValue({ data: [], error: null }),
     limit: vi.fn().mockReturnThis(),
-    ...overrides,
   };
   mockFrom.mockReturnValue(chain);
   return chain;
+}
+
+/** Helper to wait for the loading state to resolve. */
+async function waitForLoaded() {
+  await waitFor(() => {
+    // Either "No delegation chains" or chain cards should appear
+    const loaded = screen.queryByText(/no delegation chains/i) ||
+      screen.queryByText(/delegations/i);
+    expect(loaded).toBeTruthy();
+  });
 }
 
 /** Helper to create a chain in the UI. */
@@ -109,6 +131,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     expect(screen.getByText("Delegations")).toBeInTheDocument();
     expect(
@@ -121,6 +144,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     expect(
       screen.getByRole("button", { name: /create chain/i }),
@@ -132,8 +156,24 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     expect(screen.getByText(/no delegation chains/i)).toBeInTheDocument();
+  });
+
+  it("shows loading state initially", async () => {
+    const { DelegationsPage } = await import("@/pages/Delegations");
+    // Return a promise that never resolves to keep loading state
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockReturnValue(new Promise(() => {})), // never resolves
+    };
+    mockFrom.mockReturnValue(chain);
+
+    renderWithProviders(<DelegationsPage />);
+
+    expect(screen.getByText(/loading delegation chains/i)).toBeInTheDocument();
   });
 
   it("opens create dialog when 'Create Chain' is clicked", async () => {
@@ -141,6 +181,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     fireEvent.click(screen.getByRole("button", { name: /create chain/i }));
 
@@ -157,6 +198,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -171,6 +213,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -190,6 +233,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -207,6 +251,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -235,6 +280,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -264,6 +310,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -293,6 +340,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -323,6 +371,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     // Create first chain
     fireEvent.click(screen.getByRole("button", { name: /create chain/i }));
@@ -376,6 +425,7 @@ describe("DelegationsPage", () => {
     setupSupabaseMock();
 
     renderWithProviders(<DelegationsPage />);
+    await waitForLoaded();
 
     await createChainInUI();
 
@@ -397,6 +447,175 @@ describe("DelegationsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/action allowed/i)).toBeInTheDocument();
+    });
+  });
+
+  it("loads persisted chains from Supabase on mount", async () => {
+    const { DelegationsPage } = await import("@/pages/Delegations");
+
+    // Mock Supabase to return a persisted chain
+    const persistedChains = [
+      {
+        id: "chain_persisted_001",
+        createdAt: "2025-06-01T00:00:00Z",
+        nodes: [
+          { address: "0xSavedCEO", role: "CEO", delegation: null },
+          {
+            address: "0xSavedDept",
+            role: "department",
+            delegation: {
+              id: "deleg_persisted_001",
+              from: "0xSavedCEO",
+              to: "0xSavedDept",
+              permissions: {
+                spendLimit: { amount: 10000, currency: "USDC", period: "daily" },
+                recipientWhitelist: [],
+                timeWindow: {
+                  start: "2025-01-01T00:00:00Z",
+                  end: "2026-12-31T23:59:59Z",
+                },
+                taskPermissions: ["swap", "transfer", "stake", "bridge"],
+              },
+              status: "active",
+              createdAt: "2025-06-01T00:00:00Z",
+              updatedAt: "2025-06-01T00:00:00Z",
+            },
+          },
+          {
+            address: "0xSavedTask",
+            role: "task_agent",
+            delegation: {
+              id: "deleg_persisted_002",
+              from: "0xSavedDept",
+              to: "0xSavedTask",
+              permissions: {
+                spendLimit: { amount: 2000, currency: "USDC", period: "daily" },
+                recipientWhitelist: [],
+                timeWindow: {
+                  start: "2025-01-01T00:00:00Z",
+                  end: "2026-12-31T23:59:59Z",
+                },
+                taskPermissions: ["swap", "transfer"],
+              },
+              status: "active",
+              createdAt: "2025-06-01T00:00:00Z",
+              updatedAt: "2025-06-01T00:00:00Z",
+              parentDelegationId: "deleg_persisted_001",
+            },
+          },
+        ],
+      },
+    ];
+
+    setupSupabaseMock({
+      loadResult: { data: { config: { chains: persistedChains } }, error: null },
+    });
+
+    renderWithProviders(<DelegationsPage />);
+
+    // After loading, the persisted chain should be visible
+    await waitFor(() => {
+      expect(screen.getByText("0xSavedCEO")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("0xSavedDept")).toBeInTheDocument();
+    expect(screen.getByText("0xSavedTask")).toBeInTheDocument();
+  });
+
+  it("can inspect and test actions on a reloaded persisted chain", async () => {
+    const { DelegationsPage } = await import("@/pages/Delegations");
+
+    const persistedChains = [
+      {
+        id: "chain_reload_test",
+        createdAt: "2025-06-01T00:00:00Z",
+        nodes: [
+          { address: "0xCEOReload", role: "CEO", delegation: null },
+          {
+            address: "0xDeptReload",
+            role: "department",
+            delegation: {
+              id: "deleg_reload_001",
+              from: "0xCEOReload",
+              to: "0xDeptReload",
+              permissions: {
+                spendLimit: { amount: 10000, currency: "USDC", period: "daily" },
+                recipientWhitelist: [],
+                timeWindow: {
+                  start: "2025-01-01T00:00:00Z",
+                  end: "2026-12-31T23:59:59Z",
+                },
+                taskPermissions: ["swap", "transfer", "stake", "bridge"],
+              },
+              status: "active",
+              createdAt: "2025-06-01T00:00:00Z",
+              updatedAt: "2025-06-01T00:00:00Z",
+            },
+          },
+          {
+            address: "0xTaskReload",
+            role: "task_agent",
+            delegation: {
+              id: "deleg_reload_002",
+              from: "0xDeptReload",
+              to: "0xTaskReload",
+              permissions: {
+                spendLimit: { amount: 2000, currency: "USDC", period: "daily" },
+                recipientWhitelist: [],
+                timeWindow: {
+                  start: "2025-01-01T00:00:00Z",
+                  end: "2026-12-31T23:59:59Z",
+                },
+                taskPermissions: ["swap", "transfer"],
+              },
+              status: "active",
+              createdAt: "2025-06-01T00:00:00Z",
+              updatedAt: "2025-06-01T00:00:00Z",
+              parentDelegationId: "deleg_reload_001",
+            },
+          },
+        ],
+      },
+    ];
+
+    setupSupabaseMock({
+      loadResult: { data: { config: { chains: persistedChains } }, error: null },
+    });
+
+    renderWithProviders(<DelegationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("0xCEOReload")).toBeInTheDocument();
+    });
+
+    // Inspect the chain
+    fireEvent.click(screen.getByRole("button", { name: /inspect/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /test action/i })).toBeInTheDocument();
+    });
+
+    // Test a valid action — should work because rehydration registered the delegation
+    fireEvent.change(screen.getByLabelText(/action type/i), {
+      target: { value: "swap" },
+    });
+    fireEvent.change(screen.getByLabelText(/amount/i), {
+      target: { value: "100" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /test action/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/action allowed/i)).toBeInTheDocument();
+    });
+
+    // Test an overscoped action on the reloaded chain
+    fireEvent.change(screen.getByLabelText(/action type/i), {
+      target: { value: "liquidate" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /test action/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/not in the allowed task permissions/i)).toBeInTheDocument();
     });
   });
 });
