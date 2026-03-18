@@ -264,4 +264,141 @@ describe("IntegrationsPage", () => {
     const disconnectedBadges = screen.getAllByText("Disconnected");
     expect(disconnectedBadges.length).toBe(16);
   });
+
+  it("shows core and stretch tier badges on cards (VAL-INTEGRATIONS-001)", async () => {
+    const { IntegrationsPage } = await import("@/pages/Integrations");
+    const chain = setupSupabaseMock();
+    chain.order.mockResolvedValue({ data: [], error: null });
+
+    renderWithProviders(<IntegrationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("thirdweb")).toBeInTheDocument();
+    });
+
+    // Core integrations: thirdweb, supabase, venice, openserv, uniswap, bankr,
+    // lido, agentcash, celo, metamask, Composio = 11
+    const coreBadges = screen.getAllByText("Core");
+    expect(coreBadges.length).toBe(11);
+
+    // Stretch integrations: superrare, ens, self, arkhai, fal, bond_credit = 6
+    const stretchBadges = screen.getAllByText("Stretch");
+    expect(stretchBadges.length).toBe(6);
+  });
+
+  it("shows Misconfigured status when enabled but missing credentials (VAL-INTEGRATIONS-003)", async () => {
+    const { IntegrationsPage } = await import("@/pages/Integrations");
+    const chain = setupSupabaseMock();
+    chain.order.mockResolvedValue({
+      data: [
+        {
+          id: "int-1",
+          company_id: "test-co",
+          integration_key: "venice",
+          name: "venice",
+          enabled: true,
+          config: {},
+          created_at: "2024-01-01",
+          updated_at: "2024-01-01",
+        },
+      ],
+      error: null,
+    });
+
+    renderWithProviders(<IntegrationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Misconfigured")).toBeInTheDocument();
+    });
+
+    // Should also show a validation hint
+    expect(
+      screen.getByText(/missing credentials/i),
+    ).toBeInTheDocument();
+
+    // Should NOT show "Connected"
+    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
+  });
+
+  it("shows Misconfigured for enabled integration with blank api_key", async () => {
+    const { IntegrationsPage } = await import("@/pages/Integrations");
+    const chain = setupSupabaseMock();
+    chain.order.mockResolvedValue({
+      data: [
+        {
+          id: "int-1",
+          company_id: "test-co",
+          integration_key: "bankr",
+          name: "bankr",
+          enabled: true,
+          config: { api_key: "   " },
+          created_at: "2024-01-01",
+          updated_at: "2024-01-01",
+        },
+      ],
+      error: null,
+    });
+
+    renderWithProviders(<IntegrationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Misconfigured")).toBeInTheDocument();
+    });
+  });
+
+  it("shows validation error when saving without API key (VAL-INTEGRATIONS-003)", async () => {
+    const { IntegrationsPage } = await import("@/pages/Integrations");
+    const chain = setupSupabaseMock();
+    chain.order.mockResolvedValue({ data: [], error: null });
+
+    renderWithProviders(<IntegrationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("thirdweb")).toBeInTheDocument();
+    });
+
+    // Open configure dialog for thirdweb
+    const configureButtons = screen.getAllByText("Configure");
+    fireEvent.click(configureButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Configure thirdweb")).toBeInTheDocument();
+    });
+
+    // Click Save without entering an API key
+    fireEvent.click(screen.getByText("Save Configuration"));
+
+    // Validation error should appear
+    await waitFor(() => {
+      expect(screen.getByText("API Key is required")).toBeInTheDocument();
+    });
+  });
+
+  it("shows Misconfigured for Composio enabled without consumer_key (VAL-INTEGRATIONS-003)", async () => {
+    const { IntegrationsPage } = await import("@/pages/Integrations");
+    const chain = setupSupabaseMock();
+    chain.order.mockResolvedValue({
+      data: [
+        {
+          id: "int-c",
+          company_id: "test-co",
+          integration_key: "composio",
+          name: "Composio",
+          enabled: true,
+          config: { mcp_url: "https://example.com" },
+          created_at: "2024-01-01",
+          updated_at: "2024-01-01",
+        },
+      ],
+      error: null,
+    });
+
+    renderWithProviders(<IntegrationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Misconfigured")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
+  });
 });

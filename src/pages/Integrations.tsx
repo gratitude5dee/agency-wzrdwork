@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plug,
@@ -22,6 +22,7 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,8 @@ interface IntegrationDef {
   name: string;
   category: string;
   icon: React.ElementType;
+  /** "core" integrations are hackathon critical-path; "stretch" are nice-to-have */
+  tier: "core" | "stretch";
   /** If true, show a chain selector in the config dialog */
   hasChainSelector?: boolean;
   /** Extra custom fields shown in the config dialog */
@@ -70,51 +73,56 @@ interface IntegrationDef {
 // ---------------------------------------------------------------------------
 
 const INTEGRATIONS: IntegrationDef[] = [
-  { key: "thirdweb", name: "thirdweb", category: "Auth", icon: Shield },
-  { key: "supabase", name: "supabase", category: "Database", icon: Database },
-  { key: "venice", name: "venice", category: "Private AI", icon: Brain },
-  { key: "openserv", name: "openserv", category: "Agent Coordination", icon: Users },
+  { key: "thirdweb", name: "thirdweb", category: "Auth", icon: Shield, tier: "core" },
+  { key: "supabase", name: "supabase", category: "Database", icon: Database, tier: "core" },
+  { key: "venice", name: "venice", category: "Private AI", icon: Brain, tier: "core" },
+  { key: "openserv", name: "openserv", category: "Agent Coordination", icon: Users, tier: "core" },
   {
     key: "uniswap",
     name: "uniswap",
     category: "Token Swaps",
     icon: ArrowLeftRight,
+    tier: "core",
     hasChainSelector: true,
   },
-  { key: "bankr", name: "bankr", category: "LLM Gateway", icon: Cpu },
+  { key: "bankr", name: "bankr", category: "LLM Gateway", icon: Cpu, tier: "core" },
   {
     key: "lido",
     name: "lido",
     category: "stETH Treasury",
     icon: Droplets,
+    tier: "core",
     hasChainSelector: true,
   },
-  { key: "agentcash", name: "agentcash", category: "x402 Payments", icon: CreditCard },
+  { key: "agentcash", name: "agentcash", category: "x402 Payments", icon: CreditCard, tier: "core" },
   {
     key: "celo",
     name: "celo",
     category: "Stablecoin L2",
     icon: Coins,
+    tier: "core",
     hasChainSelector: true,
   },
-  { key: "superrare", name: "superrare", category: "Rare Protocol", icon: Palette },
-  { key: "ens", name: "ens", category: "Identity + Names", icon: AtSign },
-  { key: "self", name: "self", category: "ZK Identity", icon: Fingerprint },
-  { key: "arkhai", name: "arkhai", category: "Escrow", icon: Lock },
+  { key: "superrare", name: "superrare", category: "Rare Protocol", icon: Palette, tier: "stretch" },
+  { key: "ens", name: "ens", category: "Identity + Names", icon: AtSign, tier: "stretch" },
+  { key: "self", name: "self", category: "ZK Identity", icon: Fingerprint, tier: "stretch" },
+  { key: "arkhai", name: "arkhai", category: "Escrow", icon: Lock, tier: "stretch" },
   {
     key: "metamask",
     name: "metamask",
     category: "Delegations",
     icon: Wallet,
+    tier: "core",
     hasChainSelector: true,
   },
-  { key: "fal", name: "fal", category: "Media Generation", icon: Image },
-  { key: "bond_credit", name: "bond_credit", category: "Credit Scores", icon: BarChart3 },
+  { key: "fal", name: "fal", category: "Media Generation", icon: Image, tier: "stretch" },
+  { key: "bond_credit", name: "bond_credit", category: "Credit Scores", icon: BarChart3, tier: "stretch" },
   {
     key: "composio",
     name: "Composio",
     category: "MCP Tools",
     icon: Wrench,
+    tier: "core",
     extraFields: [
       { key: "consumer_key", label: "Consumer Key (ck_…)", placeholder: "ck_your_key_here" },
       { key: "mcp_url", label: "MCP Server URL", placeholder: "https://connect.composio.dev/mcp" },
@@ -136,15 +144,33 @@ const CHAIN_OPTIONS = [
 
 type IntegrationStatus = "connected" | "disconnected" | "error";
 
-function deriveStatus(row?: IntegrationRow): IntegrationStatus {
+/**
+ * Derive the visible status for an integration card.
+ *
+ * An integration is "connected" only when it is enabled AND has valid
+ * credentials. If it is enabled but credentials are missing or blank,
+ * it shows "error" (misconfigured) so invalid config never silently
+ * appears as Connected (VAL-INTEGRATIONS-003).
+ */
+function deriveStatus(row?: IntegrationRow, def?: IntegrationDef): IntegrationStatus {
   if (!row) return "disconnected";
   if (!row.enabled) return "disconnected";
   const config = row.config as Record<string, unknown> | null;
-  if (config && typeof config === "object") {
-    // Standard api_key or Composio consumer_key both count as valid credentials
-    if (config.api_key || config.consumer_key) return "connected";
+  if (!config || typeof config !== "object") return "error";
+
+  // Composio requires consumer_key
+  if (def?.key === "composio") {
+    const ck = config.consumer_key;
+    if (typeof ck === "string" && ck.trim().length > 0) return "connected";
+    return "error";
   }
-  return "disconnected";
+
+  // All other integrations require api_key
+  const apiKey = config.api_key;
+  if (typeof apiKey === "string" && apiKey.trim().length > 0) return "connected";
+
+  // Enabled but no valid credential → misconfigured
+  return "error";
 }
 
 const STATUS_DOT: Record<IntegrationStatus, string> = {
@@ -156,7 +182,7 @@ const STATUS_DOT: Record<IntegrationStatus, string> = {
 const STATUS_LABEL: Record<IntegrationStatus, string> = {
   connected: "Connected",
   disconnected: "Disconnected",
-  error: "Error",
+  error: "Misconfigured",
 };
 
 // ---------------------------------------------------------------------------
@@ -190,8 +216,11 @@ export function IntegrationsPage() {
     },
   });
 
-  // Map integration_key → row for quick lookup
-  const rowMap = new Map(integrationRows.map((r) => [r.integration_key, r]));
+  // Map integration_key → row for quick lookup (memoized to stabilize callbacks)
+  const rowMap = useMemo(
+    () => new Map(integrationRows.map((r) => [r.integration_key, r])),
+    [integrationRows],
+  );
 
   // ---- Toggle mutation ----
   const toggleMutation = useMutation({
@@ -238,6 +267,7 @@ export function IntegrationsPage() {
   const [configChain, setConfigChain] = useState("");
   const [configExtra, setConfigExtra] = useState<Record<string, string>>({});
   const [composioSelectedTools, setComposioSelectedTools] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const openConfigDialog = useCallback(
     (def: IntegrationDef) => {
@@ -246,6 +276,7 @@ export function IntegrationsPage() {
       setConfigDef(def);
       setConfigApiKey(String(existingConfig.api_key ?? ""));
       setConfigChain(String(existingConfig.chain_id ?? ""));
+      setValidationErrors([]);
       const extra: Record<string, string> = {};
       for (const f of def.extraFields ?? []) {
         extra[f.key] = String(existingConfig[f.key] ?? "");
@@ -270,7 +301,26 @@ export function IntegrationsPage() {
     setConfigChain("");
     setConfigExtra({});
     setComposioSelectedTools([]);
+    setValidationErrors([]);
   }, []);
+
+  // ---- Validate config before save ----
+  const validateConfig = useCallback((): string[] => {
+    if (!configDef) return ["No integration selected"];
+    const errors: string[] = [];
+    if (configDef.key === "composio") {
+      // Composio: require consumer_key
+      if (!configExtra.consumer_key?.trim()) {
+        errors.push("Consumer Key is required");
+      }
+    } else {
+      // All others: require api_key
+      if (!configApiKey.trim()) {
+        errors.push("API Key is required");
+      }
+    }
+    return errors;
+  }, [configDef, configApiKey, configExtra]);
 
   // ---- Save config mutation ----
   const saveMutation = useMutation({
@@ -343,7 +393,7 @@ export function IntegrationsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {INTEGRATIONS.map((def) => {
           const row = rowMap.get(def.key);
-          const status = deriveStatus(row);
+          const status = deriveStatus(row, def);
           const enabled = row?.enabled ?? false;
           const Icon = def.icon;
 
@@ -359,9 +409,21 @@ export function IntegrationsPage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-black">
                       <Icon className="h-5 w-5 text-zinc-300" />
                     </div>
-                    <div>
-                      <p className="font-bold text-zinc-100">{def.name}</p>
-                      <p className="text-xs text-zinc-500">{def.category}</p>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="font-bold text-zinc-100">{def.name}</p>
+                        <p className="text-xs text-zinc-500">{def.category}</p>
+                      </div>
+                      <Badge
+                        variant={def.tier === "core" ? "default" : "secondary"}
+                        className={
+                          def.tier === "core"
+                            ? "bg-blue-600/20 text-blue-400 border-blue-500/30 text-[10px] px-1.5 py-0"
+                            : "bg-zinc-700/30 text-zinc-500 border-zinc-600/30 text-[10px] px-1.5 py-0"
+                        }
+                      >
+                        {def.tier === "core" ? "Core" : "Stretch"}
+                      </Badge>
                     </div>
                   </div>
                   <Switch
@@ -380,6 +442,12 @@ export function IntegrationsPage() {
                   <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
                   <span className="text-xs text-zinc-400">{STATUS_LABEL[status]}</span>
                 </div>
+                {/* Validation feedback for misconfigured integrations */}
+                {status === "error" && (
+                  <p className="text-xs text-red-400">
+                    Missing credentials — open Configure to fix.
+                  </p>
+                )}
 
                 {/* Configure button */}
                 <Button
@@ -479,11 +547,33 @@ export function IntegrationsPage() {
             )}
           </div>
 
+          {/* Validation errors */}
+          {validationErrors.length > 0 && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3" role="alert">
+              {validationErrors.map((err) => (
+                <p key={err} className="text-sm text-red-400">
+                  {err}
+                </p>
+              ))}
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="ghost" onClick={closeConfigDialog} className="text-zinc-400">
               Cancel
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button
+              onClick={() => {
+                const errors = validateConfig();
+                if (errors.length > 0) {
+                  setValidationErrors(errors);
+                  return;
+                }
+                setValidationErrors([]);
+                saveMutation.mutate();
+              }}
+              disabled={saveMutation.isPending}
+            >
               {saveMutation.isPending ? "Saving…" : "Save Configuration"}
             </Button>
           </DialogFooter>
