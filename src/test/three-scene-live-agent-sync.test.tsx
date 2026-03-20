@@ -15,7 +15,7 @@ import { RUNTIME_AGENT_SET_ID } from "@/features/cockpit/delegation/data/agents"
 // ---------------------------------------------------------------------------
 
 function makeSnapshot(overrides: Partial<AgencySnapshot> = {}): AgencySnapshot {
-  return { ...DEMO_SNAPSHOT, source: "supabase", ...overrides };
+  return { ...DEMO_SNAPSHOT, source: "server", ...overrides };
 }
 
 function addAgent(

@@ -274,7 +274,7 @@ export function KanbanPanel() {
           ? {
               ...old,
               issues: old.issues.map((issue) =>
-                issue.id === issueId ? { ...issue, status: status as IssueRow["status"] } : issue,
+                issue.id === issueId ? { ...issue, status } : issue,
               ),
             }
           : old,
