@@ -1,27 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useAgencyStore, DebugLogEntry } from '../store/agencyStore'
 import { getAgentSet } from '../data/agents'
-import { supabase } from '@/integrations/supabase/client'
-import { useActiveCompany } from '@/hooks/useActiveCompany'
+import { useAgencyData } from '@/features/cockpit/lib/useAgencyData'
 import { ChevronDown, ChevronRight, MessageSquare, Terminal, Eye, Zap, Copy, Check, Download, Filter } from 'lucide-react'
-
-/* ── Supabase activity row shape ── */
-
-interface ActivityRow {
-  id: string;
-  company_id: string;
-  agent_id: string | null;
-  issue_id: string | null;
-  action: string;
-  details: string | null;
-  created_at: string;
-}
-
-interface AgentLookup {
-  id: string;
-  name: string;
-}
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString('en-GB', {
@@ -279,53 +260,6 @@ ${entry.rawContent}
     );
 };
 
-/* ── Live Activity Feed (Supabase-backed) ── */
-
-function useLiveActivity(companyId: string | null, filterAgentId: string | null) {
-  return useQuery<ActivityRow[]>({
-    queryKey: ["cockpit-live-activity", companyId, filterAgentId],
-    queryFn: async () => {
-      if (!companyId) return [];
-
-      let query = supabase
-        .from("activity_events")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (filterAgentId) {
-        query = query.eq("agent_id", filterAgentId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data ?? []) as ActivityRow[];
-    },
-    enabled: !!companyId,
-    refetchInterval: 15_000,
-  });
-}
-
-function useLiveAgents(companyId: string | null) {
-  return useQuery<AgentLookup[]>({
-    queryKey: ["cockpit-live-agents", companyId],
-    queryFn: async () => {
-      if (!companyId) return [];
-
-      const { data, error } = await supabase
-        .from("agents")
-        .select("id, name")
-        .eq("company_id", companyId);
-
-      if (error) throw error;
-      return (data ?? []) as AgentLookup[];
-    },
-    enabled: !!companyId,
-    staleTime: 60_000,
-  });
-}
-
 export function ActionLogPanel() {
   const { setLogOpen, actionLog, debugLog, logFilterAgentIndex, phase, setFinalOutputOpen, selectedAgentSetId } = useAgencyStore()
   const runtimeAgents = getAgentSet(selectedAgentSetId).agents;
@@ -334,13 +268,19 @@ export function ActionLogPanel() {
   const [activityFilterAgentId, setActivityFilterAgentId] = useState<string | null>(null)
   const topRef = useRef<HTMLDivElement>(null)
 
-  const { companyId } = useActiveCompany();
-  const { data: liveActivity = [] } = useLiveActivity(companyId, activityFilterAgentId);
-  const { data: liveAgents = [] } = useLiveAgents(companyId);
+  const { snapshot } = useAgencyData();
+
+  const liveActivity = React.useMemo(() => {
+    const filtered = activityFilterAgentId
+      ? snapshot.activity.filter((event) => event.agentId === activityFilterAgentId)
+      : snapshot.activity;
+
+    return [...filtered].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }, [activityFilterAgentId, snapshot.activity]);
 
   const agentNameMap = React.useMemo(
-    () => new Map(liveAgents.map((a) => [a.id, a.name])),
-    [liveAgents],
+    () => new Map(snapshot.agents.map((agent) => [agent.id, agent.name])),
+    [snapshot.agents],
   );
 
   const handleDownloadAll = () => {
@@ -553,12 +493,12 @@ ${entry.rawContent}
             <div ref={topRef} />
 
             {activeTab === 'activity' ? (
-              /* ── Live Supabase activity feed ── */
+              /* ── Server-backed activity feed ── */
               liveActivity.length === 0 ? (
                 <p className="py-16 text-center text-[10px] font-bold uppercase tracking-widest text-zinc-600">No activity yet...</p>
               ) : (
                 liveActivity.map((event) => {
-                  const agentName = event.agent_id ? agentNameMap.get(event.agent_id) ?? 'Agent' : 'System';
+                  const agentName = event.agentId ? agentNameMap.get(event.agentId) ?? 'Agent' : 'System';
                   return (
                     <div key={event.id} className="flex flex-col gap-1.5 group">
                       <div className="flex items-center justify-between">
@@ -571,7 +511,7 @@ ${entry.rawContent}
                           </span>
                         </div>
                         <span className="text-[9px] font-medium text-zinc-500 font-mono">
-                          {formatIsoTime(event.created_at)}
+                          {formatIsoTime(event.createdAt)}
                         </span>
                       </div>
 

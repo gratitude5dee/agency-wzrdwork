@@ -2,10 +2,9 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Network } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
 import { useAgencyData } from "@/features/cockpit/lib/useAgencyData";
+import { listAgentRecords } from "@/lib/server-api/agents";
 
 // ── Layout constants ────────────────────────────────────────────────────
 
@@ -17,7 +16,24 @@ const PADDING = 60;
 
 // ── Types ───────────────────────────────────────────────────────────────
 
-type AgentRow = Tables<"agents">;
+interface AgentRow {
+  id: string;
+  company_id: string;
+  name: string;
+  role: string;
+  title: string | null;
+  adapter_type: string;
+  status: string;
+  capabilities: string | null;
+  reports_to: string | null;
+  seat_index: number;
+  private_cognition_enabled: boolean;
+  adapter_config: Record<string, unknown>;
+  adapter_overrides: Record<string, unknown>;
+  venice_model: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 interface OrgNode {
   id: string;
@@ -199,12 +215,25 @@ function useOrgAgents() {
     queryKey: ["org-chart-agents", companyId],
     enabled: !companyLoading && !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agents")
-        .select("*")
-        .eq("company_id", companyId!);
-      if (error) throw error;
-      return (data ?? []) as AgentRow[];
+      const records = await listAgentRecords({ companyId: companyId! });
+      return records.map((agent) => ({
+        id: agent.id,
+        company_id: agent.company_id,
+        name: agent.name,
+        role: agent.role,
+        title: agent.title,
+        adapter_type: agent.adapter_type,
+        status: agent.status,
+        capabilities: null,
+        reports_to: agent.reports_to,
+        seat_index: 0,
+        private_cognition_enabled: false,
+        adapter_config: {},
+        adapter_overrides: {},
+        venice_model: null,
+        created_at: agent.created_at,
+        updated_at: agent.created_at,
+      })) as AgentRow[];
     },
   });
 
@@ -226,8 +255,8 @@ function useOrgAgents() {
       reports_to: a.reportsTo,
       seat_index: a.seatIndex,
       private_cognition_enabled: false,
-      adapter_config: {} as Tables<"agents">["adapter_config"],
-      adapter_overrides: {} as Tables<"agents">["adapter_overrides"],
+      adapter_config: {},
+      adapter_overrides: {},
       venice_model: null,
       created_at: a.createdAt,
       updated_at: a.updatedAt,

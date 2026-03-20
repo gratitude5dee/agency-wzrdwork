@@ -1,0 +1,128 @@
+{
+  "groupId": "orgchart-dashboard",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": true,
+    "sessionId": "b9999ea2afc5__orgdash",
+    "supabaseAccess": "shared read-only"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-ORG-001",
+      "title": "OrgChart renders agent hierarchy",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /org-chart", "expected": "OrgChart page loads with agent hierarchy", "observed": "Page loaded with title 'AGENCY' and two agent cards in tree layout" },
+        { "action": "Inspect SVG elements", "expected": "SVG tree layout with connector paths", "observed": "Found 22 SVGs including a full-width/height SVG overlay (100%x100%) with 1 path element for connector lines, plus lucide icon SVGs" },
+        { "action": "Check agent cards and hierarchy", "expected": "Root agents at top, children below with parent-child relationships", "observed": "CEO card positioned at top level, Founding Engineer card below — consistent with reports_to hierarchy. Both cards rendered from Supabase data." }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-ORG-001-orgchart-page.png"],
+        "consoleErrors": "none",
+        "network": "Supabase queries loaded agent data successfully"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-002",
+      "title": "Pan and zoom controls work",
+      "status": "pass",
+      "steps": [
+        { "action": "Identify zoom controls on OrgChart page", "expected": "+/- buttons and Fit button visible", "observed": "Three control buttons found: 'Zoom in' (+), 'Zoom out' (-), 'Fit chart to screen' (Fit)" },
+        { "action": "Click Zoom in button 3 times", "expected": "Chart zooms in, cards appear larger", "observed": "Cards enlarged significantly, partially out of view — zoom in working correctly" },
+        { "action": "Click Fit button", "expected": "View resets to fit all content", "observed": "View reset to show both agent cards centered and fully visible" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-ORG-002-zoomed-in.png", "foundation/orgchart-dashboard/VAL-ORG-002-fit-reset.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-003",
+      "title": "Agent cards show status and metadata",
+      "status": "pass",
+      "steps": [
+        { "action": "Inspect CEO agent card", "expected": "Name, role label, status dot, adapter type displayed", "observed": "Card shows: name 'CEO', role 'CEO', adapter 'Claude', status indicator dot (gray, rgb(163,163,163)) on avatar" },
+        { "action": "Inspect Founding Engineer agent card", "expected": "Name, role label, status dot, adapter type displayed", "observed": "Card shows: name 'Founding Engineer', role 'Founding Engineer', adapter 'Codex', status indicator dot (cyan, rgb(34,211,238)) on avatar" },
+        { "action": "Verify status dots are color-coded", "expected": "Different statuses have different colors", "observed": "Two different colors confirmed: gray dot for CEO (likely idle/offline) and cyan dot for Founding Engineer (likely running/active) — color-coded by status" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-ORG-003-agent-cards.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DASH-001",
+      "title": "Metric cards show real counts",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /dashboard", "expected": "Dashboard loads with MetricCards", "observed": "Dashboard loaded with 4 MetricCards at the top" },
+        { "action": "Check Agents card", "expected": "Count from Supabase with link", "observed": "Shows '2 Agents' with subtitle '1 running, 0 active' — clickable link" },
+        { "action": "Check Open Issues card", "expected": "Count from Supabase with link", "observed": "Shows '2 Open Issues' with subtitle '1 in progress, 1 blocked' — clickable link" },
+        { "action": "Check Live Runs card", "expected": "Count from Supabase with link", "observed": "Shows '1 Live Runs' with subtitle '0 succeeded, 1 failed' — clickable link" },
+        { "action": "Check Pending Approvals card", "expected": "Count from Supabase with link", "observed": "Shows '1 Pending Approvals' with subtitle 'Awaiting review' — clickable link" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-DASH-001-dashboard-top.png"],
+        "consoleErrors": "none",
+        "network": "Supabase queries returned real counts for agents, issues, runs, and approvals"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DASH-002",
+      "title": "Activity charts render",
+      "status": "pass",
+      "steps": [
+        { "action": "Check Run Activity chart", "expected": "Bar chart with data from runs table", "observed": "Run Activity chart rendered with 'Last 14 days' subtitle, date axis (3/3, 3/9, 3/16), and bar data visible" },
+        { "action": "Check Issues by Priority chart", "expected": "Bar chart with priority breakdown", "observed": "Issues by Priority chart rendered with colored bars and legend: Critical (red), High (green), Medium (yellow), Low (gray)" },
+        { "action": "Check Issues by Status chart", "expected": "Bar chart with status breakdown", "observed": "Issues by Status chart rendered with colored bars and legend: In Progress (purple), Blocked (red)" },
+        { "action": "Check Success Rate chart", "expected": "Bar chart with success data", "observed": "Success Rate chart rendered with 'Last 14 days' subtitle and date axis" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-DASH-001-dashboard-top.png", "foundation/orgchart-dashboard/VAL-DASH-004-bottom-section.png"],
+        "consoleErrors": "none",
+        "network": "Supabase queries for runs and issues data"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DASH-003",
+      "title": "Active agents panel shows running agents",
+      "status": "pass",
+      "steps": [
+        { "action": "Check Active Agents panel on dashboard", "expected": "Panel showing agents with active/running status", "observed": "ACTIVE AGENTS section visible below metric cards. Shows 'Founding Engineer' with cyan status dot, 'Running · Codex' status text, and role 'Founding Engineer'" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-DASH-001-dashboard-top.png"],
+        "consoleErrors": "none",
+        "network": "Supabase query returned agents with running status"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DASH-004",
+      "title": "Recent activity and urgent issues populated",
+      "status": "pass",
+      "steps": [
+        { "action": "Scroll down to Urgent/Blocked Issues section", "expected": "Issues from issues table displayed", "observed": "Section titled 'Urgent / Blocked Issues' with subtitle 'Critical, high-priority, or blocked work items.' Shows: ACM-1 (blocked) 'Create your CEO HEARTBEAT.md', ACM-2 (in_progress) 'Wire the dark shell into Lovable'" },
+        { "action": "Check Recent Activity section", "expected": "Activity feed from activity_events table", "observed": "Section titled 'Recent Activity' with subtitle 'Latest events from the company timeline.' Shows: 'approval requested' — 'Requested approval for the CEO heartbeat outline.' (29M AGO), 'run started' — 'Started implementation for the Lovable cockpit shell.' (10M AGO)" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/orgchart-dashboard/VAL-DASH-004-bottom-section.png"],
+        "consoleErrors": "none",
+        "network": "Supabase queries for issues and activity_events tables"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 7 assertions: 7 passed, 0 failed. OrgChart renders agent hierarchy with SVG connector lines, zoom/pan controls (+/-/Fit) work correctly, agent cards display name/role/status-dot/adapter. Dashboard shows 4 MetricCards with real Supabase counts (2 agents, 2 issues, 1 run, 1 approval), 4 bar charts (RunActivity, Priority, IssueStatus, SuccessRate), ActiveAgentsPanel with running agent, and populated Urgent Issues and Recent Activity sections."
+}

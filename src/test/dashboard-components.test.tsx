@@ -267,7 +267,7 @@ vi.mock("@/features/cockpit/lib/useAgencyData", () => ({
       approvals: [],
       runs: [],
       activity: [],
-      source: "supabase",
+      source: "server",
     },
     isLoading: false,
   }),
@@ -357,7 +357,7 @@ describe("Dashboard integration", () => {
     expect(screen.getByText("Awaiting review")).toBeInTheDocument();
   });
 
-  it("does not show demo mode banner when source is supabase", async () => {
+  it("does not show demo mode banner when source is server", async () => {
     const { SectionPage } = await import("@/features/cockpit/pages/SectionPage");
     renderWithProviders(<SectionPage section="dashboard" />);
 

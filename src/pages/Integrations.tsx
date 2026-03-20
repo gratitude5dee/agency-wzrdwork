@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useActiveAccount } from "thirdweb/react";
 import {
   Plug,
   Shield,
@@ -43,12 +44,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
 import { ComposioToolDiscovery } from "@/components/ComposioToolDiscovery";
 import { PageLoadingState, PageErrorState } from "@/components/PageStateIndicators";
 import type { Database as DB, Json } from "@/integrations/supabase/types";
+import { getClientWalletAddress } from "@/lib/server-api/actor";
+import { listCompanyIntegrations, upsertIntegrationRecord } from "@/lib/server-api/integrations";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -193,6 +195,7 @@ const STATUS_LABEL: Record<IntegrationStatus, string> = {
 export function IntegrationsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const account = useActiveAccount();
 
   // Resolve the active company from wallet + onboarding context
   const { company: activeCompany } = useActiveCompany();
@@ -201,6 +204,7 @@ export function IntegrationsPage() {
     : null;
 
   const companyId = company?.id ?? null;
+  const walletAddress = getClientWalletAddress(account?.address ?? company?.wallet_address ?? null);
 
   // Fetch existing integrations from Supabase
   const {
@@ -211,15 +215,12 @@ export function IntegrationsPage() {
     refetch: refetchIntegrations,
   } = useQuery<IntegrationRow[]>({
     queryKey: ["integrations", companyId],
-    enabled: !!companyId,
+    enabled: !!companyId && !!walletAddress,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("integrations")
-        .select("*")
-        .eq("company_id", companyId!)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as IntegrationRow[];
+      return await listCompanyIntegrations({
+        companyId: companyId!,
+        walletAddress,
+      });
     },
   });
 
@@ -239,26 +240,18 @@ export function IntegrationsPage() {
       enabled: boolean;
     }) => {
       if (!companyId) throw new Error("No company found");
+      if (!walletAddress) throw new Error("No wallet principal available");
 
       const existing = rowMap.get(integrationKey);
-      if (existing) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({ enabled })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        // Create new row
-        const def = INTEGRATIONS.find((d) => d.key === integrationKey)!;
-        const { error } = await supabase.from("integrations").insert({
-          company_id: companyId,
-          integration_key: integrationKey,
-          name: def.name,
-          enabled,
-          config: {},
-        });
-        if (error) throw error;
-      }
+      const def = INTEGRATIONS.find((d) => d.key === integrationKey)!;
+      await upsertIntegrationRecord({
+        companyId,
+        walletAddress,
+        integrationKey,
+        name: existing?.name ?? def.name,
+        enabled,
+        config: ((existing?.config ?? {}) as Record<string, unknown>),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["integrations", companyId] });
@@ -333,6 +326,7 @@ export function IntegrationsPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!companyId || !configDef) throw new Error("No company or integration selected");
+      if (!walletAddress) throw new Error("No wallet principal available");
 
       // For Composio, the credential is consumer_key (from extra fields), not api_key.
       // Preserve existing config fields (e.g. selected_tools) that aren't in the form.
@@ -355,22 +349,14 @@ export function IntegrationsPage() {
         config.selected_tools = composioSelectedTools;
       }
 
-      if (existing) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({ config: config as unknown as Json, enabled: true })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("integrations").insert({
-          company_id: companyId,
-          integration_key: configDef.key,
-          name: configDef.name,
-          enabled: true,
-          config: config as unknown as Json,
-        });
-        if (error) throw error;
-      }
+      await upsertIntegrationRecord({
+        companyId,
+        walletAddress,
+        integrationKey: configDef.key,
+        name: existing?.name ?? configDef.name,
+        enabled: true,
+        config: config as unknown as Json as Record<string, unknown>,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["integrations", companyId] });

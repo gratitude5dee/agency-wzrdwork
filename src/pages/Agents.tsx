@@ -4,20 +4,10 @@ import { Plus, Bot } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
 import { PageLoadingState, PageEmptyState, PageErrorState } from "@/components/PageStateIndicators";
-
-interface AgentRow {
-  id: string;
-  name: string;
-  role: string;
-  title: string | null;
-  status: string;
-  adapter_type: string;
-}
+import { listAgentRecords, type AgentListRecord } from "@/lib/server-api/agents";
 
 const STATUS_COLORS: Record<string, string> = {
   running: "bg-cyan-500",
@@ -42,19 +32,10 @@ export function AgentsPage() {
     isError,
     error,
     refetch,
-  } = useQuery<AgentRow[]>({
+  } = useQuery<AgentListRecord[]>({
     queryKey: ["agents-list", companyId],
     enabled: !companyLoading && !!companyId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agents")
-        .select("id, name, role, title, status, adapter_type")
-        .eq("company_id", companyId!)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data ?? []) as AgentRow[];
-    },
+    queryFn: async () => await listAgentRecords({ companyId: companyId! }),
   });
 
   if (isLoading || companyLoading) {

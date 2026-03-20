@@ -1,0 +1,39 @@
+{
+  "featureId": "venice-private-cognition",
+  "reviewedAt": "2026-03-16T13:45:00.000Z",
+  "commitId": "db6e8a7",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation covering all required deliverables. VeniceClient class correctly wraps the OpenAI-compatible endpoint with Venice-specific headers, config/types modules are well-structured, and the AgentDetail UI additions (toggle, dropdown, badge) follow existing codebase patterns with proper React Query mutations and Supabase persistence. 17 comprehensive tests cover the client library. Two non-blocking observations noted.",
+    "issues": [
+      {
+        "file": "src/lib/venice/client.ts",
+        "line": 46,
+        "severity": "non_blocking",
+        "description": "API key defaults to empty string when neither config.apiKey nor VITE_VENICE_API_KEY is set. This means the client silently constructs with an empty Bearer token rather than failing fast. Could lead to confusing 401 errors at request time. Consider throwing or logging a warning if apiKey resolves to empty."
+      },
+      {
+        "file": "src/lib/venice/client.ts",
+        "line": 73,
+        "severity": "non_blocking",
+        "description": "The client makes direct browser-side fetch calls to https://api.venice.ai/api/v1/chat/completions. In a production browser SPA, this will likely be blocked by CORS unless Venice explicitly allows cross-origin requests. This is acceptable for the current greenfield integration (may be used server-side or via proxy later), but worth documenting as a known limitation."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker did not run `npm run lint` as the 4th verification step in the synthesis-worker skill (Step 5: npm test, tsc, build, lint). Only tsc, npm test, and npm run build were run per the handoff. AGENTS.md documents 47 pre-existing lint errors so lint will fail regardless, but the skill procedure says to run it. The skill's verification step list should either note that lint will fail due to pre-existing issues or the step should clarify that workers should verify their NEW code has no lint errors without requiring the overall lint command to pass.",
+      "evidence": "Handoff verification.commandsRun has 4 entries: tsc, npm test, npm run build, vitest run venice. Missing: npm run lint. Skill Step 5 says: 'npm run lint # Lint passes'. AGENTS.md says: 'npm run lint fails with pre-existing errors'."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The Venice client makes direct browser-side fetch to https://api.venice.ai/api/v1/ — CORS behavior for this endpoint is not documented anywhere. If Venice doesn't support CORS, a proxy will be needed. This should be noted in .factory/library/environment.md under the VITE_VENICE_API_KEY entry or in architecture.md.",
+      "evidence": "src/lib/venice/client.ts:73 — fetch(`${this.baseUrl}/chat/completions`, ...) runs in browser context (Vite SPA). No proxy configuration exists in vite.config.ts or services.yaml."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The Venice private cognition feature is fully implemented with clean architecture: VeniceClient class with correct endpoint/headers/auth, comprehensive TypeScript types matching OpenAI format, config module with model list, and interactive UI controls (toggle + dropdown + badge) on the AgentDetail page. All 17 new tests pass, typecheck is clean, build succeeds. Two non-blocking issues noted: (1) empty API key silently accepted rather than failing fast, (2) potential CORS limitation for browser-side fetch to Venice API. Worker followed the synthesis-worker skill procedure except for skipping the lint step (justified by pre-existing lint failures documented in AGENTS.md)."
+}

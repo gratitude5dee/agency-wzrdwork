@@ -1,13 +1,16 @@
 import { useState, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bot, Loader2 } from "lucide-react";
+import { ArrowLeft, Bot, Loader2, Zap, Plug } from "lucide-react";
+import { useActiveAccount } from "thirdweb/react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -17,10 +20,17 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
+import { adapterExecutionLabel, isExecutableAdapter } from "@/adapters/execution-support";
 import { createAgentIdentity, isPlaceholderWallet } from "@/lib/erc8004/identity";
 import { useActiveCompany } from "@/hooks/useActiveCompany";
+import { useCompanySkills } from "@/hooks/useSkills";
+import { getClientWalletAddress } from "@/lib/server-api/actor";
+import { createAgentRecord } from "@/lib/server-api/agents";
 import type { CreateConfigValues } from "@/adapters/types";
 import type { Json } from "@/integrations/supabase/types";
+import type { Database as DB } from "@/integrations/supabase/types";
+
+type IntegrationRow = DB["public"]["Tables"]["integrations"]["Row"];
 
 const AGENT_ROLES = [
   { value: "ceo", label: "CEO" },
@@ -68,6 +78,8 @@ const DEFAULT_CONFIG_VALUES: CreateConfigValues = {
 export function NewAgentPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const account = useActiveAccount();
+  const walletAddress = getClientWalletAddress(account?.address);
 
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -75,6 +87,14 @@ export function NewAgentPage() {
   const [reportsTo, setReportsTo] = useState("");
   const [adapterType, setAdapterType] = useState("");
   const [configValues, setConfigValues] = useState<CreateConfigValues>(DEFAULT_CONFIG_VALUES);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(new Set());
+  const [agentIntegrations, setAgentIntegrations] = useState<Map<string, boolean>>(new Map());
+
+  // Get company_id and wallet_address from active-company resolution
+  const { company: activeCompany } = useActiveCompany();
+  const company = activeCompany
+    ? { id: activeCompany.id, wallet_address: activeCompany.wallet_address }
+    : null;
 
   // Fetch agents for the reports_to picker
   const { data: existingAgents = [] } = useQuery<AgentPickerRow[]>({
@@ -90,9 +110,33 @@ export function NewAgentPage() {
     },
   });
 
+  // Fetch company skills
+  const { data: companySkills = [] } = useCompanySkills();
+
+  // Fetch company integrations
+  const { data: companyIntegrations = [] } = useQuery<IntegrationRow[]>({
+    queryKey: ["integrations-for-newagent", activeCompany?.id],
+    enabled: !!activeCompany?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("*")
+        .eq("company_id", activeCompany!.id)
+        .order("created_at", { ascending: true });
+
+      if (error) return [];
+      return (data ?? []) as IntegrationRow[];
+    },
+  });
+
   // Get adapter types from the registry
   const adapterTypes = useMemo(
-    () => Array.from(adapterRegistry.entries()).map(([type, mod]) => ({ type, label: mod.label })),
+    () =>
+      Array.from(adapterRegistry.entries()).map(([type, mod]) => ({
+        type,
+        label: mod.label,
+        executable: isExecutableAdapter(type),
+      })),
     [],
   );
 
@@ -101,6 +145,7 @@ export function NewAgentPage() {
     () => (adapterType ? adapterRegistry.get(adapterType) : null),
     [adapterType],
   );
+  const selectedAdapterExecutable = isExecutableAdapter(adapterType);
 
   const handleConfigChange = useCallback(
     (patch: Partial<CreateConfigValues>) => {
@@ -108,12 +153,6 @@ export function NewAgentPage() {
     },
     [],
   );
-
-  // Get company_id and wallet_address from active-company resolution
-  const { company: activeCompany } = useActiveCompany();
-  const company = activeCompany
-    ? { id: activeCompany.id, wallet_address: activeCompany.wallet_address }
-    : null;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -125,23 +164,20 @@ export function NewAgentPage() {
         ? selectedAdapter.buildAdapterConfig({ ...configValues, adapterType })
         : {};
 
-      const { data, error } = await supabase
-        .from("agents")
-        .insert({
-          company_id: companyId,
+      return await createAgentRecord({
+        companyId,
+        walletAddress,
           name,
           title: title || null,
           role,
-          reports_to: reportsTo && reportsTo !== "none" ? reportsTo : null,
-          adapter_type: adapterType,
-          adapter_config: adapterConfig as unknown as Json,
-          status: "idle",
-        })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      return data as { id: string };
+        reportsTo: reportsTo && reportsTo !== "none" ? reportsTo : null,
+        adapterType,
+        adapterConfig: adapterConfig as unknown as Json as Record<string, unknown>,
+        selectedSkillIds: Array.from(selectedSkillIds),
+        integrationIds: Array.from(agentIntegrations.entries())
+          .filter(([_, enabled]) => enabled)
+          .map(([integrationId]) => integrationId),
+      });
     },
     onSuccess: async (data) => {
       // Auto-create ERC-8004 identity for the new agent.
@@ -303,12 +339,25 @@ export function NewAgentPage() {
                   <SelectContent>
                     {adapterTypes.map((a) => (
                       <SelectItem key={a.type} value={a.type}>
-                        {a.label}
+                        {a.label} {!a.executable ? "(config only)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {adapterType && (
+                <Badge
+                  variant="outline"
+                  className={`border-white/10 ${
+                    selectedAdapterExecutable
+                      ? "bg-emerald-500/10 text-emerald-300"
+                      : "bg-zinc-500/10 text-zinc-300"
+                  }`}
+                >
+                  {adapterExecutionLabel(adapterType)}
+                </Badge>
+              )}
 
               {/* Show ConfigFields from selected adapter */}
               {selectedAdapter && (
@@ -327,11 +376,190 @@ export function NewAgentPage() {
                     mark={() => {}}
                     models={[]}
                   />
+
+                  {(adapterType === "process" || adapterType === "codex_local") && (
+                    <div className="space-y-2">
+                      <Label htmlFor="agent-cwd" className="text-zinc-300">
+                        Working Directory
+                      </Label>
+                      <Input
+                        id="agent-cwd"
+                        value={configValues.cwd}
+                        onChange={(e) => handleConfigChange({ cwd: e.target.value })}
+                        placeholder="/absolute/path/to/workspace"
+                        className="border-white/10 bg-black/40 font-mono text-sm text-zinc-200"
+                      />
+                      <p className="text-xs text-zinc-500">
+                        Required for local execution adapters in the control-plane worker.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-zinc-300">Heartbeat Schedule</Label>
+                        <p className="text-xs text-zinc-500">
+                          Timer-based execution using the M1 control-plane worker.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={configValues.heartbeatEnabled}
+                        onCheckedChange={(checked) =>
+                          handleConfigChange({ heartbeatEnabled: checked })
+                        }
+                        disabled={!selectedAdapterExecutable}
+                        aria-label="Enable heartbeat schedule"
+                      />
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="heartbeat-interval" className="text-zinc-300">
+                        Interval Seconds
+                      </Label>
+                      <Input
+                        id="heartbeat-interval"
+                        type="number"
+                        min={1}
+                        value={configValues.intervalSec}
+                        onChange={(e) =>
+                          handleConfigChange({
+                            intervalSec: Math.max(1, Number.parseInt(e.target.value || "0", 10) || 1),
+                          })
+                        }
+                        disabled={!selectedAdapterExecutable || !configValues.heartbeatEnabled}
+                        className="border-white/10 bg-black/40 text-zinc-200"
+                      />
+                    </div>
+
+                    {!selectedAdapterExecutable && (
+                      <p className="mt-3 text-xs text-zinc-500">
+                        This adapter can still be configured, but the M1 control-plane will not execute it.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Skills Selection */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <Zap className="h-4 w-4" />
+              Skills
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Select skills to assign to this agent. Skills define what the agent can do.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {companySkills.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                No skills configured yet. Visit the{" "}
+                <a href="/skills" className="text-blue-400 underline">
+                  Skills page
+                </a>{" "}
+                to create or import skills.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {companySkills.filter(s => s.enabled).map(skill => (
+                  <button
+                    key={skill.id}
+                    type="button"
+                    onClick={() => {
+                      const newSelected = new Set(selectedSkillIds);
+                      if (newSelected.has(skill.id)) {
+                        newSelected.delete(skill.id);
+                      } else {
+                        newSelected.add(skill.id);
+                      }
+                      setSelectedSkillIds(newSelected);
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-sm border transition-colors ${
+                      selectedSkillIds.has(skill.id)
+                        ? 'border-blue-500/40 bg-blue-500/10 text-blue-300'
+                        : 'border-white/10 bg-[#080c14] text-zinc-400 hover:border-white/20'
+                    }`}
+                  >
+                    {skill.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Integrations Configuration */}
+        <Card className="border-white/10 bg-[#0d1118]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <Plug className="h-4 w-4" />
+              Integrations
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Configure which integrations this agent has access to. Override company defaults per-agent.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {companyIntegrations.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                No integrations configured yet. Visit the{" "}
+                <a href="/integrations" className="text-blue-400 underline">
+                  Integrations page
+                </a>{" "}
+                to set up integrations.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {companyIntegrations.map((integration) => {
+                  const isEnabled = agentIntegrations.get(integration.id) ?? integration.enabled;
+                  return (
+                    <div
+                      key={integration.id}
+                      className="flex items-center justify-between rounded-lg border border-white/10 bg-[#080c14] p-3"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-zinc-200">{integration.name}</p>
+                        <p className="text-xs text-zinc-500">
+                          {integration.integration_key}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant="outline"
+                          className={`border-white/10 text-xs ${
+                            integration.enabled
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : 'bg-zinc-500/10 text-zinc-400'
+                          }`}
+                        >
+                          {integration.enabled ? 'Company Default' : 'Disabled'}
+                        </Badge>
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(checked) => {
+                            const newIntegrations = new Map(agentIntegrations);
+                            if (checked) {
+                              newIntegrations.set(integration.id, true);
+                            } else {
+                              newIntegrations.delete(integration.id);
+                            }
+                            setAgentIntegrations(newIntegrations);
+                          }}
+                          aria-label={`Toggle ${integration.name} access`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Submit */}
         <div className="flex items-center justify-end gap-3">

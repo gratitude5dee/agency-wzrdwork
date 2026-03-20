@@ -1,0 +1,30 @@
+{
+  "milestone": "onboarding-polish",
+  "round": 2,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-ONBOARD-001",
+    "VAL-ONBOARD-002",
+    "VAL-ONBOARD-003",
+    "VAL-ONBOARD-004",
+    "VAL-CROSS-003",
+    "VAL-AUTH-003",
+    "VAL-AUTH-004"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added Round 3 testing notes documenting onboarding flow testing procedure with separated OnboardingGate bypass, mock wallet usage, and Supabase data clearing steps",
+      "source": "setup"
+    }
+  ],
+  "previousRound": ".factory/validation/onboarding-polish/user-testing/synthesis-round1.json"
+}

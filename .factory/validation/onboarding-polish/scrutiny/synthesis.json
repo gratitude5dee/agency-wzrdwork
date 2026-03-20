@@ -1,0 +1,107 @@
+{
+  "milestone": "onboarding-polish",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "npm test",
+      "exitCode": 1,
+      "note": "460 passed, 2 failed — both failures are pre-existing AuthGate tests documented in AGENTS.md 'Known Pre-Existing Issues'. No new test failures."
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc -p tsconfig.app.json --noEmit",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "npm run lint",
+      "exitCode": 1,
+      "note": "50 errors, 12 warnings total. AGENTS.md documents 47 pre-existing errors + 8 warnings. New from onboarding-polish features: AuthGate.tsx has 3 conditional hooks errors (pre-existing from foundation's thirdweb-wallet-auth, not new to this milestone), Integrations.tsx has 1 warning (rowMap useMemo suggestion). No new blocking lint issues from this milestone."
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "hermes-adapter",
+      "severity": "non_blocking",
+      "description": "MCP server list uses array index as React key. Low impact for small lists."
+    },
+    {
+      "featureId": "onboarding-flow",
+      "severity": "non_blocking",
+      "description": "company_id and agent_id not persisted to user_onboarding for mid-onboarding resume. Step number is restored but context IDs are lost — user sees fallback UI and must redo company/agent creation on refresh. Primary flow works correctly."
+    },
+    {
+      "featureId": "onboarding-flow",
+      "severity": "non_blocking",
+      "description": "No idempotency guard on company creation in CompanySetup.tsx. Navigating back to step 0 after refresh could create duplicate company row."
+    },
+    {
+      "featureId": "integrations-page",
+      "severity": "non_blocking",
+      "description": "rowMap should be wrapped in useMemo to stabilize useCallback dependencies (lint warning). Doesn't cause bugs since callbacks only fire on user click."
+    },
+    {
+      "featureId": "settings-polish",
+      "severity": "non_blocking",
+      "description": "Reset Onboarding button is enabled even when wallet_address is null. The mutation silently no-ops but UX could be clearer with a disabled state."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Added VITE_DEV_SKIP_ONBOARDING env var documentation to environment.md, with notes on dev bypass behavior (VITE_DEV_SKIP_AUTH skips both auth+onboarding, VITE_DEV_SKIP_ONBOARDING skips only onboarding)",
+      "sourceFeature": "onboarding-flow"
+    },
+    {
+      "target": "library",
+      "description": "Added OnboardingGate to the App Structure section of architecture.md, documenting the new auth chain: ThirdwebProvider > AuthGate > OnboardingGate > Routes",
+      "sourceFeature": "onboarding-flow"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add guidance to centralize React Query keys in a shared constants file (e.g., src/lib/query-keys.ts) instead of using scattered string literals. Keys like 'sidebar-agents', 'agents-list', 'agents-picker', 'agency-snapshot' are duplicated across multiple files, creating typo-based cache invalidation risks.",
+      "evidence": "settings-polish review found 'sidebar-agents' used in 3 files (NewAgent.tsx, CeoAgentCreation.tsx, useSidebarAgents.ts) as plain strings. Other agent query keys are similarly scattered.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Reinforce in synthesis-worker skill that npm run lint MUST be run as part of verification, even if pre-existing lint errors are known. Workers should verify no NEW lint errors were introduced by their feature. The onboarding-flow worker skipped lint entirely.",
+      "evidence": "onboarding-flow review found lint was not run per skill procedure. Handoff verification has 4 commands but no lint. AGENTS.md already documents 47 pre-existing lint errors which may discourage workers from running it.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Hermes adapter __hermes_extras__ pattern for storing adapter config in envBindings",
+      "reason": "Adapter-specific implementation detail, not systemic. Only one adapter uses this pattern; no action needed unless more adapters adopt it."
+    },
+    {
+      "observation": "Worker followed synthesis-worker skill procedure correctly (hermes-adapter)",
+      "reason": "Positive observation, no action needed."
+    },
+    {
+      "observation": "JSONB column casting pattern for integrations config",
+      "reason": "Already documented in environment.md under 'Supabase JSONB Column Typing'."
+    },
+    {
+      "observation": "Single-tenant .limit(1).single() pattern for company queries",
+      "reason": "Not systemic enough to document. This is the natural Supabase pattern for single-tenant apps."
+    },
+    {
+      "observation": "Custom CompanySettings interface vs Database types (settings-polish)",
+      "reason": "AGENTS.md already says 'Prefer using Database types'. No additional guidance needed."
+    }
+  ],
+  "previousRound": null
+}

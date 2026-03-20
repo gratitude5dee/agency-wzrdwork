@@ -48,5 +48,13 @@
     }
   ],
   "previousRound": null,
-  "executionNotes": "Subagent spawning failed with bun-eval parsing errors. All 16 assertions tested directly in the validator session using agent-browser. A test issue was created for drag-and-drop validation and cleaned up naturally as part of the test company's data."
+  "executionNotes": "Subagent spawning failed with bun-eval parsing errors. All 16 assertions tested directly in the validator session using agent-browser. A test issue was created for drag-and-drop validation and cleaned up naturally as part of the test company's data. Override applied: VAL-THREE-002 and VAL-THREE-003 were deferred to m6-headed-cockpit-scene-proof-and-regression for later headed/manual validation.",
+  "override": {
+    "deferredAssertions": [
+      "VAL-THREE-002",
+      "VAL-THREE-003"
+    ],
+    "deferredToFeatureId": "m6-headed-cockpit-scene-proof-and-regression",
+    "reason": "Deferred because the current validator environment is headless Chromium and the user accepted special cockpit handling for full WebGPU scene proof. These assertions will be revalidated in the end-to-end milestone with headed/manual evidence or equivalent proof affordances."
+  }
 }

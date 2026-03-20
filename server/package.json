@@ -1,0 +1,9 @@
+{
+  "name": "agency-wzrdwork-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && node dist/index.js"
+  }
+}

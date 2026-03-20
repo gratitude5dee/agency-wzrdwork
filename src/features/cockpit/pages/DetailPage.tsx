@@ -2,12 +2,15 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgencyData } from "../lib/useAgencyData";
 import { formatTokens, formatUsd, relativeTime } from "../lib/format";
 import { getRunLogJson, triggerJsonDownload } from "@/lib/erc8004/download";
+import { decideApprovalRecord } from "@/lib/server-api/approvals";
 
 type DetailKind = "agent" | "issue" | "approval" | "run" | "project";
 
@@ -45,6 +48,8 @@ function RunLogDownload({ runId }: { runId: string }) {
 export function DetailPage({ kind }: { kind: DetailKind }) {
   const params = useParams();
   const { snapshot } = useAgencyData();
+  const queryClient = useQueryClient();
+  const [approvalNote, setApprovalNote] = useState("");
 
   const record = useMemo(() => {
     switch (kind) {
@@ -62,6 +67,27 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
         return null;
     }
   }, [kind, params, snapshot]);
+
+  const approvalDecision = useMutation({
+    mutationFn: async (decision: "approved" | "rejected" | "revision_requested") => {
+      if (kind !== "approval" || !params.approvalId) {
+        throw new Error("No approval selected");
+      }
+      return await decideApprovalRecord({
+        approvalId: params.approvalId,
+        decision,
+        note: approvalNote.trim() || null,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["agency-snapshot"] });
+      toast.success("Approval updated");
+      setApprovalNote("");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to update approval");
+    },
+  });
 
   if (!record) {
     return (
@@ -125,6 +151,44 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
             <p>
               <span className="font-black text-zinc-100">Cost:</span> {formatUsd(record.totalCostUsd)}
             </p>
+          )}
+          {kind === "approval" && (
+            <div className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
+                Decision
+              </p>
+              <Textarea
+                value={approvalNote}
+                onChange={(event) => setApprovalNote(event.target.value)}
+                placeholder="Optional note"
+                className="min-h-24 border-white/10 bg-black/40 text-zinc-200"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={approvalDecision.isPending}
+                  onClick={() => approvalDecision.mutate("approved")}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={approvalDecision.isPending}
+                  onClick={() => approvalDecision.mutate("revision_requested")}
+                >
+                  Request Revision
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={approvalDecision.isPending}
+                  onClick={() => approvalDecision.mutate("rejected")}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

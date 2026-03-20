@@ -28,13 +28,22 @@
   "blockedAssertions": [
     {
       "id": "VAL-AUTH-003",
-      "blockedBy": "Real-wallet connection requires headed browser with wallet extension — headless Chromium cannot interact with MetaMask or equivalent extensions"
+      "blockedBy": "Real-wallet connection requires headed browser with wallet extension \u2014 headless Chromium cannot interact with MetaMask or equivalent extensions"
     },
     {
       "id": "VAL-AUTH-004",
-      "blockedBy": "Real-wallet auth and reload verification requires headed browser with wallet extension — same blocker as VAL-AUTH-003"
+      "blockedBy": "Real-wallet auth and reload verification requires headed browser with wallet extension \u2014 same blocker as VAL-AUTH-003"
     }
   ],
   "appliedUpdates": [],
-  "previousRound": null
+  "previousRound": null,
+  "override": {
+    "deferredAssertions": [
+      "VAL-AUTH-003",
+      "VAL-AUTH-004"
+    ],
+    "deferredToFeatureId": "m6-first-run-and-agent-consistency-flows",
+    "reason": "Deferred because the current validator environment is headless Chromium without a real wallet extension. These wallet-persistence assertions require headed/manual validation with an actual wallet connection and will be revalidated in the end-to-end milestone."
+  },
+  "executionNotes": " Override applied: VAL-AUTH-003 and VAL-AUTH-004 were deferred to m6-first-run-and-agent-consistency-flows for later headed/manual validation with a real wallet."
 }

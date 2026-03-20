@@ -12,6 +12,7 @@ import {
   Inbox,
   LayoutDashboard,
   Link2,
+  MessageSquare,
   Network,
   Package,
   Plug,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import { useTruncatedAddress, useStoredWalletAddress } from "@/hooks/useWalletAddressSync";
 import { useLiveRunCount } from "@/hooks/useLiveRunCount";
-import { usePendingApprovalCount } from "@/hooks/usePendingApprovalCount";
+import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useSidebarAgents } from "@/hooks/useSidebarAgents";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react";
@@ -63,6 +64,7 @@ const TOP_ITEMS: NavItem[] = [
   { to: "/cockpit", label: "Sandbox", icon: Workflow },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inbox", label: "Inbox", icon: Inbox },
+  { to: "/chat", label: "Chat", icon: MessageSquare },
 ];
 
 const WORK_ITEMS: NavItem[] = [
@@ -150,8 +152,10 @@ export function AppShell() {
     : null;
   const walletAddress = liveWalletAddress ?? storedTruncated;
   const { data: liveRunCount = 0 } = useLiveRunCount();
-  const { data: pendingApprovals = 0 } = usePendingApprovalCount();
+  const { data: sidebarBadges } = useSidebarBadges();
   const { data: sidebarAgents = [] } = useSidebarAgents();
+  const pendingApprovals = sidebarBadges?.approvals ?? 0;
+  const inboxCount = sidebarBadges?.inbox ?? pendingApprovals;
 
   const openIssues = useMemo(
     () => snapshot.issues.filter((issue) => issue.status !== "done" && issue.status !== "cancelled").length,
@@ -171,7 +175,7 @@ export function AppShell() {
     item.label === "Sandbox"
       ? { ...item, badge: liveRunCount > 0 ? liveRunCount : null }
       : item.label === "Inbox"
-        ? { ...item, badge: pendingApprovals > 0 ? pendingApprovals : null }
+        ? { ...item, badge: inboxCount > 0 ? inboxCount : null }
         : item,
   );
   const workItems = WORK_ITEMS.map((item) =>

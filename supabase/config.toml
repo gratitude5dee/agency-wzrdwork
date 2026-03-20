@@ -1,0 +1,19 @@
+project_id = "lptryhnnhhvbblrrsaqa"
+
+[functions.thirdweb-config]
+verify_jwt = false
+
+[functions.venice-proxy]
+verify_jwt = false
+
+[functions.bankr-proxy]
+verify_jwt = false
+
+[functions.uniswap-proxy]
+verify_jwt = false
+
+[functions.agent-wakeup]
+verify_jwt = false
+
+[functions.adapter-secrets]
+verify_jwt = false

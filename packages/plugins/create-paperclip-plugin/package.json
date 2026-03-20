@@ -1,0 +1,13 @@
+{
+  "name": "@agency-wzrdwork/create-paperclip-plugin",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "bin": {
+    "create-paperclip-plugin": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && node dist/index.js"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "featureId": "dashboard-components-port",
+  "reviewedAt": "2026-03-16T12:20:00.000Z",
+  "commitId": "9a8301e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation of all three dashboard components (MetricCard, ActivityCharts, ActiveAgentsPanel) plus the full SectionPage. All expectedBehavior items are met: MetricCards show correct counts and link to /org, /issues, /cockpit, /approvals; 4 chart types use pure CSS bars with 14-day range and 3 date labels; ActiveAgentsPanel filters running/active agents; urgent/blocked issues and recent activity feed are populated. Code follows conventions (cn(), lucide-react, Tailwind dark theme, @/ imports, Supabase via useAgencyData). 21 test cases with comprehensive coverage including mocked integration tests. No blocking issues found.",
+    "issues": [
+      {
+        "file": "src/components/ActivityCharts.tsx",
+        "line": 89,
+        "severity": "non_blocking",
+        "description": "getCreatedAt() returns empty string when both created_at and createdAt are undefined. `new Date('').toISOString()` throws RangeError. In practice, Supabase rows and demo data always have created_at/createdAt populated, so this is unlikely to trigger, but a defensive guard (e.g., skip rows with no date) would be safer."
+      },
+      {
+        "file": "src/features/cockpit/pages/SectionPage.tsx",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "Feature description says 'Update the existing Dashboard section in SectionPage.tsx', but SectionPage.tsx was created as a new 428-line file (git shows new file mode). App.tsx already imported SectionPage at the parent commit without the file existing, so the worker correctly created it. However, this means the worker also implemented all non-dashboard sections (inbox, issues, goals, approvals, projects, org, costs, activity, design-guide, settings) which exceeds the feature scope. These sections appear functional but were not part of the feature contract and have no dedicated tests."
+      },
+      {
+        "file": "src/features/cockpit/pages/SectionPage.tsx",
+        "line": 72,
+        "severity": "non_blocking",
+        "description": "The agentRows mapping converts domain camelCase (adapterType) to component snake_case (adapter_type). While correct, having the component accept snake_case while the domain model uses camelCase is a minor inconsistency. Consider aligning ActiveAgentsPanel.AgentRow to accept camelCase (adapterType) for consistency with the rest of the domain model."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker did not run `npm run lint` as part of verification, though the skill procedure (step 5) lists it as required. AGENTS.md documents 47 pre-existing lint errors and says 'Workers should ensure their NEW code has no lint errors, but the overall lint command will exit non-zero.' The worker should have run lint and confirmed no new errors were introduced, even if the command fails overall.",
+      "evidence": "Handoff verification.commandsRun lists only 3 commands (npm test, npx tsc, npm run build) — missing npm run lint. SKILL.md step 5 lists all 4 commands as required."
+    },
+    {
+      "area": "skills",
+      "observation": "Worker did not perform interactive/browser verification as required by the skill procedure (step 5: 'manually verify with agent-browser'). The handoff has no interactiveChecks field. The skill procedure says to start dev server, navigate to pages, verify rendering and check for console errors. This was skipped.",
+      "evidence": "Handoff contains verification.commandsRun but no interactiveChecks array. SKILL.md step 5 explicitly requires agent-browser manual verification after the 4 CLI commands."
+    },
+    {
+      "area": "conventions",
+      "observation": "SectionPage.tsx was entirely new (not an update) despite the feature description saying 'Update the existing Dashboard section in SectionPage.tsx.' App.tsx imported SectionPage before this commit but the file didn't exist in git, meaning the app was broken at the parent commit. The worker correctly created the full file but the feature description's precondition assumption was wrong. Future features referencing 'update existing X' should verify the file actually exists or the feature should be scoped as 'create X'.",
+      "evidence": "git log --all -- '**/SectionPage*' shows only commit 9a8301e. git show 9a8301e^ for SectionPage.tsx returns 'path exists on disk, but not in 9a8301e^'. App.tsx at parent commit already had `import { SectionPage } from './features/cockpit/pages/SectionPage'`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. All three dashboard components (MetricCard, ActivityCharts, ActiveAgentsPanel) are well-implemented with proper TypeScript typing, dark theme styling, empty state handling, and Supabase data wiring via useAgencyData. The 4 chart types use pure CSS bars as required. Each MetricCard correctly links to its respective page. 21 tests pass covering unit and integration scenarios. Three non-blocking issues noted: (1) potential crash on malformed date data in charts, (2) SectionPage scope exceeded feature contract by implementing all section views, (3) minor camelCase/snake_case inconsistency in ActiveAgentsPanel props. Two process deviations: lint and interactive browser verification were not performed per the skill procedure."
+}

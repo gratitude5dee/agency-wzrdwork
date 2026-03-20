@@ -6,8 +6,9 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useActiveCompany } from "./useActiveCompany";
+import { getCompanySettingsRecord, updateCompanySettingsRecord } from "@/lib/server-api/companies";
+import { getServerBaseUrl, requestServerJson } from "@/lib/server-api/http";
 
 export interface CompanySettings {
   id: string;
@@ -26,28 +27,17 @@ export interface CompanySettings {
  * Derives the company from the connected wallet rather than an unscoped limit(1).
  */
 export function useCompanySettings() {
-  const { companyId, isLoading: companyLoading } = useActiveCompany();
+  const { companyId, company, isLoading: companyLoading } = useActiveCompany();
 
   return useQuery<CompanySettings | null>({
     queryKey: ["company-settings", companyId],
     enabled: !companyLoading && !!companyId,
     queryFn: async () => {
       if (!companyId) return null;
-
-      const { data, error } = await supabase
-        .from("companies")
-        .select("id, name, wallet_address, company_type, brand_color, brief, slug, description, created_at")
-        .eq("id", companyId)
-        .maybeSingle();
-
-      if (error) {
-        // Table may not exist yet
-        if (error.code === "42P01" || error.message?.includes("does not exist")) {
-          return null;
-        }
-        throw error;
-      }
-      return data as CompanySettings | null;
+      return await getCompanySettingsRecord({
+        companyId,
+        walletAddress: company?.wallet_address ?? null,
+      });
     },
     staleTime: 30_000,
   });
@@ -58,22 +48,17 @@ export function useCompanySettings() {
  * Scoped to the active company via companyId.
  */
 export function useUpdateCompanySettings() {
-  const { companyId } = useActiveCompany();
+  const { companyId, company } = useActiveCompany();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (patch: Partial<Pick<CompanySettings, "name" | "brief" | "company_type" | "brand_color">>) => {
       if (!companyId) throw new Error("No active company");
-
-      const { data, error } = await supabase
-        .from("companies")
-        .update(patch)
-        .eq("id", companyId)
-        .select("id, name, wallet_address, company_type, brand_color, brief, slug, description, created_at")
-        .single();
-
-      if (error) throw error;
-      return data as CompanySettings;
+      return await updateCompanySettingsRecord({
+        companyId,
+        walletAddress: company?.wallet_address ?? null,
+        patch,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
@@ -86,17 +71,15 @@ export function useUpdateCompanySettings() {
  * Checks whether the Supabase connection is healthy by running a lightweight query.
  */
 export function useSupabaseHealth() {
+  const serverBaseUrl = getServerBaseUrl();
+
   return useQuery<boolean>({
-    queryKey: ["supabase-health"],
+    queryKey: ["server-health"],
     queryFn: async () => {
       try {
-        // Simple select to verify connection — agents table should always exist
-        const { error } = await supabase
-          .from("agents")
-          .select("id")
-          .limit(1);
-
-        return !error;
+        if (!serverBaseUrl) return false;
+        const result = await requestServerJson<{ ok: boolean }>("/api/health", { method: "GET" });
+        return result.ok === true;
       } catch {
         return false;
       }

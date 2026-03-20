@@ -1,0 +1,114 @@
+{
+  "groupId": "onboarding-flow",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "onboardingBypass": "VITE_DEV_SKIP_ONBOARDING=false",
+    "mockWallet": "0x1234567890abcdef1234567890abcdef12345678",
+    "session": "096a7dc312c6__onboard"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-ONBOARD-001",
+      "title": "Onboarding flow appears on first visit",
+      "status": "pass",
+      "steps": [
+        { "action": "Clear user_onboarding table for mock wallet via Supabase REST API", "expected": "No onboarding row exists", "observed": "DELETE returned empty array (no prior data)" },
+        { "action": "Navigate to http://localhost:8080", "expected": "Onboarding wizard displayed instead of cockpit", "observed": "Onboarding wizard displayed with 'GETTING STARTED' header" },
+        { "action": "Verify step indicators", "expected": "Steps: Company, CEO Agent, Harness, Tour", "observed": "Step indicators shown: '1 Company', '2 CEO Agent', '3 Harness', '4 Tour'" },
+        { "action": "Verify Step 1 form", "expected": "Company Name, Description, Wallet Address fields visible", "observed": "All three fields present. Wallet Address auto-filled with mock wallet 0x1234...5678" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/onboarding-flow/VAL-ONBOARD-001-initial-load.png"],
+        "consoleErrors": "none",
+        "network": "GET http://localhost:8080/ -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONBOARD-002",
+      "title": "Company setup step creates company",
+      "status": "pass",
+      "steps": [
+        { "action": "Fill Company Name with 'Test Agency Co'", "expected": "Field populated", "observed": "Field populated with 'Test Agency Co'" },
+        { "action": "Fill Description with 'An AI-powered agency for automated operations'", "expected": "Field populated", "observed": "Field populated" },
+        { "action": "Verify Wallet Address auto-filled", "expected": "Mock wallet address shown", "observed": "0x1234567890abcdef1234567890abcdef12345678 displayed, labeled 'Auto-filled from your connected wallet'" },
+        { "action": "Click 'Create Company'", "expected": "Company created in Supabase, step advances to Step 2", "observed": "Step advanced to Step 2 (CEO Agent). Supabase query confirmed company row created with id=191fee08-5fcb-4947-93dd-0b3357a0f144, name='Test Agency Co', wallet_address='0x1234567890abcdef1234567890abcdef12345678'" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/onboarding-flow/VAL-ONBOARD-002-before-submit.png", "onboarding-polish/onboarding-flow/VAL-ONBOARD-002-after-submit.png"],
+        "consoleErrors": "none",
+        "network": "POST /rest/v1/companies -> 201 (verified via Supabase REST API)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONBOARD-003",
+      "title": "CEO agent creation step works",
+      "status": "pass",
+      "steps": [
+        { "action": "Verify Step 2 form fields", "expected": "Agent Name, System Prompt, Goals, Operational Parameters visible", "observed": "All fields present: Agent Name (defaulted to 'CEO'), System Prompt (placeholder: 'You are an autonomous CEO agent responsible for overseeing company operations...'), Goals input, Spend Limit (USDC), Budget Cap (USDC), Authority Level dropdown" },
+        { "action": "Click 'Create CEO Agent' with defaults", "expected": "Agent created in Supabase with role='ceo', step advances to Step 3", "observed": "Step advanced to Step 3 (Harness). Supabase query confirmed agent created: name='CEO', role='ceo', adapter_type='claude_local' (default), status='idle'" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/onboarding-flow/VAL-ONBOARD-002-after-submit.png", "onboarding-polish/onboarding-flow/VAL-ONBOARD-003-after-ceo-create.png"],
+        "consoleErrors": "none",
+        "network": "POST /rest/v1/agents -> 201 (verified via Supabase REST API)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONBOARD-004",
+      "title": "Harness selector shows adapter cards",
+      "status": "pass",
+      "steps": [
+        { "action": "Verify Step 3 displays adapter cards", "expected": "10 adapter cards with name, description, and strengths", "observed": "10 cards displayed: Claude (Local), Codex (Local), Cursor, Gemini (Local), OpenCode (Local), Pi (Local), OpenClaw Gateway, Process, HTTP, Hermes Agent. Each card has name, description paragraph, and strength badges (e.g., 'Deep reasoning', 'Long context', 'Code generation' for Claude)" },
+        { "action": "Verify default selection", "expected": "One card pre-selected", "observed": "Claude (Local) has a checkmark indicating default selection" },
+        { "action": "Select Hermes Agent card", "expected": "Hermes card becomes selected", "observed": "Hermes Agent card selected" },
+        { "action": "Click 'Confirm Selection'", "expected": "Adapter type updated in Supabase, step advances to Step 4", "observed": "Step advanced to Step 4 (Tour). Supabase query confirmed agent adapter_type updated to 'hermes'" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/onboarding-flow/VAL-ONBOARD-003-after-ceo-create.png", "onboarding-polish/onboarding-flow/VAL-ONBOARD-004-harness-cards-bottom.png", "onboarding-polish/onboarding-flow/VAL-ONBOARD-004-hermes-selected.png", "onboarding-polish/onboarding-flow/VAL-ONBOARD-004-step4-tour.png"],
+        "consoleErrors": "none",
+        "network": "PATCH /rest/v1/agents -> 200 (verified via Supabase REST API)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Onboarding flow produces functional agent",
+      "status": "pass",
+      "steps": [
+        { "action": "Complete feature tour by clicking 'Skip Tour'", "expected": "Onboarding completes, redirects to cockpit", "observed": "First click on Skip Tour did not immediately redirect (button may have required re-click). Second click successfully redirected to /cockpit" },
+        { "action": "Verify cockpit loads with company data", "expected": "Cockpit shows company name and description", "observed": "Cockpit header shows 'Test Agency Co' and 'An AI-powered agency for automated operations'" },
+        { "action": "Verify CEO agent in sidebar agent list", "expected": "CEO agent listed under AGENTS section", "observed": "Sidebar AGENTS section shows 'CEO' link" },
+        { "action": "Verify mock wallet address in header", "expected": "Truncated wallet address visible", "observed": "Header shows '0x1234...5678'" },
+        { "action": "Navigate to /org-chart", "expected": "CEO agent appears in org chart", "observed": "Org chart renders with 'CEO' card showing 'Chief Executive Officer' role and 'Hermes' adapter type" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/onboarding-flow/VAL-CROSS-003-after-skip-tour.png", "onboarding-polish/onboarding-flow/VAL-CROSS-003-org-chart.png"],
+        "consoleErrors": "none",
+        "network": "GET /rest/v1/agents, GET /rest/v1/companies -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Skip Tour button on Step 4 required two clicks to complete onboarding — first click appeared to register but did not navigate away from the tour step. Second click (using semantic text locator) succeeded.",
+      "resolved": true,
+      "resolution": "Used 'find text Skip Tour click' semantic locator instead of ref-based click",
+      "affectedAssertions": ["VAL-CROSS-003"]
+    },
+    {
+      "description": "WebGL/WebGPU 'Scene Error' displayed on cockpit page in headless Chromium — expected per AGENTS.md known limitations. Does not affect UI testing.",
+      "resolved": true,
+      "resolution": "Ignored per testing guidance — cosmetic issue in headless browser",
+      "affectedAssertions": ["VAL-CROSS-003"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 5 passed, 0 failed. Full onboarding flow (company creation → CEO agent creation → harness selection → feature tour → cockpit) works end-to-end. Company and CEO agent were successfully created in Supabase with correct data. Agent appears in sidebar and org chart after onboarding completes."
+}

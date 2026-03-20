@@ -1,0 +1,112 @@
+{
+  "groupId": "nav-dash-cross",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "session": "fb2e1bf7dcf1__navdash",
+    "note": "Auth gate active — thirdweb client ID is 'placeholder', wallet connection not possible"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-NAV-001",
+      "title": "Sidebar renders all navigation sections",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080", "expected": "App loads with sidebar", "observed": "Auth gate sign-in screen displayed instead of main app" },
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "Dashboard with sidebar", "observed": "Auth gate sign-in screen displayed" },
+        { "action": "Navigate to http://localhost:8080/agents", "expected": "Agents page with sidebar", "observed": "Auth gate sign-in screen displayed" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/nav-dash-cross/auth-gate-home.png", "foundation/nav-dash-cross/auth-gate-dashboard.png", "foundation/nav-dash-cross/auth-gate-agents.png"],
+        "consoleErrors": "none",
+        "network": "N/A — auth gate blocks before internal page loads"
+      },
+      "issues": "Auth gate blocks access to internal pages — thirdweb client ID is 'placeholder', wallet connection not possible. Sidebar cannot be tested without authenticated access."
+    },
+    {
+      "id": "VAL-NAV-002",
+      "title": "All sidebar routes navigate correctly",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080", "expected": "Main app with clickable sidebar", "observed": "Auth gate sign-in screen — no sidebar visible" },
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "Dashboard page", "observed": "Auth gate sign-in screen" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/nav-dash-cross/auth-gate-home.png", "foundation/nav-dash-cross/auth-gate-dashboard.png"],
+        "consoleErrors": "none",
+        "network": "N/A — auth gate blocks before internal page loads"
+      },
+      "issues": "Auth gate blocks access to internal pages — thirdweb client ID is 'placeholder', wallet connection not possible. Cannot click sidebar items or verify route navigation."
+    },
+    {
+      "id": "VAL-NAV-003",
+      "title": "Active route highlighted in sidebar",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080", "expected": "Sidebar with active route highlight", "observed": "Auth gate sign-in screen — no sidebar visible" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/nav-dash-cross/auth-gate-home.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": "Auth gate blocks access to internal pages — thirdweb client ID is 'placeholder', wallet connection not possible. Sidebar not accessible to verify active route highlighting."
+    },
+    {
+      "id": "VAL-NAV-004",
+      "title": "Badge counts display real data",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080", "expected": "Sidebar with badge counts", "observed": "Auth gate sign-in screen — no sidebar visible" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/nav-dash-cross/auth-gate-home.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": "Auth gate blocks access to internal pages — thirdweb client ID is 'placeholder', wallet connection not possible. Sidebar badges not accessible."
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Full navigation flow without errors",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080", "expected": "Cockpit page as starting point", "observed": "Auth gate sign-in screen" },
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "Dashboard page", "observed": "Auth gate sign-in screen" },
+        { "action": "Navigate to http://localhost:8080/agents", "expected": "Agents page", "observed": "Auth gate sign-in screen" },
+        { "action": "Navigate to http://localhost:8080/org-chart", "expected": "OrgChart page", "observed": "Auth gate sign-in screen" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/nav-dash-cross/auth-gate-home.png", "foundation/nav-dash-cross/auth-gate-dashboard.png", "foundation/nav-dash-cross/auth-gate-agents.png", "foundation/nav-dash-cross/auth-gate-orgchart.png"],
+        "consoleErrors": "none",
+        "network": "N/A — auth gate blocks before internal page loads"
+      },
+      "issues": "Auth gate blocks access to all internal pages — thirdweb client ID is 'placeholder', wallet connection not possible. Cannot perform full navigation flow."
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "title": "Data consistency across views",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "Dashboard with agent count metric", "observed": "Auth gate sign-in screen" },
+        { "action": "Navigate to http://localhost:8080/agents", "expected": "Agents list page with agent count", "observed": "Auth gate sign-in screen" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/nav-dash-cross/auth-gate-dashboard.png", "foundation/nav-dash-cross/auth-gate-agents.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": "Auth gate blocks access to internal pages — thirdweb client ID is 'placeholder', wallet connection not possible. Cannot compare data between dashboard and agents list."
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Auth gate (src/components/AuthGate.tsx) blocks access to ALL internal pages. The thirdweb client ID is set to 'placeholder', making real wallet connection impossible. Every route (/, /dashboard, /agents, /org-chart) displays the WalletAuthScreen sign-in page instead of the main app content. No sidebar, navigation, or page content is accessible.",
+      "affectedAssertions": ["VAL-NAV-001", "VAL-NAV-002", "VAL-NAV-003", "VAL-NAV-004", "VAL-CROSS-001", "VAL-CROSS-006"],
+      "quickFixAttempted": "Navigated directly to 4 different internal URLs (/, /dashboard, /agents, /org-chart) — all showed the auth gate sign-in screen. No non-disruptive workaround available."
+    }
+  ],
+  "summary": "Tested 6 assertions: 0 passed, 0 failed, 6 blocked. All assertions are blocked by the auth gate — the thirdweb client ID is 'placeholder' so wallet connection is not possible, and all pages show the WalletAuthScreen instead of app content."
+}

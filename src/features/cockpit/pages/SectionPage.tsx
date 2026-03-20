@@ -289,12 +289,12 @@ export function SectionPage({ section }: { section: SectionName }) {
         <CardContent className="space-y-4 text-zinc-300">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">Source</p>
-            <p className="mt-2 text-sm">{snapshot.source === "supabase" ? "Live Supabase tables" : "Demo fallback snapshot"}</p>
+            <p className="mt-2 text-sm">{snapshot.source === "server" ? "Live orchestration server" : "Demo fallback snapshot"}</p>
           </div>
           <Separator className="bg-white/10" />
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">Message</p>
-            <p className="mt-2 text-sm">{snapshot.sourceMessage ?? "Schema is live and the app is reading from Supabase."}</p>
+            <p className="mt-2 text-sm">{snapshot.sourceMessage ?? "The app is reading from the orchestration server."}</p>
           </div>
         </CardContent>
       </Card>
@@ -331,7 +331,7 @@ function DashboardSection({ snapshot }: { snapshot: AgencySnapshot }) {
   const { data: liveAgents = [], isLoading: agentsLoading, isError: agentsErr, refetch: refetchAgents } = useDashboardAgents();
   const { data: liveActivity = [], isLoading: activityLoading, isError: activityErr, refetch: refetchActivity } = useDashboardActivity();
 
-  const isDemoMode = snapshot.source !== "supabase";
+  const isDemoMode = snapshot.source !== "server";
 
   // Determine if we're in initial loading of core data
   const metricsLoading = agentMetricsLoading || issueMetricsLoading || runMetricsLoading || approvalMetricsLoading;
@@ -794,8 +794,8 @@ function SettingsSection({ snapshot }: { snapshot: AgencySnapshot }) {
                 Data Source
               </p>
               <p className="mt-2 text-sm">
-                {snapshot.source === "supabase"
-                  ? "Live Supabase tables"
+                {snapshot.source === "server"
+                  ? "Live orchestration server"
                   : "Demo fallback snapshot"}
               </p>
             </div>

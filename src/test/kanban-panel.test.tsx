@@ -78,6 +78,10 @@ vi.mock("@/hooks/useActiveCompany", () => ({
   }),
 }));
 
+vi.mock("thirdweb/react", () => ({
+  useActiveAccount: () => ({ address: "0x123" }),
+}));
+
 function createTestQueryClient() {
   return new QueryClient({
     defaultOptions: {

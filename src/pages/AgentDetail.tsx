@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bot, Settings, Activity, CircleDot, ShieldCheck, Wrench, Download, Loader2 as Spinner } from "lucide-react";
+import { ArrowLeft, Bot, Settings, Activity, CircleDot, ShieldCheck, Wrench, Download, Loader2 as Spinner, Play } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,14 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { adapterRegistry } from "@/adapters/registry";
+import { adapterExecutionLabel, isExecutableAdapter } from "@/adapters/execution-support";
 import { relativeTime } from "@/features/cockpit/lib/format";
 import { AgentIdentitySection } from "@/components/AgentIdentitySection";
 import { AgentSkillAssignment } from "@/components/AgentSkillAssignment";
+import { AgentIntegrationConfig } from "@/components/AgentIntegrationConfig";
 import { useAgentComposioTools } from "@/hooks/useAgentComposioTools";
 import { VENICE_MODELS, VENICE_DEFAULT_MODEL } from "@/lib/venice/config";
+import { enqueueAgentWakeup } from "@/lib/control-plane/client";
+import { redactAdapterConfigForDisplay } from "@/lib/control-plane/redact-config";
 import { getRunLogJson, triggerJsonDownload } from "@/lib/erc8004/download";
+import { getAgentDetailRecord, updateAgentRecord } from "@/lib/server-api/agents";
 import { toast } from "sonner";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 interface AgentDetailRow {
+  company_id: string;
   id: string;
   name: string;
   role: string;
@@ -119,14 +124,8 @@ export function AgentDetailPage() {
   const { data: agent, isLoading } = useQuery<AgentDetailRow | null>({
     queryKey: ["agent-detail", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agents")
-        .select("*")
-        .eq("id", id!)
-        .single();
-
-      if (error) throw error;
-      return data as AgentDetailRow | null;
+      const detail = await getAgentDetailRecord({ agentId: id! });
+      return detail.agent as AgentDetailRow;
     },
     enabled: !!id,
   });
@@ -134,14 +133,8 @@ export function AgentDetailPage() {
   const { data: runs = [] } = useQuery<RunRow[]>({
     queryKey: ["agent-runs", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("runs")
-        .select("id, status, summary, created_at, total_cost_usd")
-        .eq("agent_id", id!)
-        .order("created_at", { ascending: false });
-
-      if (error) return [];
-      return (data ?? []) as RunRow[];
+      const detail = await getAgentDetailRecord({ agentId: id! });
+      return detail.runs as RunRow[];
     },
     enabled: !!id,
   });
@@ -149,14 +142,8 @@ export function AgentDetailPage() {
   const { data: issues = [] } = useQuery<IssueRow[]>({
     queryKey: ["agent-issues", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("issues")
-        .select("id, identifier, title, status, priority")
-        .eq("assignee_agent_id", id!)
-        .order("created_at", { ascending: false });
-
-      if (error) return [];
-      return (data ?? []) as IssueRow[];
+      const detail = await getAgentDetailRecord({ agentId: id! });
+      return detail.issues as IssueRow[];
     },
     enabled: !!id,
   });
@@ -165,11 +152,11 @@ export function AgentDetailPage() {
 
   const togglePrivateCognition = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const { error } = await supabase
-        .from("agents")
-        .update({ private_cognition_enabled: enabled })
-        .eq("id", id!);
-      if (error) throw error;
+      await updateAgentRecord({
+        agentId: id!,
+        companyId: agent?.company_id ?? null,
+        privateCognitionEnabled: enabled,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent-detail", id] });
@@ -178,11 +165,11 @@ export function AgentDetailPage() {
 
   const updateVeniceModel = useMutation({
     mutationFn: async (model: string) => {
-      const { error } = await supabase
-        .from("agents")
-        .update({ venice_model: model })
-        .eq("id", id!);
-      if (error) throw error;
+      await updateAgentRecord({
+        agentId: id!,
+        companyId: agent?.company_id ?? null,
+        veniceModel: model,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent-detail", id] });
@@ -193,6 +180,43 @@ export function AgentDetailPage() {
     if (!agent) return "—";
     return adapterRegistry.get(agent.adapter_type)?.label ?? agent.adapter_type;
   }, [agent]);
+  const executableAdapter = agent ? isExecutableAdapter(agent.adapter_type) : false;
+  const heartbeatSummary = useMemo(() => {
+    const config = (agent?.adapter_config ?? {}) as Record<string, unknown>;
+    const enabled = config.heartbeatEnabled === true;
+    const interval = typeof config.intervalSec === "number" ? config.intervalSec : null;
+    if (!enabled || !interval) return "Manual only";
+    return `Every ${interval}s`;
+  }, [agent]);
+  const redactedAdapterConfig = useMemo(
+    () => redactAdapterConfigForDisplay(agent?.adapter_config ?? null),
+    [agent?.adapter_config],
+  );
+
+  const triggerWakeup = useMutation({
+    mutationFn: async () => {
+      if (!agent) throw new Error("Agent not loaded");
+      if (!executableAdapter) {
+        throw new Error("This adapter is configuration-only in M1");
+      }
+      return await enqueueAgentWakeup({
+        agentId: agent.id,
+        companyId: agent.company_id,
+        reason: `Manual wakeup for ${agent.name}`,
+        payload: {
+          task: `Manual wakeup for ${agent.name}`,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-runs", id] });
+      queryClient.invalidateQueries({ queryKey: ["agent-detail", id] });
+      toast.success("Agent wakeup enqueued");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to enqueue wakeup");
+    },
+  });
 
   const composioTools = useAgentComposioTools(agent?.adapter_config ?? null);
 
@@ -251,6 +275,30 @@ export function AgentDetailPage() {
             <p className="text-sm text-zinc-500">{agent.title ?? agent.role}</p>
           </div>
         </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className={`border-white/10 ${
+              executableAdapter
+                ? "bg-emerald-500/10 text-emerald-300"
+                : "bg-zinc-500/10 text-zinc-300"
+            }`}
+          >
+            {adapterExecutionLabel(agent.adapter_type)}
+          </Badge>
+          <Button
+            onClick={() => triggerWakeup.mutate()}
+            disabled={!executableAdapter || triggerWakeup.isPending}
+            className="bg-blue-600 text-white hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-500"
+          >
+            {triggerWakeup.isPending ? (
+              <Spinner className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
+            Run Agent
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr,0.8fr]">
@@ -276,6 +324,8 @@ export function AgentDetailPage() {
               }
             />
             <PropertyRow label="Adapter Type" value={adapterLabel} />
+            <PropertyRow label="Execution" value={adapterExecutionLabel(agent.adapter_type)} />
+            <PropertyRow label="Heartbeat" value={heartbeatSummary} />
             <PropertyRow label="Reports To" value={agent.reports_to ?? "None (root)"} />
             <PropertyRow label="Capabilities" value={agent.capabilities} />
             <div className="flex items-center justify-between gap-4 py-2">
@@ -332,8 +382,8 @@ export function AgentDetailPage() {
           </CardHeader>
           <CardContent>
             <pre className="overflow-auto rounded-xl border border-white/10 bg-black/40 p-4 text-xs text-zinc-300">
-              {agent.adapter_config
-                ? JSON.stringify(agent.adapter_config, null, 2)
+              {redactedAdapterConfig
+                ? JSON.stringify(redactedAdapterConfig, null, 2)
                 : "No configuration set."}
             </pre>
           </CardContent>
@@ -373,6 +423,9 @@ export function AgentDetailPage() {
 
       {/* Skills Assignment */}
       <AgentSkillAssignment agentId={id!} />
+
+      {/* Integration Configuration */}
+      <AgentIntegrationConfig agentId={id!} />
 
       {/* ERC-8004 Identity */}
       <AgentIdentitySection agentId={id!} />

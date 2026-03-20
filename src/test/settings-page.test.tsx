@@ -3,6 +3,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
+const mockGetCompanySettingsRecord = vi.fn();
+const mockUpdateCompanySettingsRecord = vi.fn();
+vi.mock("@/lib/server-api/companies", () => ({
+  getCompanySettingsRecord: (...args: unknown[]) => mockGetCompanySettingsRecord(...args),
+  updateCompanySettingsRecord: (...args: unknown[]) => mockUpdateCompanySettingsRecord(...args),
+}));
+
 // ---- Supabase mock ----
 
 const mockFrom = vi.fn();
@@ -76,6 +83,28 @@ function setupSupabaseMock(overrides?: Record<string, unknown>) {
 describe("SettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCompanySettingsRecord.mockResolvedValue({
+      id: "co-1",
+      name: "Test Corp",
+      wallet_address: "0xABC123",
+      company_type: null,
+      brand_color: null,
+      brief: null,
+      slug: "test-corp",
+      description: null,
+      created_at: null,
+    });
+    mockUpdateCompanySettingsRecord.mockResolvedValue({
+      id: "co-1",
+      name: "Test Corp",
+      wallet_address: "0xABC123",
+      company_type: null,
+      brand_color: null,
+      brief: null,
+      slug: "test-corp",
+      description: null,
+      created_at: null,
+    });
   });
 
   it("renders settings page with Company Information card", async () => {
@@ -84,15 +113,6 @@ describe("SettingsPage", () => {
     );
 
     const chain = setupSupabaseMock();
-    chain.maybeSingle.mockResolvedValue({
-      data: {
-        id: "co-1",
-        name: "Test Corp",
-        wallet_address: "0xABC123",
-      },
-      error: null,
-    });
-
     renderWithProviders(<SectionPage section="settings" />);
 
     await waitFor(() => {
@@ -104,22 +124,17 @@ describe("SettingsPage", () => {
     const { SectionPage } = await import(
       "@/features/cockpit/pages/SectionPage"
     );
-
-    // useActiveCompany mock already provides companyId = "co-1".
-    // useCompanySettings queries companies by that id.
-    const companiesChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: {
-          id: "co-1",
-          name: "Acme Agents",
-          wallet_address: "0xDeadBeef",
-        },
-        error: null,
-      }),
-    };
+    mockGetCompanySettingsRecord.mockResolvedValue({
+      id: "co-1",
+      name: "Acme Agents",
+      wallet_address: "0xDeadBeef",
+      company_type: null,
+      brand_color: null,
+      brief: null,
+      slug: "acme-agents",
+      description: null,
+      created_at: null,
+    });
     const agentsChain = {
       select: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [{ id: "a1" }], error: null }),
@@ -145,7 +160,6 @@ describe("SettingsPage", () => {
       }),
     };
     mockFrom.mockImplementation((table: string) => {
-      if (table === "companies") return companiesChain;
       if (table === "user_onboarding") return onboardingChain;
       return agentsChain;
     });
@@ -374,23 +388,18 @@ describe("SettingsPage", () => {
     const { SectionPage } = await import(
       "@/features/cockpit/pages/SectionPage"
     );
+    mockGetCompanySettingsRecord.mockResolvedValue({
+      id: "co-1",
+      name: "Acme Agents",
+      wallet_address: "0xDeadBeef",
+      company_type: "agency",
+      brand_color: "#3b82f6",
+      brief: "AI-powered agency platform",
+      slug: "acme-agents",
+      description: null,
+      created_at: null,
+    });
 
-    const companiesChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: {
-          id: "co-1",
-          name: "Acme Agents",
-          wallet_address: "0xDeadBeef",
-          company_type: "agency",
-          brand_color: "#3b82f6",
-          brief: "AI-powered agency platform",
-        },
-        error: null,
-      }),
-    };
     const agentsChain = {
       select: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [{ id: "a1" }], error: null }),
@@ -416,7 +425,6 @@ describe("SettingsPage", () => {
       }),
     };
     mockFrom.mockImplementation((table: string) => {
-      if (table === "companies") return companiesChain;
       if (table === "user_onboarding") return onboardingChain;
       return agentsChain;
     });

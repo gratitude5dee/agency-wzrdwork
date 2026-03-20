@@ -1,0 +1,57 @@
+{
+  "featureId": "erc8004-identity-system",
+  "reviewedAt": "2026-03-16T14:15:00.000Z",
+  "commitId": "e9bd118",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation covering all 7 expected behaviors. Created src/lib/erc8004/ with types.ts, manifest.ts, identity.ts, and index.ts barrel. React Query hooks (useAgentIdentity, useCreateAgentIdentity, useUpdateAgentIdentity) follow existing project patterns. NewAgent.tsx properly auto-triggers identity creation in onSuccess with non-blocking error handling. AgentIdentitySection component displays registration status, operator wallet, and formatted manifest JSON on the agent detail page. 12 tests cover types, manifest builder, hooks, and barrel exports. TypeScript compiles clean, build succeeds, no lint issues in new files.",
+    "issues": [
+      {
+        "file": "src/lib/erc8004/manifest.ts",
+        "line": 60,
+        "severity": "non_blocking",
+        "description": "tech_stacks is hardcoded to ['typescript', 'react', 'supabase', 'vite'] for all agents regardless of their actual stack. This is acceptable for the initial implementation but limits manifest accuracy if agents use different tech stacks."
+      },
+      {
+        "file": "src/lib/erc8004/manifest.ts",
+        "line": 62,
+        "severity": "non_blocking",
+        "description": "compute_constraints (max_iterations: 100, max_tokens_per_run: 200000, budget_usd: 10) are hardcoded for all agents. The feature description lists these as manifest fields but doesn't require them to be configurable, so this is acceptable."
+      },
+      {
+        "file": "src/components/AgentIdentitySection.tsx",
+        "line": 55,
+        "severity": "non_blocking",
+        "description": "When identity is null ('No identity registered yet'), there is no UI affordance to create one. If the auto-creation in NewAgent.tsx fails silently (caught by try/catch with console.warn), the user has no way to retry from the detail page. The useCreateAgentIdentity hook exists but is unused in any UI component. A 'Create Identity' button here would improve resilience."
+      },
+      {
+        "file": "src/pages/NewAgent.tsx",
+        "line": 161,
+        "severity": "non_blocking",
+        "description": "The fallback wallet address '0x0' is used when company.wallet_address is null. This creates a manifest with a meaningless operator_wallet. Consider deferring identity creation until a real wallet is available, or marking the identity as needing wallet update."
+      },
+      {
+        "file": "src/hooks/useAgentIdentity.ts",
+        "line": 76,
+        "severity": "non_blocking",
+        "description": "useUpdateAgentIdentity builds a dynamic Record<string, unknown> for the update payload. This works but loses type safety. Could use a typed Partial<AgentIdentityRow> approach for stricter compile-time checks."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker placed AgentIdentitySection in src/components/ rather than src/features/. Architecture.md says 'Place feature-specific components in src/features/{feature}/' and 'Place shared components in src/components/'. Since this component is only used by AgentDetail.tsx, it's arguably feature-specific. However, the existing pattern in the codebase (AgentDetail.tsx is in src/pages/, not in a feature dir) makes src/components/ a reasonable choice. No action needed, but the convention could be clarified for identity-system components.",
+      "evidence": "src/components/AgentIdentitySection.tsx — only imported in src/pages/AgentDetail.tsx. architecture.md section 'Component Conventions' has ambiguous guidance for components tied to a single page."
+    },
+    {
+      "area": "conventions",
+      "observation": "Worker used 'as unknown as Json' type casts when passing AgentManifest to Supabase insert/update operations. This pattern works but is a recurring escape hatch. If other features need similar JSONB column interactions, documenting the canonical approach for typed JSONB columns in AGENTS.md would prevent inconsistency.",
+      "evidence": "src/lib/erc8004/identity.ts:47 'manifest: manifest as unknown as Json', src/hooks/useAgentIdentity.ts:75 same pattern."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The ERC-8004 identity system implementation fully covers all 7 expected behaviors: AgentManifest types with all required fields, buildManifest() with adapter-to-tools and role-to-categories mapping, createAgentIdentity() Supabase insertion, auto-creation on agent creation in NewAgent.tsx, AgentIdentitySection on the detail page showing manifest JSON and registration status, and useAgentIdentity hooks for CRUD. 12 tests pass, typecheck clean, build succeeds. Five non-blocking issues noted: hardcoded tech_stacks/compute_constraints, no retry UI for failed auto-creation, fallback '0x0' wallet, and loose typing in update mutation. None block functionality."
+}

@@ -1,0 +1,89 @@
+{
+  "groupId": "wallet-auth",
+  "testedAt": "2026-03-16T15:14:30.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "mockWallet": "0x1234567890abcdef1234567890abcdef12345678",
+    "supabaseUrl": "https://lptryhnnhhvbblrrsaqa.supabase.co"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-AUTH-003",
+      "title": "Wallet address persisted to Supabase",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Wait 75 seconds for onboarding subagent to create company",
+          "expected": "Company created with mock wallet address",
+          "observed": "Company 'Test Agency Co' (id: 191fee08-5fcb-4947-93dd-0b3357a0f144) created with wallet_address set"
+        },
+        {
+          "action": "Query Supabase REST API: GET /rest/v1/companies?wallet_address=eq.0x1234567890abcdef1234567890abcdef12345678",
+          "expected": "At least one company row with wallet_address matching mock wallet",
+          "observed": "Returned 1 company: {id: '191fee08-5fcb-4947-93dd-0b3357a0f144', name: 'Test Agency Co', wallet_address: '0x1234567890abcdef1234567890abcdef12345678'}"
+        },
+        {
+          "action": "Query all companies to verify only intended company was updated",
+          "expected": "Mock wallet appears on the correct company only",
+          "observed": "2 companies total: 'Acme Delegation' (wallet_address: null), 'Test Agency Co' (wallet_address: '0x1234567890abcdef1234567890abcdef12345678')"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API-only test)",
+        "network": "GET /rest/v1/companies?wallet_address=eq.0x1234...5678 -> 200, returned [{id, name, wallet_address}]"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "title": "Connected wallet address displayed in header",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Insert user_onboarding record with onboarding_completed=true to bypass onboarding gate",
+          "expected": "Record inserted successfully",
+          "observed": "Record inserted: {wallet_address: '0x1234...5678', onboarding_completed: true, current_step: 4}"
+        },
+        {
+          "action": "Navigate to http://localhost:8080 and wait for network idle",
+          "expected": "Main app (AppShell) renders with cockpit page",
+          "observed": "AppShell rendered showing 'Test Agency Co' cockpit with sidebar navigation"
+        },
+        {
+          "action": "Extract header text content",
+          "expected": "Header contains truncated wallet address '0x1234…5678'",
+          "observed": "Header text: 'Toggle SidebarAgencyCockpit0x1234…56781 live runs1 approvals...' — wallet badge visible"
+        },
+        {
+          "action": "Take wide-viewport screenshot (1920x1080) showing header with wallet badge",
+          "expected": "Badge with wallet icon and truncated address visible in top-right header area",
+          "observed": "Screenshot confirms: Badge '0x1234…5678' with wallet icon visible at top-right of header bar, alongside '1 live runs' and '1 approvals' badges"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "onboarding-polish/wallet-auth/VAL-AUTH-004-initial-load.png",
+          "onboarding-polish/wallet-auth/VAL-AUTH-004-header-wallet.png",
+          "onboarding-polish/wallet-auth/VAL-AUTH-004-header-annotated.png",
+          "onboarding-polish/wallet-auth/VAL-AUTH-004-header-wide.png"
+        ],
+        "consoleErrors": "none",
+        "network": "n/a (page load only)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Onboarding gate blocks access to main app header — had to insert user_onboarding record directly via Supabase REST API to bypass gate and see AppShell with wallet badge",
+      "resolved": true,
+      "resolution": "Inserted user_onboarding row with onboarding_completed=true for the mock wallet address, then reloaded the page",
+      "affectedAssertions": ["VAL-AUTH-004"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 2 assertions: 2 passed. VAL-AUTH-003: Supabase companies.wallet_address contains mock wallet '0x1234567890abcdef1234567890abcdef12345678' for company 'Test Agency Co'. VAL-AUTH-004: Header displays truncated wallet '0x1234…5678' in a badge with wallet icon at top-right of AppShell header."
+}

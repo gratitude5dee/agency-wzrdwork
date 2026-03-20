@@ -264,14 +264,11 @@ describe("VAL-CROSS-003: Issue → Runtime crossflow trace", () => {
     expect(trace.coherent).toBe(true);
   });
 
-  it("the autonomous loop creates a coherent trail via shared IDs", async () => {
-    // This test verifies the autonomous loop contract:
-    // When runAutonomousLoop is called with an issueId, the resulting
-    // run, activity events, execution logs, and optional approval
-    // all share the same issueId, companyId, and agentId.
-    //
-    // This is already unit-tested in autonomous-loop.test.ts, but
-    // we verify the crossflow integration point here.
+  it("runtime traces stay coherent via shared issue and agent IDs", async () => {
+    // This verifies the persisted runtime contract:
+    // when execution records exist for an issue, the related run,
+    // activity events, execution logs, and optional approval all
+    // share the same issueId, companyId, and agentId.
     setupMock();
     const { traceIssueRuntime } = await import("@/lib/crossflows/issue-runtime-trace");
 

@@ -1,0 +1,15 @@
+commands:
+  install: npm install --package-lock=false
+  build: npm run build
+  test: NODE_OPTIONS=--max-old-space-size=8192 npm test -- --maxWorkers=1
+  typecheck: npx tsc -p tsconfig.app.json --noEmit
+  lint: npm run lint
+  e2e: npx playwright test --workers=2
+
+services:
+  web:
+    start: npm run dev -- --host 127.0.0.1 --port 3101
+    stop: lsof -ti :3101 | xargs kill 2>/dev/null || true
+    healthcheck: curl -sf http://127.0.0.1:3101/dashboard
+    port: 3101
+    depends_on: []

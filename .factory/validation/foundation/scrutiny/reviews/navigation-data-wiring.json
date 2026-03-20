@@ -1,0 +1,50 @@
+{
+  "featureId": "navigation-data-wiring",
+  "reviewedAt": "2026-03-16T12:15:00.000Z",
+  "commitId": "5f06a6f",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Clean implementation that fulfills all 8 expected behaviors. Three new React Query hooks (useLiveRunCount, usePendingApprovalCount, useSidebarAgents) replace in-memory computations from the monolithic useAgencyData snapshot with dedicated Supabase queries. AppShell sidebar correctly shows all required nav groups (Top, Work, Agents, Company) with Integrations replacing Org Chart/Design Guide in Company section. IntegrationsPage placeholder is well-structured using existing Shadcn Card components. Active route highlighting added via NavLink className callbacks. Error handling for missing tables is consistent across all three hooks (42P01 code + message fallback). All conventions followed: @/ imports, lucide-react icons, React Query, Supabase client, Tailwind dark theme.",
+    "issues": [
+      {
+        "file": "src/test/navigation-data-wiring.test.tsx",
+        "line": 219,
+        "severity": "non_blocking",
+        "description": "The 'Navigation structure constants' test does not actually verify the COMPANY_ITEMS constant or its Plug icon. It just re-renders IntegrationsPage and checks for the 'Integrations' text — identical to the IntegrationsPage test above it. A stronger test would import COMPANY_ITEMS and assert it contains { to: '/integrations', label: 'Integrations', icon: Plug }."
+      },
+      {
+        "file": "src/features/cockpit/components/AppShell.tsx",
+        "line": 98,
+        "severity": "non_blocking",
+        "description": "AppShell still calls useAgencyData() for snapshot.issues, snapshot.projects, and snapshot.company, while the new hooks query Supabase independently with different polling intervals (15s for counts vs 30s for snapshot). This creates two parallel data sources where badge counts can momentarily be out of sync with the footer 'open issues' count. Not a bug — the feature spec explicitly asks for dedicated Supabase queries for badges — but worth noting as a design trade-off."
+      },
+      {
+        "file": "src/App.tsx",
+        "line": 55,
+        "severity": "non_blocking",
+        "description": "Routes for /org-chart and /design-guide remain in App.tsx but were removed from the sidebar COMPANY_ITEMS. These become orphan routes accessible only via direct URL. This is consistent with the feature spec (Company section: Org, Costs, Activity, Integrations, Settings) but may confuse future workers who see routes with no sidebar entry."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "Skill procedure says 'Write Tests First (TDD)' in step 2, but transcript shows the worker implemented all hooks and pages first (Create calls for hooks/pages), then wrote tests afterward. The handoff's skillFeedback.followedProcedure says true, but the actual order was implement-then-test, not test-then-implement.",
+      "evidence": "Transcript skeleton shows: Create useLiveRunCount.ts, Create usePendingApprovalCount.ts, Create useSidebarAgents.ts, Create Integrations.tsx, Edit AppShell.tsx, Edit App.tsx — then later Create navigation-data-wiring.test.tsx. The skill step 2 says 'Before implementing, write failing tests'."
+    },
+    {
+      "area": "skills",
+      "observation": "Skill verification step 5 lists 'npm run lint' as a required check, but the worker skipped it. The handoff verification.commandsRun does not include lint. AGENTS.md documents 47 pre-existing lint errors that will cause the command to exit non-zero, which likely explains the skip — but the skill doesn't acknowledge this exception.",
+      "evidence": "Handoff verification.commandsRun contains npm test, tsc, npm run build, and git diff check — no npm run lint. AGENTS.md 'Known Pre-Existing Issues' section says lint will fail with 47 errors."
+    },
+    {
+      "area": "conventions",
+      "observation": "New hooks placed in src/hooks/ (useLiveRunCount, usePendingApprovalCount, useSidebarAgents), while the existing main data hook useAgencyData lives in src/features/cockpit/lib/. Architecture.md says 'Place React hooks in src/hooks/' for greenfield features, which is technically correct — but there's no documented guidance on when a hook belongs in a feature directory vs the shared hooks directory.",
+      "evidence": "src/hooks/useLiveRunCount.ts, src/hooks/usePendingApprovalCount.ts, src/hooks/useSidebarAgents.ts vs src/features/cockpit/lib/useAgencyData.ts. Architecture.md says 'Place React hooks in src/hooks/' under greenfield features but doesn't address feature-specific hooks."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The implementation cleanly fulfills all 8 expected behaviors: sidebar shows all nav groups (Top, Work, Agents, Company), Integrations nav item with Plug icon added, badge counts wired to dedicated Supabase queries with 15s polling, dynamic agents list from Supabase with 30s polling, active route highlighting on all NavLinks, IntegrationsPage placeholder created, /integrations route added, and error handling gracefully falls back when tables don't exist. Three non-blocking issues noted: a weak navigation structure test that doesn't actually test the constant, orphan routes for removed sidebar items, and dual data sources with different polling intervals. No blocking issues found."
+}

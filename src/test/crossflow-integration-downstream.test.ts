@@ -172,15 +172,15 @@ describe("VAL-CROSS-005: Integration config → downstream behavior", () => {
       const { proveConfigSurvivesReload } = await import("@/lib/crossflows/integration-downstream");
 
       const proof = await proveConfigSurvivesReload(COMPANY_ID, "venice", {
-        token: "MOCK_venice_123",
+        token: "test-mock-token",
         model: "deepseek-r1-671b",
       });
 
       expect(proof.configSurvivesReload).toBe(true);
       expect(proof.valid).toBe(true);
       expect(proof.violations).toHaveLength(0);
-      expect(proof.savedConfig.token).toBe("MOCK_venice_123");
-      expect(proof.reloadedConfig.token).toBe("MOCK_venice_123");
+      expect(proof.savedConfig.token).toBe("test-mock-token");
+      expect(proof.reloadedConfig.token).toBe("test-mock-token");
       expect(proof.reloadedConfig.model).toBe("deepseek-r1-671b");
     });
 

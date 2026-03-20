@@ -1,0 +1,73 @@
+{
+  "groupId": "agent-adapters",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "devServerPort": 8080,
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "supabaseBackend": "lptryhnnhhvbblrrsaqa.supabase.co"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-AGENT-004",
+      "title": "All 10 adapter types registered",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /agents/new", "expected": "Agent creation form displayed", "observed": "Agent creation form displayed with Basic Information and Adapter Type cards" },
+        { "action": "Click Adapter Type dropdown", "expected": "Dropdown opens showing all adapter types", "observed": "Dropdown opened showing 10 adapter type options" },
+        { "action": "Verify all 10 types listed", "expected": "claude_local, codex_local, cursor, gemini_local, opencode_local, pi_local, openclaw_gateway, process, http, hermes", "observed": "All 10 types present: Claude Code (local), Codex (local), Gemini CLI (local), OpenCode (local), Pi (local), Cursor CLI (local), OpenClaw Gateway, Shell Process, HTTP Webhook, Hermes Agent" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/agent-adapters/VAL-AGENT-004-adapter-dropdown.png"],
+        "consoleErrors": "none",
+        "network": "GET /agents/new -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AGENT-005",
+      "title": "Hermes adapter config fields render",
+      "status": "pass",
+      "steps": [
+        { "action": "Select Hermes Agent from adapter type dropdown", "expected": "Hermes-specific configuration fields appear", "observed": "Hermes Agent Configuration panel rendered with all expected fields" },
+        { "action": "Verify model selector", "expected": "Model dropdown present with model options", "observed": "Model combobox present, defaulting to 'Claude Opus 4.6 (Anthropic)'" },
+        { "action": "Verify toolsets multi-select", "expected": "Toolsets checkboxes for each toolset category", "observed": "7 toolset checkboxes rendered in grid: Web Search & Browse, Terminal / Shell, File System, Browser Automation, Research & Analysis, Code Generation, Delegation / Sub-agents. Default checked: web, terminal, file, code" },
+        { "action": "Verify memory mode dropdown", "expected": "Memory mode dropdown with options", "observed": "Memory Mode combobox present, defaulting to 'Local (file-based)'" },
+        { "action": "Verify MCP server configuration", "expected": "MCP servers section with Add Server button", "observed": "MCP Servers section with '+ Add Server' button and placeholder text about configuring external tool servers" },
+        { "action": "Verify provider dropdown", "expected": "Provider dropdown present", "observed": "Provider combobox present, defaulting to 'Auto-detect'" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "onboarding-polish/agent-adapters/VAL-AGENT-005-hermes-config-fields.png",
+          "onboarding-polish/agent-adapters/VAL-AGENT-005-hermes-config-mcp.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A (client-side rendering only)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AGENT-006",
+      "title": "Hermes adapter config produces valid JSON",
+      "status": "pass",
+      "steps": [
+        { "action": "Dynamic import of buildHermesConfig via browser console with default values", "expected": "JSON object with fields: hermes_home, model, provider, enabled_toolsets, memory_mode, mcp_servers", "observed": "Returned: {hermes_home: '~/.hermes', model: 'anthropic/claude-opus-4.6', provider: 'auto', enabled_toolsets: ['web','terminal','file','code'], memory_mode: 'local', mcp_servers: [], max_turns: 25}" },
+        { "action": "Dynamic import of buildHermesConfig via browser console with custom extras", "expected": "JSON object reflects custom values for all fields", "observed": "Returned: {hermes_home: '~/.hermes', model: 'openai/gpt-4o', provider: 'openrouter', enabled_toolsets: ['web','browser','research'], memory_mode: 'honcho', mcp_servers: [{name:'test-server',url:'https://mcp.example.com'}], max_turns: 50}" },
+        { "action": "Verify source code buildHermesConfig function", "expected": "Function produces object with required fields", "observed": "src/adapters/hermes/build-config.ts exports buildHermesConfig() that constructs object with hermes_home, model, provider, enabled_toolsets, memory_mode, mcp_servers, max_turns" }
+      ],
+      "evidence": {
+        "consoleOutput": [
+          "Default config: {\"hermes_home\":\"~/.hermes\",\"model\":\"anthropic/claude-opus-4.6\",\"provider\":\"auto\",\"enabled_toolsets\":[\"web\",\"terminal\",\"file\",\"code\"],\"memory_mode\":\"local\",\"mcp_servers\":[],\"max_turns\":25}",
+          "Custom config: {\"hermes_home\":\"~/.hermes\",\"model\":\"openai/gpt-4o\",\"provider\":\"openrouter\",\"enabled_toolsets\":[\"web\",\"browser\",\"research\"],\"memory_mode\":\"honcho\",\"mcp_servers\":[{\"name\":\"test-server\",\"url\":\"https://mcp.example.com\"}],\"max_turns\":50}"
+        ],
+        "consoleErrors": "none",
+        "sourceFile": "src/adapters/hermes/build-config.ts"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed, 0 failed. All 10 adapter types are registered in the dropdown (VAL-AGENT-004). Hermes adapter config fields render correctly with model selector, provider dropdown, toolsets multi-select checkboxes, memory mode dropdown, and MCP server configuration (VAL-AGENT-005). buildHermesConfig() produces valid JSON with all required fields: hermes_home, model, provider, enabled_toolsets, memory_mode, mcp_servers (VAL-AGENT-006)."
+}

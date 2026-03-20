@@ -3,6 +3,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
+const mockListCompanyIntegrations = vi.fn();
+const mockUpsertIntegrationRecord = vi.fn();
+vi.mock("@/lib/server-api/integrations", () => ({
+  listCompanyIntegrations: (...args: unknown[]) => mockListCompanyIntegrations(...args),
+  upsertIntegrationRecord: (...args: unknown[]) => mockUpsertIntegrationRecord(...args),
+}));
+
 // ---- Supabase mock ----
 const mockFrom = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
@@ -19,6 +26,10 @@ vi.mock("@/hooks/useActiveCompany", () => ({
     isLoading: false,
     error: null,
   }),
+}));
+
+vi.mock("thirdweb/react", () => ({
+  useActiveAccount: () => ({ address: "0xabc" }),
 }));
 
 // ---- Helpers ----
@@ -70,12 +81,21 @@ function composioRow(extra?: Record<string, unknown>) {
 describe("Composio Integration on Integrations Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockListCompanyIntegrations.mockResolvedValue([]);
+    mockUpsertIntegrationRecord.mockResolvedValue({
+      id: "int-composio",
+      company_id: "test-co",
+      integration_key: "composio",
+      name: "Composio",
+      enabled: true,
+      config: composioRow(),
+      created_at: "2024-01-01",
+      updated_at: "2024-01-01",
+    });
   });
 
   it("renders a Composio card on the Integrations page", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -88,8 +108,6 @@ describe("Composio Integration on Integrations Page", () => {
 
   it("opens Composio config dialog with consumer key and MCP URL fields", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -114,24 +132,18 @@ describe("Composio Integration on Integrations Page", () => {
 
   it("reflects connected status when Composio has a consumer key", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    // Need to set up the mock so .from("integrations").select("*").eq(...).order(...) returns the composio row.
-    // The mock chain is: from → select → eq → order
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({
-      data: [
-        {
-          id: "int-composio",
-          company_id: "test-co",
-          integration_key: "composio",
-          name: "Composio",
-          enabled: true,
-          config: composioRow(),
-          created_at: "2024-01-01",
-          updated_at: "2024-01-01",
-        },
-      ],
-      error: null,
-    });
+    mockListCompanyIntegrations.mockResolvedValue([
+      {
+        id: "int-composio",
+        company_id: "test-co",
+        integration_key: "composio",
+        name: "Composio",
+        enabled: true,
+        config: composioRow(),
+        created_at: "2024-01-01",
+        updated_at: "2024-01-01",
+      },
+    ]);
 
     renderWithProviders(<IntegrationsPage />);
 

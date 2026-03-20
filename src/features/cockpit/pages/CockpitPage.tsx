@@ -158,7 +158,7 @@ export function CockpitPage() {
             <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] px-1.5 py-0">
               {openIssues} tasks
             </Badge>
-            {snapshot.source !== "supabase" && (
+            {snapshot.source !== "server" && (
               <Badge variant="outline" className="border-blue-500/20 bg-blue-500/10 text-blue-200 text-[10px] px-1.5 py-0">
                 demo
               </Badge>
@@ -172,7 +172,7 @@ export function CockpitPage() {
             <Badge variant="outline" className="border-white/10 bg-[#0d1118] text-zinc-300 text-[10px] px-1.5 py-0">
               {liveRunCount}R
             </Badge>
-            {snapshot.source !== "supabase" && (
+            {snapshot.source !== "server" && (
               <Badge variant="outline" className="border-blue-500/20 bg-blue-500/10 text-blue-200 text-[10px] px-1.5 py-0">
                 demo
               </Badge>
@@ -181,7 +181,7 @@ export function CockpitPage() {
         </div>
 
         {/* Demo mode banner — visible when not reading from live Supabase data */}
-        {snapshot.source !== "supabase" && (
+        {snapshot.source !== "server" && (
           <div className="px-4 pt-2">
             <DemoModeBanner message={snapshot.sourceMessage} />
           </div>

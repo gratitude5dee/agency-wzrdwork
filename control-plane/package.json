@@ -1,0 +1,10 @@
+{
+  "name": "agency-wzrdwork-control-plane",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  }
+}

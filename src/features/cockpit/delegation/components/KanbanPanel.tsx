@@ -15,12 +15,15 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useActiveAccount } from "thirdweb/react";
 import { ChevronDown, ChevronRight, Columns3, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveCompany } from "@/hooks/useActiveCompany";
+import { useAgencyData } from "@/features/cockpit/lib/useAgencyData";
+import type { AgencySnapshot } from "@/features/cockpit/lib/domain";
+import { getClientWalletAddress } from "@/lib/server-api/actor";
+import { updateIssueStatusRecord } from "@/lib/server-api/issues";
 
 /* ── Types ── */
 
@@ -203,49 +206,41 @@ export function KanbanPanel() {
   const [collapsed, setCollapsed] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { companyId, isLoading: companyLoading } = useActiveCompany();
+  const account = useActiveAccount();
+  const walletAddress = getClientWalletAddress(account?.address);
+  const { snapshot } = useAgencyData();
+  const companyId = snapshot.company.id;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  /* ── Data fetching — company-scoped ── */
+  const issues = useMemo<IssueRow[]>(
+    () =>
+      snapshot.issues.map((issue) => ({
+        id: issue.id,
+        identifier: issue.identifier,
+        title: issue.title,
+        status: issue.status,
+        priority: issue.priority,
+        company_id: issue.companyId,
+        description: issue.description,
+        assignee_agent_id: issue.assigneeAgentId,
+        project_id: issue.projectId,
+        created_at: issue.createdAt,
+        updated_at: issue.updatedAt,
+      })),
+    [snapshot.issues],
+  );
 
-  const { data: issues = [] } = useQuery<IssueRow[]>({
-    queryKey: ["kanban-issues", companyId],
-    queryFn: async () => {
-      if (!companyId) return [];
-
-      const { data, error } = await supabase
-        .from("issues")
-        .select("*")
-        .eq("company_id", companyId);
-
-      if (error) throw error;
-      return (data ?? []) as IssueRow[];
-    },
-    enabled: !companyLoading && !!companyId,
-    refetchInterval: 30_000,
-  });
-
-  /* ── Agents lookup for assignee display ── */
-
-  const { data: agents = [] } = useQuery<AgentLookup[]>({
-    queryKey: ["kanban-agents", companyId],
-    queryFn: async () => {
-      if (!companyId) return [];
-
-      const { data, error } = await supabase
-        .from("agents")
-        .select("id, name")
-        .eq("company_id", companyId);
-
-      if (error) throw error;
-      return (data ?? []) as AgentLookup[];
-    },
-    enabled: !companyLoading && !!companyId,
-    staleTime: 60_000,
-  });
+  const agents = useMemo<AgentLookup[]>(
+    () =>
+      snapshot.agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+      })),
+    [snapshot.agents],
+  );
 
   const agentMap = useMemo(
     () => new Map(agents.map((a) => [a.id, a.name])),
@@ -262,34 +257,27 @@ export function KanbanPanel() {
       issueId: string;
       status: string;
     }) => {
-      const { error } = await supabase
-        .from("issues")
-        .update({ status })
-        .eq("id", issueId);
-
-      if (error) throw error;
-
-      // Log the status change as an activity event
-      if (companyId) {
-        const issue = issues.find((i) => i.id === issueId);
-        await supabase.from("activity_events").insert({
-          company_id: companyId,
-          agent_id: issue?.assignee_agent_id ?? null,
-          issue_id: issueId,
-          action: "issue.updated",
-          details: `Status changed to ${statusLabel(status)}`,
-        });
-      }
+      await updateIssueStatusRecord({
+        issueId,
+        status,
+        companyId,
+        walletAddress,
+      });
     },
     onMutate: async ({ issueId, status }) => {
       // Optimistic update
-      await queryClient.cancelQueries({ queryKey: ["kanban-issues", companyId] });
-      const previous = queryClient.getQueryData<IssueRow[]>(["kanban-issues", companyId]);
+      await queryClient.cancelQueries({ queryKey: ["agency-snapshot", companyId] });
+      const previous = queryClient.getQueryData<AgencySnapshot>(["agency-snapshot", companyId]);
 
-      queryClient.setQueryData<IssueRow[]>(["kanban-issues", companyId], (old) =>
-        (old ?? []).map((issue) =>
-          issue.id === issueId ? { ...issue, status } : issue,
-        ),
+      queryClient.setQueryData<AgencySnapshot>(["agency-snapshot", companyId], (old) =>
+        old
+          ? {
+              ...old,
+              issues: old.issues.map((issue) =>
+                issue.id === issueId ? { ...issue, status: status as IssueRow["status"] } : issue,
+              ),
+            }
+          : old,
       );
 
       return { previous };
@@ -297,15 +285,12 @@ export function KanbanPanel() {
     onError: (_err, _vars, context) => {
       // Rollback on error
       if (context?.previous) {
-        queryClient.setQueryData(["kanban-issues", companyId], context.previous);
+        queryClient.setQueryData(["agency-snapshot", companyId], context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["kanban-issues", companyId] });
-      // Also invalidate the main snapshot so other components stay in sync
-      queryClient.invalidateQueries({ queryKey: ["agency-snapshot"] });
-      // Invalidate live logs so the activity panel picks up the new event
-      queryClient.invalidateQueries({ queryKey: ["cockpit-live-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["agency-snapshot", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-overview", companyId] });
     },
   });
 

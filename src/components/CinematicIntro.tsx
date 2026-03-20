@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, Component, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, Component, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
@@ -123,7 +123,7 @@ interface LogoPlaneProps {
   phase: 'dark' | 'bloom' | 'reveal' | 'resolve';
 }
 
-function LogoPlane({ phase }: LogoPlaneProps) {
+const LogoPlane = forwardRef<THREE.Mesh, LogoPlaneProps>(function LogoPlane({ phase }, ref) {
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useTexture('/wzrdtechlogo.png');
   const { viewport } = useThree();
@@ -190,7 +190,7 @@ function LogoPlane({ phase }: LogoPlaneProps) {
   });
 
   return (
-    <mesh ref={meshRef}>
+    <mesh ref={ref ?? meshRef}>
       <planeGeometry args={[planeSize[0], planeSize[1]]} />
       <shaderMaterial
         vertexShader={vertexShader}
@@ -200,11 +200,11 @@ function LogoPlane({ phase }: LogoPlaneProps) {
       />
     </mesh>
   );
-}
+});
 
 /* ─── Ambient Particles ───────────────────────────────────────────── */
 
-function AmbientParticles({ phase }: { phase: string }) {
+const AmbientParticles = forwardRef<THREE.Points, { phase: string }>(function AmbientParticles({ phase }, ref) {
   const pointsRef = useRef<THREE.Points>(null);
   const count = 120;
 
@@ -222,9 +222,12 @@ function AmbientParticles({ phase }: { phase: string }) {
     return [pos, vel];
   }, []);
 
+  const actualRef = (ref as React.RefObject<THREE.Points>) ?? pointsRef;
+
   useFrame(() => {
-    if (!pointsRef.current) return;
-    const geo = pointsRef.current.geometry;
+    const pts = actualRef.current ?? pointsRef.current;
+    if (!pts) return;
+    const geo = pts.geometry;
     const posAttr = geo.attributes.position as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 
@@ -246,14 +249,14 @@ function AmbientParticles({ phase }: { phase: string }) {
   });
 
   return (
-    <points ref={pointsRef}>
+    <points ref={ref ?? pointsRef}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial color="#ff6b35" size={0.02} transparent opacity={phase === 'dark' ? 0 : 0.6} sizeAttenuation />
     </points>
   );
-}
+});
 
 /* ─── Scene ───────────────────────────────────────────────────────── */
 
@@ -352,6 +355,18 @@ const CinematicIntro = ({ onComplete }: CinematicIntroProps) => {
           camera={{ position: [0, 0, 5], fov: 50 }}
           style={{ width: '100%', height: '100%' }}
           fallback={<div className="flex h-full w-full items-center justify-center bg-black" />}
+          onCreated={({ gl }) => {
+            const canvas = gl.domElement;
+            const onContextLost = (e: Event) => {
+              e.preventDefault();
+              handleWebGLError();
+            };
+            canvas.addEventListener('webglcontextlost', onContextLost);
+            // Store cleanup on the canvas for unmount
+            (canvas as any).__wzrdCleanup = () => {
+              canvas.removeEventListener('webglcontextlost', onContextLost);
+            };
+          }}
         >
           <Scene phase={phase as Exclude<Phase, 'complete'>} />
         </Canvas>

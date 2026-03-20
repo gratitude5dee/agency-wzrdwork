@@ -25,9 +25,11 @@ import { IntegrationsPage } from "./pages/Integrations";
 import { SkillsPage } from "./pages/Skills";
 import { DelegationsPage } from "./pages/Delegations";
 import { SubmissionProofPage } from "./pages/SubmissionProof";
+import { ChatPage } from "./pages/Chat";
 import { ThirdwebProvider } from "@/providers/ThirdwebProvider";
 import { AuthGate } from "@/components/AuthGate";
 import { OnboardingGate } from "@/features/onboarding/OnboardingGate";
+import { SupabaseLiveUpdates } from "@/components/SupabaseLiveUpdates";
 import Landing from "./pages/Landing";
 import AuthPage from "./pages/AuthPage";
 
@@ -49,6 +51,7 @@ const App = () => {
   return (
     <ThirdwebProvider>
       <QueryClientProvider client={queryClient}>
+        <SupabaseLiveUpdates />
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -98,6 +101,8 @@ const App = () => {
                           <Route path="skills" element={<SkillsPage />} />
                           <Route path="delegations" element={<DelegationsPage />} />
                           <Route path="submission-proof" element={<SubmissionProofPage />} />
+                          <Route path="chat" element={<ChatPage />} />
+                          <Route path="chat/:sessionId" element={<ChatPage />} />
                           <Route path="design-guide" element={<SectionPage section="design-guide" />} />
                           <Route path="settings" element={<SectionPage section="settings" />} />
                           <Route path="runs/:runId" element={<DetailPage kind="run" />} />

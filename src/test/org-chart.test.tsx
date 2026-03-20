@@ -5,7 +5,6 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { OrgChart } from "@/pages/OrgChart";
 
-// Mock Supabase client — return agents with reports_to hierarchy
 const mockAgents = [
   {
     id: "agent-ceo",
@@ -63,19 +62,20 @@ const mockAgents = [
   },
 ];
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          data: mockAgents,
-          error: null,
-        })),
-        data: mockAgents,
-        error: null,
-      })),
+vi.mock("@/lib/server-api/agents", () => ({
+  listAgentRecords: vi.fn(async () =>
+    mockAgents.map((agent) => ({
+      id: agent.id,
+      company_id: agent.company_id,
+      name: agent.name,
+      role: agent.role,
+      title: agent.title,
+      status: agent.status,
+      adapter_type: agent.adapter_type,
+      reports_to: agent.reports_to,
+      created_at: agent.created_at,
     })),
-  },
+  ),
 }));
 
 // Mock useActiveCompany so OrgChart resolves its tenant context

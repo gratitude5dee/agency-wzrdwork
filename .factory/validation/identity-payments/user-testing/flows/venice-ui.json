@@ -1,0 +1,26 @@
+{
+  "group": "venice-ui",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "assertions": {
+    "VAL-VENICE-001": {
+      "status": "pass",
+      "evidence": {
+        "screenshots": [
+          "identity-payments/venice-ui/VAL-VENICE-001-agent-detail-toggle.png"
+        ],
+        "consoleErrors": "Only WebGL getSupportedExtensions error from THREE.js (expected, ignored per guidance)",
+        "sourceReview": {
+          "toggleUI": "src/pages/AgentDetail.tsx contains a Switch component with aria-label 'Toggle private cognition' bound to agent.private_cognition_enabled",
+          "supabaseMutation": "togglePrivateCognition useMutation calls supabase.from('agents').update({ private_cognition_enabled: enabled }).eq('id', id) — directly persists to agents table",
+          "queryInvalidation": "On success, invalidates ['agent-detail', id] query to refresh UI with new value",
+          "typeDefinition": "src/integrations/supabase/types.ts confirms private_cognition_enabled: boolean in agents table Row, Insert, and Update types"
+        }
+      },
+      "notes": "Toggle UI renders on agent detail page (verified via agent-browser screenshot showing 'PRIVATE COGNITION Disabled' with Switch control). Source code confirms the toggle fires a Supabase update mutation on the agents table's private_cognition_enabled column. When enabled, a 'Private AI' badge and Venice Model selector also appear. Persistence is verified through source code review: the useMutation calls supabase.from('agents').update({ private_cognition_enabled }) directly."
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["agent-browser", "source-review"],
+  "summary": "Tested 1 assertion: 1 passed. VAL-VENICE-001 confirmed via agent-browser screenshot showing the private cognition toggle on the agent detail page, plus source code review verifying the Supabase update mutation."
+}

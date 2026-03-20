@@ -1,0 +1,3 @@
+export * from "./manifest.js";
+export * from "./plugin.js";
+export * from "./worker-rpc.js";

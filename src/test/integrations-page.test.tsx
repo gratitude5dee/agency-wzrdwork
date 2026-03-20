@@ -3,13 +3,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
-// ---- Supabase mock ----
-
-const mockFrom = vi.fn();
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: (...args: unknown[]) => mockFrom(...args),
-  },
+const mockListCompanyIntegrations = vi.fn();
+const mockUpsertIntegrationRecord = vi.fn();
+vi.mock("@/lib/server-api/integrations", () => ({
+  listCompanyIntegrations: (...args: unknown[]) => mockListCompanyIntegrations(...args),
+  upsertIntegrationRecord: (...args: unknown[]) => mockUpsertIntegrationRecord(...args),
 }));
 
 // ---- Active company mock ----
@@ -22,6 +20,10 @@ vi.mock("@/hooks/useActiveCompany", () => ({
     isLoading: false,
     error: null,
   }),
+}));
+
+vi.mock("thirdweb/react", () => ({
+  useActiveAccount: () => ({ address: "0xtest" }),
 }));
 
 // ---- Helpers ----
@@ -44,21 +46,18 @@ function renderWithProviders(ui: React.ReactElement) {
   );
 }
 
-function setupSupabaseMock(overrides?: Record<string, unknown>) {
-  const chain = {
-    select: vi.fn().mockReturnThis(),
-    insert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    upsert: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    order: vi.fn().mockResolvedValue({ data: [], error: null }),
-    limit: vi.fn().mockReturnThis(),
-    ...overrides,
-  };
-  mockFrom.mockReturnValue(chain);
-  return chain;
+function setIntegrationRows(rows: Record<string, unknown>[] = []) {
+  mockListCompanyIntegrations.mockResolvedValue(rows);
+  mockUpsertIntegrationRecord.mockResolvedValue({
+    id: "int-upserted",
+    company_id: "test-co",
+    integration_key: "thirdweb",
+    name: "thirdweb",
+    enabled: true,
+    config: {},
+    created_at: "2024-01-01",
+    updated_at: "2024-01-01",
+  });
 }
 
 // ---- Tests ----
@@ -66,17 +65,11 @@ function setupSupabaseMock(overrides?: Record<string, unknown>) {
 describe("IntegrationsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setIntegrationRows();
   });
 
   it("renders page heading and description", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    // Company query returns a company, integrations query returns empty
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -90,12 +83,6 @@ describe("IntegrationsPage", () => {
 
   it("renders all 17 integration cards including Composio", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -130,12 +117,6 @@ describe("IntegrationsPage", () => {
 
   it("renders status badge on each card", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -150,12 +131,6 @@ describe("IntegrationsPage", () => {
 
   it("renders Configure button on each card", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -169,12 +144,6 @@ describe("IntegrationsPage", () => {
 
   it("renders toggle switch on each card", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -188,12 +157,6 @@ describe("IntegrationsPage", () => {
 
   it("shows category descriptions on cards", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -207,12 +170,6 @@ describe("IntegrationsPage", () => {
 
   it("opens Configure dialog when Configure button is clicked", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.single.mockResolvedValue({
-      data: { id: "test-co", wallet_address: null },
-      error: null,
-    });
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -232,27 +189,20 @@ describe("IntegrationsPage", () => {
     expect(screen.getByText("Save Configuration")).toBeInTheDocument();
   });
 
-  it("reflects connected status from Supabase data", async () => {
+  it("reflects connected status from server data", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-
-    // Active company is provided via useActiveCompany mock.
-    // Only need to mock the integrations table query.
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({
-      data: [
-        {
-          id: "int-1",
-          company_id: "test-co",
-          integration_key: "thirdweb",
-          name: "thirdweb",
-          enabled: true,
-          config: { api_key: "test-key" },
-          created_at: "2024-01-01",
-          updated_at: "2024-01-01",
-        },
-      ],
-      error: null,
-    });
+    setIntegrationRows([
+      {
+        id: "int-1",
+        company_id: "test-co",
+        integration_key: "thirdweb",
+        name: "thirdweb",
+        enabled: true,
+        config: { api_key: "test-key" },
+        created_at: "2024-01-01",
+        updated_at: "2024-01-01",
+      },
+    ]);
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -267,8 +217,6 @@ describe("IntegrationsPage", () => {
 
   it("shows core and stretch tier badges on cards (VAL-INTEGRATIONS-001)", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -288,22 +236,18 @@ describe("IntegrationsPage", () => {
 
   it("shows Misconfigured status when enabled but missing credentials (VAL-INTEGRATIONS-003)", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({
-      data: [
-        {
-          id: "int-1",
-          company_id: "test-co",
-          integration_key: "venice",
-          name: "venice",
-          enabled: true,
-          config: {},
-          created_at: "2024-01-01",
-          updated_at: "2024-01-01",
-        },
-      ],
-      error: null,
-    });
+    setIntegrationRows([
+      {
+        id: "int-1",
+        company_id: "test-co",
+        integration_key: "venice",
+        name: "venice",
+        enabled: true,
+        config: {},
+        created_at: "2024-01-01",
+        updated_at: "2024-01-01",
+      },
+    ]);
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -322,22 +266,18 @@ describe("IntegrationsPage", () => {
 
   it("shows Misconfigured for enabled integration with blank api_key", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({
-      data: [
-        {
-          id: "int-1",
-          company_id: "test-co",
-          integration_key: "bankr",
-          name: "bankr",
-          enabled: true,
-          config: { api_key: "   " },
-          created_at: "2024-01-01",
-          updated_at: "2024-01-01",
-        },
-      ],
-      error: null,
-    });
+    setIntegrationRows([
+      {
+        id: "int-1",
+        company_id: "test-co",
+        integration_key: "bankr",
+        name: "bankr",
+        enabled: true,
+        config: { api_key: "   " },
+        created_at: "2024-01-01",
+        updated_at: "2024-01-01",
+      },
+    ]);
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -348,8 +288,6 @@ describe("IntegrationsPage", () => {
 
   it("shows validation error when saving without API key (VAL-INTEGRATIONS-003)", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({ data: [], error: null });
 
     renderWithProviders(<IntegrationsPage />);
 
@@ -376,22 +314,18 @@ describe("IntegrationsPage", () => {
 
   it("shows Misconfigured for Composio enabled without consumer_key (VAL-INTEGRATIONS-003)", async () => {
     const { IntegrationsPage } = await import("@/pages/Integrations");
-    const chain = setupSupabaseMock();
-    chain.order.mockResolvedValue({
-      data: [
-        {
-          id: "int-c",
-          company_id: "test-co",
-          integration_key: "composio",
-          name: "Composio",
-          enabled: true,
-          config: { mcp_url: "https://example.com" },
-          created_at: "2024-01-01",
-          updated_at: "2024-01-01",
-        },
-      ],
-      error: null,
-    });
+    setIntegrationRows([
+      {
+        id: "int-c",
+        company_id: "test-co",
+        integration_key: "composio",
+        name: "Composio",
+        enabled: true,
+        config: { mcp_url: "https://example.com" },
+        created_at: "2024-01-01",
+        updated_at: "2024-01-01",
+      },
+    ]);
 
     renderWithProviders(<IntegrationsPage />);
 
