@@ -419,7 +419,7 @@ ${entry.rawContent}
                       <div className="my-1 h-px bg-white/10" />
 
                       {/* Live agent entries for Activity tab filtering */}
-                      {activeTab === 'activity' && liveAgents.map((agent) => (
+                      {activeTab === 'activity' && snapshot.agents.map((agent) => (
                         <button
                           key={agent.id}
                           onClick={() => handleAgentFilter(agent.id)}

@@ -58,20 +58,28 @@ describe("redactRunLogExport", () => {
 
     const exportPayload = redactRunLogExport({
       run_id: "run-1",
+      agent_id: "agent-1",
+      company_id: "company-1",
       status: "completed",
+      started_at: "2026-03-20T00:00:00.000Z",
+      finished_at: "2026-03-20T00:01:00.000Z",
       summary: "done",
-      total_input_tokens: 1,
-      total_output_tokens: 2,
-      total_cost_usd: 0.03,
+      usage: {
+        total_input_tokens: 1,
+        total_output_tokens: 2,
+        total_cost_usd: 0.03,
+      },
       entries: [
         {
           log_id: "log-1",
-          created_at: "2026-03-20T00:00:00.000Z",
-          log_type: "output",
+          timestamp: "2026-03-20T00:00:00.000Z",
+          type: "output",
           content: {
             venice_reasoning: "hidden",
             result: "visible",
           },
+          agent_id: "agent-1",
+          run_id: "run-1",
         },
       ],
     });

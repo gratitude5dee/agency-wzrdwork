@@ -350,7 +350,7 @@ describe("Wallet persistence display (VAL-AUTH-003, VAL-AUTH-004)", () => {
     // The useStoredWalletAddress hook reads from the active company
     // We can verify the hook's source is useActiveCompany which reads wallet_address
     const { resolveActiveCompany } = await import("@/hooks/useActiveCompany");
-    const company = await resolveActiveCompany("0xWalletPersist1234567890abcdef12345");
+    const company = await resolveActiveCompany();
     expect(company?.wallet_address).toBe(STORED_ADDR);
   });
 });
