@@ -3,15 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "packages/adapters/*",
-    "packages/plugins/*",
-    "server",
-    "control-plane",
-    "cli",
-    "ui"
-  ],
   "scripts": {
     "dev": "vite",
     "dev:watch": "node scripts/dev-runner.mjs watch",

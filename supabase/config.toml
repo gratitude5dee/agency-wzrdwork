@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.adapter-secrets]
 verify_jwt = false
+
+[functions.x402-settle]
+verify_jwt = false
