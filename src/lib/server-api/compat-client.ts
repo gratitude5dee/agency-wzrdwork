@@ -8,16 +8,17 @@
  * (via environment variables) and the server context.
  */
 
-import type {
-  Agent,
-  Project,
-  Issue,
-  Goal,
-  Approval,
-  DashboardSummary,
-  ActivityEvent,
-  CompanySecret,
-} from "@paperclipai/shared";
+// Local type stubs — the canonical types live in @paperclipai/shared which is
+// only available inside the full monorepo.  For the Lovable/Vite build we
+// define minimal compatible interfaces here.
+interface Agent { id: string; name: string; [k: string]: unknown }
+interface Project { id: string; name: string; [k: string]: unknown }
+interface Issue { id: string; title: string; [k: string]: unknown }
+interface Goal { id: string; title: string; [k: string]: unknown }
+interface Approval { id: string; status: string; [k: string]: unknown }
+interface DashboardSummary { [k: string]: unknown }
+interface ActivityEvent { id: string; action: string; [k: string]: unknown }
+interface CompanySecret { id: string; name: string; [k: string]: unknown }
 
 export interface ApiClientConfig {
   baseUrl?: string;

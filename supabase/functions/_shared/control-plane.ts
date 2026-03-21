@@ -84,7 +84,7 @@ export async function encryptSecretValue(
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
-    rawKey,
+    rawKey.buffer as ArrayBuffer,
     { name: "AES-GCM" },
     false,
     ["encrypt"],
