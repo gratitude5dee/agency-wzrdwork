@@ -1,7 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Sql } from "postgres";
+import type {
+  AdapterExecutionContext as PaperclipAdapterExecutionContext,
+  AdapterExecutionResult as PaperclipAdapterExecutionResult,
+} from "@paperclipai/adapter-utils";
+import { execute as executeClaudeLocal } from "@paperclipai/adapter-claude-local/server";
+import { execute as executeCursorLocal } from "@paperclipai/adapter-cursor-local/server";
+import { execute as executeGeminiLocal } from "@paperclipai/adapter-gemini-local/server";
+import { execute as executeOpenClawGateway } from "@paperclipai/adapter-openclaw-gateway/server";
+import { execute as executeOpenCodeLocal } from "@paperclipai/adapter-opencode-local/server";
+import { execute as executePiLocal } from "@paperclipai/adapter-pi-local/server";
 import {
   collectSecretIdentifiers,
   loadSecretValues,
@@ -50,6 +61,18 @@ interface CommandOptions {
   stdin?: string;
   timeoutMs: number;
 }
+
+type PaperclipServerExecute = (
+  context: PaperclipAdapterExecutionContext,
+) => Promise<PaperclipAdapterExecutionResult>;
+
+const LOCAL_PAPERCLIP_COMMAND_ALLOWLISTS: Record<string, string[]> = {
+  claude_local: ["claude"],
+  cursor: ["agent"],
+  gemini_local: ["gemini"],
+  opencode_local: ["opencode"],
+  pi_local: ["pi"],
+};
 
 function buildStructuredStepPayload(input: AdapterStepInput): JsonObject {
   return {
@@ -249,6 +272,15 @@ function parseGenericOutput(
   input: AdapterStepInput,
   execution: AdapterStepExecution,
 ): ParsedAdapterOutput {
+  if (execution.summary || execution.data) {
+    const summary = execution.summary?.trim() || `${input.step} completed`;
+    return {
+      summary,
+      data: execution.data ?? { summary },
+      usage: execution.usage,
+    };
+  }
+
   const stdout = execution.stdout.trim();
   const parsed = stdout ? parseJsonText(stdout) : null;
   const summary = extractSummaryFromValue(parsed ?? stdout, `${input.step} completed`);
@@ -270,6 +302,179 @@ async function resolveGenericSecrets(
   return {
     config: asObject(resolveSecretRefs(rawConfig, secretValues)),
     sensitiveValues: Array.from(new Set(secretValues.values())),
+  };
+}
+
+function buildPaperclipContext(input: AdapterStepInput): Record<string, unknown> {
+  return {
+    task: input.task,
+    step: input.step,
+    previousSteps: input.previousSteps.map((step) => ({
+      step: step.step,
+      summary: step.summary,
+      data: step.data,
+    })),
+    agencyControlPlane: {
+      protocol: "agency-control-plane/paperclip-bridge",
+      adapterType: input.agent.adapter_type,
+    },
+  };
+}
+
+function normalizePaperclipResultUsage(result: PaperclipAdapterExecutionResult): TokenUsage {
+  return normalizeUsage({
+    inputTokens: result.usage?.inputTokens,
+    cachedInputTokens: result.usage?.cachedInputTokens,
+    outputTokens: result.usage?.outputTokens,
+    costUsd: result.costUsd ?? 0,
+  });
+}
+
+function buildPaperclipResultData(
+  result: PaperclipAdapterExecutionResult,
+  invocationMeta: Record<string, unknown> | null,
+  fallbackSummary: string,
+): JsonObject {
+  const resultJson = result.resultJson && typeof result.resultJson === "object"
+    ? result.resultJson
+    : {};
+
+  return coerceJsonObject(
+    {
+      ...resultJson,
+      provider: result.provider ?? undefined,
+      biller: result.biller ?? undefined,
+      model: result.model ?? undefined,
+      billingType: result.billingType ?? undefined,
+      sessionId: result.sessionId ?? undefined,
+      sessionDisplayId: result.sessionDisplayId ?? undefined,
+      sessionParams: result.sessionParams ?? undefined,
+      runtimeServices: result.runtimeServices ?? undefined,
+      question: result.question ?? undefined,
+      clearSession: result.clearSession === true ? true : undefined,
+      invocation: invocationMeta ?? undefined,
+    },
+    fallbackSummary,
+  );
+}
+
+function maybeEnforcePaperclipLocalCommand(
+  adapterType: string,
+  config: JsonObject,
+): void {
+  const allowlist = LOCAL_PAPERCLIP_COMMAND_ALLOWLISTS[adapterType];
+  if (!allowlist) return;
+  const fallback = allowlist[0] ?? "";
+  const command = asString(config.command, fallback).trim() || fallback;
+  enforceAllowedCommand(command, allowlist, adapterType);
+}
+
+async function executePaperclipAdapter(
+  adapterType: string,
+  execute: PaperclipServerExecute,
+  stepInput: AdapterStepInput,
+): Promise<AdapterStepExecution> {
+  maybeEnforcePaperclipLocalCommand(adapterType, stepInput.resolvedConfig);
+
+  const stdoutChunks: string[] = [];
+  const stderrChunks: string[] = [];
+  let invocationMeta: Record<string, unknown> | null = null;
+
+  const result = await execute({
+    runId: randomUUID(),
+    agent: {
+      id: stepInput.agent.id,
+      companyId: stepInput.agent.company_id,
+      name: stepInput.agent.name,
+      adapterType: stepInput.agent.adapter_type,
+      adapterConfig: stepInput.rawConfig,
+    },
+    runtime: {
+      sessionId: null,
+      sessionParams: null,
+      sessionDisplayId: null,
+      taskKey: null,
+    },
+    config: stepInput.resolvedConfig as Record<string, unknown>,
+    context: buildPaperclipContext(stepInput),
+    onLog: async (stream, chunk) => {
+      if (stream === "stdout") stdoutChunks.push(chunk);
+      else stderrChunks.push(chunk);
+    },
+    onMeta: async (meta) => {
+      invocationMeta = meta as unknown as Record<string, unknown>;
+    },
+  });
+
+  const usage = normalizePaperclipResultUsage(result);
+  const stdout = stdoutChunks.join("");
+  const stderr = stderrChunks.join("");
+  const summary =
+    asString(result.summary).trim() ||
+    extractSummaryFromValue(result.resultJson, `${stepInput.step} completed`);
+  const data = buildPaperclipResultData(result, invocationMeta, summary);
+
+  if (result.timedOut) {
+    throw new Error(result.errorMessage?.trim() || `${adapterType} timed out`);
+  }
+
+  const errorMessage = asString(result.errorMessage).trim();
+  if (errorMessage) {
+    throw new Error(errorMessage);
+  }
+
+  if (typeof result.exitCode === "number" && result.exitCode !== 0) {
+    throw new Error(
+      stderr.trim() ||
+      stdout.trim() ||
+      `${adapterType} exited with code ${result.exitCode}`,
+    );
+  }
+
+  return {
+    stdout,
+    stderr,
+    exitCode: result.exitCode,
+    usage,
+    summary,
+    data,
+  };
+}
+
+function createPaperclipExecutionAdapter(
+  adapterType: string,
+  execute: PaperclipServerExecute,
+  resolveMany: (
+    companyId: string,
+    identifiers: string[],
+  ) => Promise<Map<string, string>>,
+): AdapterExecutionModule {
+  return {
+    type: adapterType,
+    async resolveSecrets(rawConfig): Promise<AdapterResolution> {
+      const base = await resolveGenericSecrets(rawConfig, (identifiers) =>
+        resolveMany((rawConfig.companyId as string) ?? "", identifiers),
+      );
+      const nextConfig: JsonObject = {
+        ...base.config,
+      };
+
+      if ("env" in nextConfig) {
+        nextConfig.env = normalizeStringMap(base.config.env);
+      }
+      if ("headers" in nextConfig) {
+        nextConfig.headers = normalizeStringMap(base.config.headers);
+      }
+
+      return {
+        config: nextConfig,
+        sensitiveValues: base.sensitiveValues,
+      };
+    },
+    async executeStep(stepInput): Promise<AdapterStepExecution> {
+      return await executePaperclipAdapter(adapterType, execute, stepInput);
+    },
+    parseOutput: parseGenericOutput,
   };
 }
 
@@ -449,10 +654,52 @@ export function createAdapterRegistry(input: {
     },
   };
 
+  const claudeLocalAdapter = createPaperclipExecutionAdapter(
+    "claude_local",
+    executeClaudeLocal,
+    resolveMany,
+  );
+
+  const cursorAdapter = createPaperclipExecutionAdapter(
+    "cursor",
+    executeCursorLocal,
+    resolveMany,
+  );
+
+  const geminiLocalAdapter = createPaperclipExecutionAdapter(
+    "gemini_local",
+    executeGeminiLocal,
+    resolveMany,
+  );
+
+  const openClawGatewayAdapter = createPaperclipExecutionAdapter(
+    "openclaw_gateway",
+    executeOpenClawGateway,
+    resolveMany,
+  );
+
+  const openCodeLocalAdapter = createPaperclipExecutionAdapter(
+    "opencode_local",
+    executeOpenCodeLocal,
+    resolveMany,
+  );
+
+  const piLocalAdapter = createPaperclipExecutionAdapter(
+    "pi_local",
+    executePiLocal,
+    resolveMany,
+  );
+
   const registry = new Map<string, AdapterExecutionModule>([
     ["process", processAdapter],
     ["http", httpAdapter],
+    ["claude_local", claudeLocalAdapter],
     ["codex_local", codexAdapter],
+    ["cursor", cursorAdapter],
+    ["gemini_local", geminiLocalAdapter],
+    ["openclaw_gateway", openClawGatewayAdapter],
+    ["opencode_local", openCodeLocalAdapter],
+    ["pi_local", piLocalAdapter],
   ]);
 
   return {

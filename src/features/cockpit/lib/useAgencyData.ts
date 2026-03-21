@@ -17,6 +17,28 @@ import type {
 } from "./domain";
 
 const SNAPSHOT_QUERY_KEY = ["agency-snapshot"];
+const EMPTY_SNAPSHOT: AgencySnapshot = {
+  company: {
+    id: "",
+    slug: "",
+    name: "",
+    companyType: "",
+    description: "",
+    brief: "",
+    brandColor: "",
+    createdAt: "",
+    updatedAt: "",
+  },
+  agents: [],
+  projects: [],
+  goals: [],
+  issues: [],
+  approvals: [],
+  runs: [],
+  activity: [],
+  source: "server",
+  sourceMessage: "Waiting for data...",
+};
 
 function createDemoIssue(snapshot: AgencySnapshot, input: CreateIssueInput): AgencySnapshot {
   const nextIndex = snapshot.issues.length + 1;
@@ -59,23 +81,26 @@ function createDemoIssue(snapshot: AgencySnapshot, input: CreateIssueInput): Age
 
 /**
  * Load the agency snapshot for a specific company.
- * When server access fails or no company is resolved, falls back to demo data.
+ * When server access fails or no company is resolved, returns empty state.
+ * TODO (M4.2.2): Replace with proper empty state handling post-M4 verification.
  */
 export async function loadAgencySnapshot(companyId?: string | null): Promise<AgencySnapshot> {
   if (!companyId) {
-    return DEMO_SNAPSHOT;
+    return {
+      ...EMPTY_SNAPSHOT,
+      sourceMessage: "No company ID provided.",
+    };
   }
 
   try {
     return await getAgencySnapshotRecord({ companyId });
   } catch (error) {
     return {
-      ...DEMO_SNAPSHOT,
-      source: "demo",
+      ...EMPTY_SNAPSHOT,
       sourceMessage:
         error instanceof Error
           ? error.message
-          : "The backend was unavailable, so the sandbox switched to demo data.",
+          : "The backend was unavailable. Please check your connection.",
     };
   }
 }
@@ -95,10 +120,10 @@ export function useAgencyData() {
 
   const createIssueMutation = useMutation({
     mutationFn: async (input: CreateIssueInput) => {
-      const current = (queryClient.getQueryData(snapshotQueryKey) as AgencySnapshot | undefined) ?? DEMO_SNAPSHOT;
+      const current = queryClient.getQueryData(snapshotQueryKey) as AgencySnapshot | undefined;
 
-      if (current.source !== "server") {
-        return createDemoIssue(current, input);
+      if (!current || !current.company.id) {
+        throw new Error("No company data available. Please connect a wallet and set up your company.");
       }
 
       try {
@@ -110,8 +135,8 @@ export function useAgencyData() {
           description: input.description,
           priority: input.priority,
         });
-      } catch {
-        return createDemoIssue(current, input);
+      } catch (error) {
+        throw error;
       }
 
       return await loadAgencySnapshot(companyId);
@@ -123,7 +148,7 @@ export function useAgencyData() {
 
   return {
     ...snapshotQuery,
-    snapshot: snapshotQuery.data ?? DEMO_SNAPSHOT,
+    snapshot: snapshotQuery.data ?? EMPTY_SNAPSHOT,
     createIssue: createIssueMutation.mutateAsync,
     isCreatingIssue: createIssueMutation.isPending,
   };

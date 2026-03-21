@@ -36,13 +36,13 @@ DROP TRIGGER IF EXISTS set_plugins_updated_at ON public.plugins;
 CREATE TRIGGER set_plugins_updated_at
 BEFORE UPDATE ON public.plugins
 FOR EACH ROW
-EXECUTE FUNCTION public.set_updated_at();
+EXECUTE FUNCTION public.set_current_timestamp_updated_at();
 
 DROP TRIGGER IF EXISTS set_company_plugins_updated_at ON public.company_plugins;
 CREATE TRIGGER set_company_plugins_updated_at
 BEFORE UPDATE ON public.company_plugins
 FOR EACH ROW
-EXECUTE FUNCTION public.set_updated_at();
+EXECUTE FUNCTION public.set_current_timestamp_updated_at();
 
 ALTER TABLE public.plugins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.company_plugins ENABLE ROW LEVEL SECURITY;

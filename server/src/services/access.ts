@@ -1,175 +1,282 @@
-import type { Sql } from "postgres";
-import { HttpError } from "../http.js";
-import type { AccessibleCompany, Actor, AppUserRow, JsonObject, MembershipRow, RequestActorInput } from "../types.js";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import type { Db } from "@paperclipai/db";
+import {
+  companyMemberships,
+  instanceUserRoles,
+  principalPermissionGrants,
+} from "@paperclipai/db";
+import type { PermissionKey, PrincipalType } from "@paperclipai/shared";
 
-function normalizeWalletAddress(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return value.trim().toLowerCase();
-}
+type MembershipRow = typeof companyMemberships.$inferSelect;
+type GrantInput = {
+  permissionKey: PermissionKey;
+  scope?: Record<string, unknown> | null;
+};
 
-export async function ensureUserForWallet(sql: Sql, walletAddress: string): Promise<AppUserRow> {
-  const normalized = normalizeWalletAddress(walletAddress);
-  if (!normalized) {
-    throw new HttpError(401, "Wallet address is required");
+export function accessService(db: Db) {
+  async function isInstanceAdmin(userId: string | null | undefined): Promise<boolean> {
+    if (!userId) return false;
+    const row = await db
+      .select({ id: instanceUserRoles.id })
+      .from(instanceUserRoles)
+      .where(and(eq(instanceUserRoles.userId, userId), eq(instanceUserRoles.role, "instance_admin")))
+      .then((rows) => rows[0] ?? null);
+    return Boolean(row);
   }
 
-  const rows = await sql<AppUserRow[]>`
-    INSERT INTO public.app_users (wallet_address)
-    VALUES (${normalized})
-    ON CONFLICT (wallet_address) DO UPDATE
-      SET updated_at = now()
-    RETURNING id, wallet_address, display_name
-  `;
-
-  const row = rows[0];
-  if (!row) {
-    throw new HttpError(500, "Failed to resolve user principal");
-  }
-  return row;
-}
-
-export async function bootstrapMemberships(sql: Sql, userId: string, walletAddress: string): Promise<void> {
-  const normalized = normalizeWalletAddress(walletAddress);
-  if (!normalized) return;
-
-  await sql`
-    INSERT INTO public.company_memberships (company_id, user_id, role, permissions, status)
-    SELECT DISTINCT
-      c.id,
-      ${userId}::uuid,
-      'owner',
-      '{"manage_company": true, "manage_agents": true, "manage_issues": true, "manage_secrets": true, "manage_integrations": true}'::jsonb,
-      'active'
-    FROM public.companies c
-    WHERE lower(c.wallet_address) = ${normalized}
-    ON CONFLICT (company_id, user_id) DO NOTHING
-  `;
-
-  await sql`
-    INSERT INTO public.company_memberships (company_id, user_id, role, permissions, status)
-    SELECT DISTINCT
-      uo.company_id,
-      ${userId}::uuid,
-      'owner',
-      '{"manage_company": true, "manage_agents": true, "manage_issues": true, "manage_secrets": true, "manage_integrations": true}'::jsonb,
-      'active'
-    FROM public.user_onboarding uo
-    WHERE lower(uo.wallet_address) = ${normalized}
-      AND uo.company_id IS NOT NULL
-    ON CONFLICT (company_id, user_id) DO NOTHING
-  `;
-}
-
-export async function syncWalletAddressToCompany(sql: Sql, walletAddress: string): Promise<void> {
-  const normalized = normalizeWalletAddress(walletAddress);
-  if (!normalized) return;
-
-  await sql`
-    UPDATE public.companies
-    SET wallet_address = ${normalized}
-    WHERE id IN (
-      SELECT company_id
-      FROM public.user_onboarding
-      WHERE lower(wallet_address) = ${normalized}
-        AND company_id IS NOT NULL
-    )
-  `;
-}
-
-export async function resolveActor(sql: Sql, input: RequestActorInput): Promise<Actor> {
-  const normalized = normalizeWalletAddress(input.walletAddress);
-  if (!normalized) {
-    throw new HttpError(401, "Wallet address is required");
+  async function getMembership(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+  ): Promise<MembershipRow | null> {
+    return db
+      .select()
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.principalType, principalType),
+          eq(companyMemberships.principalId, principalId),
+        ),
+      )
+      .then((rows) => rows[0] ?? null);
   }
 
-  const user = await ensureUserForWallet(sql, normalized);
-  await bootstrapMemberships(sql, user.id, normalized);
+  async function hasPermission(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+    permissionKey: PermissionKey,
+  ): Promise<boolean> {
+    const membership = await getMembership(companyId, principalType, principalId);
+    if (!membership || membership.status !== "active") return false;
+    const grant = await db
+      .select({ id: principalPermissionGrants.id })
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, companyId),
+          eq(principalPermissionGrants.principalType, principalType),
+          eq(principalPermissionGrants.principalId, principalId),
+          eq(principalPermissionGrants.permissionKey, permissionKey),
+        ),
+      )
+      .then((rows) => rows[0] ?? null);
+    return Boolean(grant);
+  }
 
-  const memberships = await sql<MembershipRow[]>`
-    SELECT company_id, role, permissions, status
-    FROM public.company_memberships
-    WHERE user_id = ${user.id}::uuid
-      AND status = 'active'
-    ORDER BY created_at ASC
-  `;
+  async function canUser(
+    companyId: string,
+    userId: string | null | undefined,
+    permissionKey: PermissionKey,
+  ): Promise<boolean> {
+    if (!userId) return false;
+    if (await isInstanceAdmin(userId)) return true;
+    return hasPermission(companyId, "user", userId, permissionKey);
+  }
 
-  const instanceRoles = await sql<{ role: string }[]>`
-    SELECT role
-    FROM public.instance_user_roles
-    WHERE user_id = ${user.id}::uuid
-    ORDER BY role ASC
-  `;
+  async function listMembers(companyId: string) {
+    return db
+      .select()
+      .from(companyMemberships)
+      .where(eq(companyMemberships.companyId, companyId))
+      .orderBy(sql`${companyMemberships.createdAt} desc`);
+  }
+
+  async function setMemberPermissions(
+    companyId: string,
+    memberId: string,
+    grants: GrantInput[],
+    grantedByUserId: string | null,
+  ) {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.id, memberId)))
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(principalPermissionGrants)
+        .where(
+          and(
+            eq(principalPermissionGrants.companyId, companyId),
+            eq(principalPermissionGrants.principalType, member.principalType),
+            eq(principalPermissionGrants.principalId, member.principalId),
+          ),
+        );
+      if (grants.length > 0) {
+        await tx.insert(principalPermissionGrants).values(
+          grants.map((grant) => ({
+            companyId,
+            principalType: member.principalType,
+            principalId: member.principalId,
+            permissionKey: grant.permissionKey,
+            scope: grant.scope ?? null,
+            grantedByUserId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        );
+      }
+    });
+
+    return member;
+  }
+
+  async function promoteInstanceAdmin(userId: string) {
+    const existing = await db
+      .select()
+      .from(instanceUserRoles)
+      .where(and(eq(instanceUserRoles.userId, userId), eq(instanceUserRoles.role, "instance_admin")))
+      .then((rows) => rows[0] ?? null);
+    if (existing) return existing;
+    return db
+      .insert(instanceUserRoles)
+      .values({
+        userId,
+        role: "instance_admin",
+      })
+      .returning()
+      .then((rows) => rows[0]);
+  }
+
+  async function demoteInstanceAdmin(userId: string) {
+    return db
+      .delete(instanceUserRoles)
+      .where(and(eq(instanceUserRoles.userId, userId), eq(instanceUserRoles.role, "instance_admin")))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+  }
+
+  async function listUserCompanyAccess(userId: string) {
+    return db
+      .select()
+      .from(companyMemberships)
+      .where(and(eq(companyMemberships.principalType, "user"), eq(companyMemberships.principalId, userId)))
+      .orderBy(sql`${companyMemberships.createdAt} desc`);
+  }
+
+  async function setUserCompanyAccess(userId: string, companyIds: string[]) {
+    const existing = await listUserCompanyAccess(userId);
+    const existingByCompany = new Map(existing.map((row) => [row.companyId, row]));
+    const target = new Set(companyIds);
+
+    await db.transaction(async (tx) => {
+      const toDelete = existing.filter((row) => !target.has(row.companyId)).map((row) => row.id);
+      if (toDelete.length > 0) {
+        await tx.delete(companyMemberships).where(inArray(companyMemberships.id, toDelete));
+      }
+
+      for (const companyId of target) {
+        if (existingByCompany.has(companyId)) continue;
+        await tx.insert(companyMemberships).values({
+          companyId,
+          principalType: "user",
+          principalId: userId,
+          status: "active",
+          membershipRole: "member",
+        });
+      }
+    });
+
+    return listUserCompanyAccess(userId);
+  }
+
+  async function ensureMembership(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+    membershipRole: string | null = "member",
+    status: "pending" | "active" | "suspended" = "active",
+  ) {
+    const existing = await getMembership(companyId, principalType, principalId);
+    if (existing) {
+      if (existing.status !== status || existing.membershipRole !== membershipRole) {
+        const updated = await db
+          .update(companyMemberships)
+          .set({ status, membershipRole, updatedAt: new Date() })
+          .where(eq(companyMemberships.id, existing.id))
+          .returning()
+          .then((rows) => rows[0] ?? null);
+        return updated ?? existing;
+      }
+      return existing;
+    }
+
+    return db
+      .insert(companyMemberships)
+      .values({
+        companyId,
+        principalType,
+        principalId,
+        status,
+        membershipRole,
+      })
+      .returning()
+      .then((rows) => rows[0]);
+  }
+
+  async function setPrincipalGrants(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+    grants: GrantInput[],
+    grantedByUserId: string | null,
+  ) {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(principalPermissionGrants)
+        .where(
+          and(
+            eq(principalPermissionGrants.companyId, companyId),
+            eq(principalPermissionGrants.principalType, principalType),
+            eq(principalPermissionGrants.principalId, principalId),
+          ),
+        );
+      if (grants.length === 0) return;
+      await tx.insert(principalPermissionGrants).values(
+        grants.map((grant) => ({
+          companyId,
+          principalType,
+          principalId,
+          permissionKey: grant.permissionKey,
+          scope: grant.scope ?? null,
+          grantedByUserId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+      );
+    });
+  }
 
   return {
-    user,
-    memberships: memberships.map((membership) => ({
-      ...membership,
-      permissions: (membership.permissions ?? {}) as JsonObject,
-    })),
-    instanceRoles: instanceRoles.map((row) => row.role),
+    isInstanceAdmin,
+    canUser,
+    hasPermission,
+    getMembership,
+    ensureMembership,
+    listMembers,
+    setMemberPermissions,
+    promoteInstanceAdmin,
+    demoteInstanceAdmin,
+    listUserCompanyAccess,
+    setUserCompanyAccess,
+    setPrincipalGrants,
   };
 }
 
-export function requireCompanyAccess(actor: Actor, companyId: string) {
-  if (actor.instanceRoles.includes("admin")) return;
-  if (actor.memberships.some((membership) => membership.company_id === companyId)) return;
-  throw new HttpError(403, "You do not have access to this company");
-}
-
-export async function listAccessibleCompanies(sql: Sql, actor: Actor): Promise<AccessibleCompany[]> {
-  const ids = actor.memberships.map((membership) => membership.company_id);
-  if (ids.length === 0 && !actor.instanceRoles.includes("admin")) {
-    return [];
-  }
-
-  if (actor.instanceRoles.includes("admin") && ids.length === 0) {
-    return await sql<AccessibleCompany[]>`
-      SELECT id, name, slug, wallet_address
-      FROM public.companies
-      ORDER BY created_at ASC
-    `;
-  }
-
-  return await sql<AccessibleCompany[]>`
-    SELECT id, name, slug, wallet_address
-    FROM public.companies
-    WHERE id IN ${sql(ids)}
-    ORDER BY created_at ASC
-  `;
-}
-
-export function selectActiveCompany(
-  companies: AccessibleCompany[],
-  preferredCompanyId: string | null,
-): AccessibleCompany | null {
-  if (preferredCompanyId) {
-    const preferred = companies.find((company) => company.id === preferredCompanyId);
-    if (preferred) return preferred;
-  }
-
-  return companies[0] ?? null;
-}
-
-export function hasCompanyPermission(actor: Actor, companyId: string, permission: string): boolean {
-  if (actor.instanceRoles.includes("admin")) return true;
-
-  const membership = actor.memberships.find((item) => item.company_id === companyId);
-  if (!membership) return false;
-  if (membership.role === "owner" || membership.role === "admin") return true;
-
-  return membership.permissions[permission] === true;
-}
-
-export function requireCompanyPermission(actor: Actor, companyId: string, permission: string) {
-  if (hasCompanyPermission(actor, companyId, permission)) return;
-  throw new HttpError(403, `Missing required permission: ${permission}`);
-}
-
-export function isInstanceAdmin(actor: Actor): boolean {
-  return actor.instanceRoles.includes("admin");
-}
-
-export function requireInstanceAdmin(actor: Actor) {
-  if (isInstanceAdmin(actor)) return;
-  throw new HttpError(403, "Instance admin access required");
-}
+export {
+  ensureUserForWallet,
+  bootstrapMemberships,
+  syncWalletAddressToCompany,
+  resolveActor,
+  requireCompanyAccess,
+  listAccessibleCompanies,
+  selectActiveCompany,
+  hasCompanyPermission,
+  requireCompanyPermission,
+  isInstanceAdmin as isActorInstanceAdmin,
+  requireInstanceAdmin,
+} from "./access.agency-backup.js";

@@ -74,12 +74,12 @@ describe("redactRunLogExport", () => {
           log_id: "log-1",
           timestamp: "2026-03-20T00:00:00.000Z",
           type: "output",
+          agent_id: "agent-1",
+          run_id: "run-1",
           content: {
             venice_reasoning: "hidden",
             result: "visible",
           },
-          agent_id: "agent-1",
-          run_id: "run-1",
         },
       ],
     });

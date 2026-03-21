@@ -1,3 +1,5 @@
+// DEPRECATED: Remove after M4 verification. Use canonical API via compat-client.
+// This file contains mock data that should not be used in production.
 import type { AgencySnapshot } from "./domain";
 
 const now = new Date();

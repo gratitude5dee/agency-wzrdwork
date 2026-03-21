@@ -4,7 +4,13 @@ import type { JsonObject, JsonValue, RuntimeStateData, TokenUsage } from "./type
 export const SUPPORTED_EXECUTION_ADAPTERS = new Set([
   "process",
   "http",
+  "claude_local",
   "codex_local",
+  "cursor",
+  "gemini_local",
+  "openclaw_gateway",
+  "opencode_local",
+  "pi_local",
 ]);
 
 export function asObject(value: unknown): JsonObject {

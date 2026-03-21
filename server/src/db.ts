@@ -1,10 +1,12 @@
-import postgres, { type Sql } from "postgres";
+import { createDb } from "@paperclipai/db";
+import type { Sql } from "postgres";
 
-export function createDatabase(databaseUrl: string): Sql {
-  return postgres(databaseUrl, {
-    max: 5,
-    prepare: false,
-    idle_timeout: 20,
-    connect_timeout: 15,
-  });
+export type Db = Sql;
+
+/**
+ * Create the canonical Paperclip DB client and return its underlying postgres.js handle.
+ * The Agency server still uses tagged-template SQL while the route layer is being ported.
+ */
+export function createDatabase(databaseUrl: string): Db {
+  return createDb(databaseUrl).$client;
 }

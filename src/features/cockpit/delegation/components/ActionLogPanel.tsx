@@ -269,6 +269,7 @@ export function ActionLogPanel() {
   const topRef = useRef<HTMLDivElement>(null)
 
   const { snapshot } = useAgencyData();
+  const liveAgents = snapshot.agents;
 
   const liveActivity = React.useMemo(() => {
     const filtered = activityFilterAgentId
@@ -419,7 +420,7 @@ ${entry.rawContent}
                       <div className="my-1 h-px bg-white/10" />
 
                       {/* Live agent entries for Activity tab filtering */}
-                      {activeTab === 'activity' && snapshot.agents.map((agent) => (
+                      {activeTab === 'activity' && liveAgents.map((agent) => (
                         <button
                           key={agent.id}
                           onClick={() => handleAgentFilter(agent.id)}

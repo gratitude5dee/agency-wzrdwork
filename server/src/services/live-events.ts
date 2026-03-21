@@ -1,9 +1,65 @@
+import { EventEmitter } from "node:events";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { IncomingMessage, Server } from "node:http";
 import type { Sql } from "postgres";
 import type { LiveEvent, LiveEventHub, LiveSocketSession, ServerConfig } from "../types.js";
 import { resolveActor, requireCompanyAccess } from "./access.js";
 import { authenticateSessionToken } from "./auth.js";
+
+type LiveEventListener = (event: LiveEvent) => void;
+
+const emitter = new EventEmitter();
+emitter.setMaxListeners(0);
+const GLOBAL_LIVE_EVENTS_CHANNEL = "__global__";
+
+let nextEventId = 0;
+
+function toLiveEvent(input: {
+  companyId: string;
+  type: LiveEvent["type"];
+  payload?: Record<string, unknown>;
+}): LiveEvent {
+  nextEventId += 1;
+  return {
+    id: nextEventId,
+    companyId: input.companyId,
+    type: input.type,
+    createdAt: new Date().toISOString(),
+    payload: input.payload ?? {},
+  };
+}
+
+export function publishLiveEvent(input: {
+  companyId: string;
+  type: LiveEvent["type"];
+  payload?: Record<string, unknown>;
+}) {
+  const event = toLiveEvent(input);
+  emitter.emit(input.companyId, event);
+  return event;
+}
+
+export function publishGlobalLiveEvent(input: {
+  type: LiveEvent["type"];
+  payload?: Record<string, unknown>;
+}) {
+  const event = toLiveEvent({
+    companyId: "",
+    type: input.type,
+    payload: input.payload,
+  });
+  emitter.emit(GLOBAL_LIVE_EVENTS_CHANNEL, event);
+  return event;
+}
+
+export function subscribeCompanyLiveEvents(companyId: string, listener: LiveEventListener) {
+  emitter.on(companyId, listener);
+  emitter.on(GLOBAL_LIVE_EVENTS_CHANNEL, listener);
+  return () => {
+    emitter.off(companyId, listener);
+    emitter.off(GLOBAL_LIVE_EVENTS_CHANNEL, listener);
+  };
+}
 
 function readUpgradeParams(request: IncomingMessage): {
   companyId: string | null;

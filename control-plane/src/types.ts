@@ -105,6 +105,8 @@ export interface AdapterStepExecution {
   exitCode: number | null;
   statusCode?: number;
   usage: TokenUsage;
+  summary?: string;
+  data?: JsonObject;
 }
 
 export interface ParsedAdapterOutput {

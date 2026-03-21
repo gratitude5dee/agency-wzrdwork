@@ -144,7 +144,7 @@ export class ControlPlaneService {
     const adapter = this.adapters.get(context.agent.adapter_type);
     if (!adapter) {
       await this.finalizeFailure(context, null, [], normalizeUsage(), "", "", new Error(
-        `Adapter ${context.agent.adapter_type} is configuration-only in M1`,
+        `Adapter ${context.agent.adapter_type} is not enabled for control-plane execution`,
       ));
       return;
     }

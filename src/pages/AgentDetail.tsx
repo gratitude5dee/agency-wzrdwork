@@ -197,7 +197,7 @@ export function AgentDetailPage() {
     mutationFn: async () => {
       if (!agent) throw new Error("Agent not loaded");
       if (!executableAdapter) {
-        throw new Error("This adapter is configuration-only in M1");
+        throw new Error("This adapter is not currently executable by the control plane");
       }
       return await enqueueAgentWakeup({
         agentId: agent.id,

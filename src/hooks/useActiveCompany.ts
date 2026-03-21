@@ -5,9 +5,9 @@ export interface ActiveCompany extends AccessibleCompany {}
 
 const ACTIVE_COMPANY_QUERY_KEY = ["active-company"] as const;
 
-export async function resolveActiveCompany(): Promise<ActiveCompany | null> {
+export async function resolveActiveCompany(companyId?: string | null): Promise<ActiveCompany | null> {
   try {
-    const access = await getAccessMe();
+    const access = await getAccessMe(companyId);
     return access.activeCompany;
   } catch {
     return null;
@@ -21,7 +21,7 @@ export function useActiveCompany() {
     error,
   } = useQuery<ActiveCompany | null>({
     queryKey: ACTIVE_COMPANY_QUERY_KEY,
-    queryFn: resolveActiveCompany,
+    queryFn: () => resolveActiveCompany(),
     staleTime: 30_000,
   });
 

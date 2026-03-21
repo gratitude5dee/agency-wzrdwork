@@ -21,7 +21,7 @@ import { ChevronDown, ChevronRight, Columns3, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAgencyData } from "@/features/cockpit/lib/useAgencyData";
-import type { AgencySnapshot } from "@/features/cockpit/lib/domain";
+import type { AgencySnapshot, IssuePriority, IssueStatus } from "@/features/cockpit/lib/domain";
 import { getClientWalletAddress } from "@/lib/server-api/actor";
 import { updateIssueStatusRecord } from "@/lib/server-api/issues";
 
@@ -31,8 +31,8 @@ interface IssueRow {
   id: string;
   identifier: string | null;
   title: string;
-  status: string;
-  priority: string;
+  status: IssueStatus;
+  priority: IssuePriority;
   company_id: string;
   description: string | null;
   assignee_agent_id: string | null;
@@ -56,7 +56,7 @@ const BOARD_STATUSES = [
   "blocked",
   "done",
   "cancelled",
-] as const;
+] as const satisfies readonly IssueStatus[];
 
 function statusLabel(status: string): string {
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -255,7 +255,7 @@ export function KanbanPanel() {
       status,
     }: {
       issueId: string;
-      status: string;
+      status: IssueStatus;
     }) => {
       await updateIssueStatusRecord({
         issueId,
@@ -274,7 +274,7 @@ export function KanbanPanel() {
           ? {
               ...old,
               issues: old.issues.map((issue) =>
-                issue.id === issueId ? { ...issue, status: status as import("@/features/cockpit/lib/domain").IssueStatus } : issue,
+                issue.id === issueId ? { ...issue, status } : issue,
               ),
             }
           : old,
@@ -330,10 +330,10 @@ export function KanbanPanel() {
     if (!issue) return;
 
     // Determine target status: "over" could be a column id (status string) or a card id
-    let targetStatus: string | null = null;
+    let targetStatus: IssueStatus | null = null;
 
-    if ((BOARD_STATUSES as readonly string[]).includes(over.id as string)) {
-      targetStatus = over.id as string;
+    if (BOARD_STATUSES.includes(over.id as IssueStatus)) {
+      targetStatus = over.id as IssueStatus;
     } else {
       // It's a card — find which column it's in
       const targetIssue = issues.find((i) => i.id === over.id);

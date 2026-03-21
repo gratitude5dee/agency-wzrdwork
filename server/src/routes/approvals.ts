@@ -1,146 +1,345 @@
-import { json, readJson, HttpError } from "../http.js";
-import { requireCompanyAccess } from "../services/access.js";
-import { authenticateRequest } from "../services/auth.js";
-import { createApproval, decideApproval, getApproval, listApprovals, type ApprovalDecision } from "../services/approvals.js";
-import type { RouteContext, RouteResult } from "../types.js";
+import { Router } from "express";
+import type { Db } from "@paperclipai/db";
+import {
+  addApprovalCommentSchema,
+  createApprovalSchema,
+  requestApprovalRevisionSchema,
+  resolveApprovalSchema,
+  resubmitApprovalSchema,
+} from "@paperclipai/shared";
+import { validate } from "../middleware/validate.js";
+import { logger } from "../middleware/logger.js";
+import {
+  approvalService,
+  heartbeatService,
+  issueApprovalService,
+  logActivity,
+  secretService,
+} from "../services/index.js";
+import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { redactEventPayload } from "../redaction.js";
 
-function matchApprovalPath(pathname: string): { approvalId: string | null; action: "detail" | "decision" | null } {
-  const decisionMatch = pathname.match(/^\/api\/approvals\/([^/]+)\/decision$/);
-  if (decisionMatch) {
-    return { approvalId: decisionMatch[1], action: "decision" };
-  }
-
-  const detailMatch = pathname.match(/^\/api\/approvals\/([^/]+)$/);
-  if (detailMatch) {
-    return { approvalId: detailMatch[1], action: "detail" };
-  }
-
-  return { approvalId: null, action: null };
+function redactApprovalPayload<T extends { payload: Record<string, unknown> }>(approval: T): T {
+  return {
+    ...approval,
+    payload: redactEventPayload(approval.payload) ?? {},
+  };
 }
 
-export async function handleApprovalsRoute(context: RouteContext): Promise<RouteResult> {
-  if (context.url.pathname === "/api/approvals" && context.request.method === "GET") {
-    const companyId = context.url.searchParams.get("companyId");
-    if (!companyId) throw new HttpError(400, "companyId is required");
+export function approvalRoutes(db: Db) {
+  const router = Router();
+  const svc = approvalService(db);
+  const heartbeat = heartbeatService(db);
+  const issueApprovalsSvc = issueApprovalService(db);
+  const secretsSvc = secretService(db);
+  const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
 
-    const { actor } = await authenticateRequest(context.sql, context.config, context.request);
-    requireCompanyAccess(actor, companyId);
+  router.get("/companies/:companyId/approvals", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const status = req.query.status as string | undefined;
+    const result = await svc.list(companyId, status);
+    res.json(result.map((approval) => redactApprovalPayload(approval)));
+  });
 
-    const approvals = await listApprovals(context.sql, {
-      companyId,
-      status: context.url.searchParams.get("status"),
-      limit: context.url.searchParams.get("limit")
-        ? Number(context.url.searchParams.get("limit"))
-        : null,
+  router.get("/approvals/:id", async (req, res) => {
+    const id = req.params.id as string;
+    const approval = await svc.getById(id);
+    if (!approval) {
+      res.status(404).json({ error: "Approval not found" });
+      return;
+    }
+    assertCompanyAccess(req, approval.companyId);
+    res.json(redactApprovalPayload(approval));
+  });
+
+  router.post("/companies/:companyId/approvals", validate(createApprovalSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const rawIssueIds = req.body.issueIds;
+    const issueIds = Array.isArray(rawIssueIds)
+      ? rawIssueIds.filter((value: unknown): value is string => typeof value === "string")
+      : [];
+    const uniqueIssueIds = Array.from(new Set(issueIds));
+    const { issueIds: _issueIds, ...approvalInput } = req.body;
+    const normalizedPayload =
+      approvalInput.type === "hire_agent"
+        ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(
+            companyId,
+            approvalInput.payload,
+            { strictMode: strictSecretsMode },
+          )
+        : approvalInput.payload;
+
+    const actor = getActorInfo(req);
+    const approval = await svc.create(companyId, {
+      ...approvalInput,
+      payload: normalizedPayload,
+      requestedByUserId: actor.actorType === "user" ? actor.actorId : null,
+      requestedByAgentId:
+        approvalInput.requestedByAgentId ?? (actor.actorType === "agent" ? actor.actorId : null),
+      status: "pending",
+      decisionNote: null,
+      decidedByUserId: null,
+      decidedAt: null,
+      updatedAt: new Date(),
     });
 
-    json(context.response, 200, { approvals });
-    return { handled: true };
-  }
-
-  if (context.url.pathname === "/api/approvals" && context.request.method === "POST") {
-    const body = await readJson(context.request);
-    const companyId = typeof body.companyId === "string" ? body.companyId : null;
-    if (!companyId) throw new HttpError(400, "companyId is required");
-
-    const { actor } = await authenticateRequest(context.sql, context.config, context.request);
-    requireCompanyAccess(actor, companyId);
-
-    const approval = await createApproval(context.sql, {
-      companyId,
-      issueId: typeof body.issueId === "string" ? body.issueId : null,
-      requestedByAgentId: typeof body.requestedByAgentId === "string" ? body.requestedByAgentId : null,
-      summary: typeof body.summary === "string" ? body.summary : "",
-      details: typeof body.details === "string" ? body.details : null,
-    });
-
-    context.liveEvents.publish({
-      type: "approval.created",
-      companyId,
-      payload: {
-        approvalId: approval.id,
-        actorUserId: actor.user.id,
-        requestedByAgentId: approval.requested_by_agent_id,
-      },
-    });
-    context.liveEvents.publish({
-      type: "activity.created",
-      companyId,
-      payload: { action: "approval.created", approvalId: approval.id },
-    });
-    context.liveEvents.publish({
-      type: "dashboard.updated",
-      companyId,
-      payload: { reason: "approval.created" },
-    });
-    if (approval.requested_by_agent_id) {
-      context.liveEvents.publish({
-        type: "agent.updated",
-        companyId,
-        payload: { agentId: approval.requested_by_agent_id },
+    if (uniqueIssueIds.length > 0) {
+      await issueApprovalsSvc.linkManyForApproval(approval.id, uniqueIssueIds, {
+        agentId: actor.agentId,
+        userId: actor.actorType === "user" ? actor.actorId : null,
       });
     }
 
-    json(context.response, 201, { approval });
-    return { handled: true };
-  }
+    await logActivity(db, {
+      companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      action: "approval.created",
+      entityType: "approval",
+      entityId: approval.id,
+      details: { type: approval.type, issueIds: uniqueIssueIds },
+    });
 
-  const { approvalId, action } = matchApprovalPath(context.url.pathname);
-  if (!approvalId || !action) {
-    return { handled: false };
-  }
+    res.status(201).json(redactApprovalPayload(approval));
+  });
 
-  const approval = await getApproval(context.sql, approvalId);
-  const { actor } = await authenticateRequest(context.sql, context.config, context.request);
-  requireCompanyAccess(actor, approval.company_id);
+  router.get("/approvals/:id/issues", async (req, res) => {
+    const id = req.params.id as string;
+    const approval = await svc.getById(id);
+    if (!approval) {
+      res.status(404).json({ error: "Approval not found" });
+      return;
+    }
+    assertCompanyAccess(req, approval.companyId);
+    const issues = await issueApprovalsSvc.listIssuesForApproval(id);
+    res.json(issues);
+  });
 
-  if (context.request.method === "GET" && action === "detail") {
-    json(context.response, 200, { approval });
-    return { handled: true };
-  }
+  router.post("/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const { approval, applied } = await svc.approve(
+      id,
+      req.body.decidedByUserId ?? "board",
+      req.body.decisionNote,
+    );
 
-  if (context.request.method === "POST" && action === "decision") {
-    const body = await readJson(context.request);
-    const decision = typeof body.decision === "string" ? (body.decision as ApprovalDecision) : null;
-    if (!decision || !["approved", "rejected", "revision_requested"].includes(decision)) {
-      throw new HttpError(400, "decision must be approved, rejected, or revision_requested");
+    if (applied) {
+      const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
+      const linkedIssueIds = linkedIssues.map((issue) => issue.id);
+      const primaryIssueId = linkedIssueIds[0] ?? null;
+
+      await logActivity(db, {
+        companyId: approval.companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "approval.approved",
+        entityType: "approval",
+        entityId: approval.id,
+        details: {
+          type: approval.type,
+          requestedByAgentId: approval.requestedByAgentId,
+          linkedIssueIds,
+        },
+      });
+
+      if (approval.requestedByAgentId) {
+        try {
+          const wakeRun = await heartbeat.wakeup(approval.requestedByAgentId, {
+            source: "automation",
+            triggerDetail: "system",
+            reason: "approval_approved",
+            payload: {
+              approvalId: approval.id,
+              approvalStatus: approval.status,
+              issueId: primaryIssueId,
+              issueIds: linkedIssueIds,
+            },
+            requestedByActorType: "user",
+            requestedByActorId: req.actor.userId ?? "board",
+            contextSnapshot: {
+              source: "approval.approved",
+              approvalId: approval.id,
+              approvalStatus: approval.status,
+              issueId: primaryIssueId,
+              issueIds: linkedIssueIds,
+              taskId: primaryIssueId,
+              wakeReason: "approval_approved",
+            },
+          });
+
+          await logActivity(db, {
+            companyId: approval.companyId,
+            actorType: "user",
+            actorId: req.actor.userId ?? "board",
+            action: "approval.requester_wakeup_queued",
+            entityType: "approval",
+            entityId: approval.id,
+            details: {
+              requesterAgentId: approval.requestedByAgentId,
+              wakeRunId: wakeRun?.id ?? null,
+              linkedIssueIds,
+            },
+          });
+        } catch (err) {
+          logger.warn(
+            {
+              err,
+              approvalId: approval.id,
+              requestedByAgentId: approval.requestedByAgentId,
+            },
+            "failed to queue requester wakeup after approval",
+          );
+          await logActivity(db, {
+            companyId: approval.companyId,
+            actorType: "user",
+            actorId: req.actor.userId ?? "board",
+            action: "approval.requester_wakeup_failed",
+            entityType: "approval",
+            entityId: approval.id,
+            details: {
+              requesterAgentId: approval.requestedByAgentId,
+              linkedIssueIds,
+              error: err instanceof Error ? err.message : String(err),
+            },
+          });
+        }
+      }
     }
 
-    const updated = await decideApproval(context.sql, approvalId, {
-      decision,
-      note: typeof body.note === "string" ? body.note : null,
-    });
+    res.json(redactApprovalPayload(approval));
+  });
 
-    context.liveEvents.publish({
-      type: "approval.updated",
-      companyId: updated.company_id,
-      payload: {
-        approvalId: updated.id,
-        decision,
-        actorUserId: actor.user.id,
-      },
-    });
-    context.liveEvents.publish({
-      type: "activity.created",
-      companyId: updated.company_id,
-      payload: { action: "approval.updated", approvalId: updated.id },
-    });
-    context.liveEvents.publish({
-      type: "dashboard.updated",
-      companyId: updated.company_id,
-      payload: { reason: "approval.updated" },
-    });
-    if (updated.requested_by_agent_id) {
-      context.liveEvents.publish({
-        type: "agent.updated",
-        companyId: updated.company_id,
-        payload: { agentId: updated.requested_by_agent_id },
+  router.post("/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const { approval, applied } = await svc.reject(
+      id,
+      req.body.decidedByUserId ?? "board",
+      req.body.decisionNote,
+    );
+
+    if (applied) {
+      await logActivity(db, {
+        companyId: approval.companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "approval.rejected",
+        entityType: "approval",
+        entityId: approval.id,
+        details: { type: approval.type },
       });
     }
 
-    json(context.response, 200, { approval: updated });
-    return { handled: true };
-  }
+    res.json(redactApprovalPayload(approval));
+  });
 
-  return { handled: false };
+  router.post(
+    "/approvals/:id/request-revision",
+    validate(requestApprovalRevisionSchema),
+    async (req, res) => {
+      assertBoard(req);
+      const id = req.params.id as string;
+      const approval = await svc.requestRevision(
+        id,
+        req.body.decidedByUserId ?? "board",
+        req.body.decisionNote,
+      );
+
+      await logActivity(db, {
+        companyId: approval.companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "approval.revision_requested",
+        entityType: "approval",
+        entityId: approval.id,
+        details: { type: approval.type },
+      });
+
+      res.json(redactApprovalPayload(approval));
+    },
+  );
+
+  router.post("/approvals/:id/resubmit", validate(resubmitApprovalSchema), async (req, res) => {
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Approval not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    if (req.actor.type === "agent" && req.actor.agentId !== existing.requestedByAgentId) {
+      res.status(403).json({ error: "Only requesting agent can resubmit this approval" });
+      return;
+    }
+
+    const normalizedPayload = req.body.payload
+      ? existing.type === "hire_agent"
+        ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(
+            existing.companyId,
+            req.body.payload,
+            { strictMode: strictSecretsMode },
+          )
+        : req.body.payload
+      : undefined;
+    const approval = await svc.resubmit(id, normalizedPayload);
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId: approval.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      action: "approval.resubmitted",
+      entityType: "approval",
+      entityId: approval.id,
+      details: { type: approval.type },
+    });
+    res.json(redactApprovalPayload(approval));
+  });
+
+  router.get("/approvals/:id/comments", async (req, res) => {
+    const id = req.params.id as string;
+    const approval = await svc.getById(id);
+    if (!approval) {
+      res.status(404).json({ error: "Approval not found" });
+      return;
+    }
+    assertCompanyAccess(req, approval.companyId);
+    const comments = await svc.listComments(id);
+    res.json(comments);
+  });
+
+  router.post("/approvals/:id/comments", validate(addApprovalCommentSchema), async (req, res) => {
+    const id = req.params.id as string;
+    const approval = await svc.getById(id);
+    if (!approval) {
+      res.status(404).json({ error: "Approval not found" });
+      return;
+    }
+    assertCompanyAccess(req, approval.companyId);
+    const actor = getActorInfo(req);
+    const comment = await svc.addComment(id, req.body.body, {
+      agentId: actor.agentId ?? undefined,
+      userId: actor.actorType === "user" ? actor.actorId : undefined,
+    });
+
+    await logActivity(db, {
+      companyId: approval.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      action: "approval.comment_added",
+      entityType: "approval",
+      entityId: approval.id,
+      details: { commentId: comment.id },
+    });
+
+    res.status(201).json(comment);
+  });
+
+  return router;
 }

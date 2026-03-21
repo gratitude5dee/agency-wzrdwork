@@ -1,49 +1,201 @@
-import { HttpError, json, readJson } from "../http.js";
-import { getCompanySettings, updateCompanySettings } from "../services/companies.js";
-import { requireCompanyAccess, requireCompanyPermission } from "../services/access.js";
-import { authenticateRequest } from "../services/auth.js";
-import type { RouteContext, RouteResult } from "../types.js";
+import { Router } from "express";
+import type { Db } from "@paperclipai/db";
+import {
+  companyPortabilityExportSchema,
+  companyPortabilityImportSchema,
+  companyPortabilityPreviewSchema,
+  createCompanySchema,
+  updateCompanySchema,
+} from "@paperclipai/shared";
+import { forbidden } from "../errors.js";
+import { validate } from "../middleware/validate.js";
+import {
+  accessService,
+  budgetService,
+  companyPortabilityService,
+  companyService,
+  logActivity,
+} from "../services/index.js";
+import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
-function matchCompanyPath(pathname: string): { companyId: string | null } {
-  const match = pathname.match(/^\/api\/companies\/([^/]+)$/);
-  return { companyId: match?.[1] ?? null };
-}
+export function companyRoutes(db: Db) {
+  const router = Router();
+  const svc = companyService(db);
+  const portability = companyPortabilityService(db);
+  const access = accessService(db);
+  const budgets = budgetService(db);
 
-export async function handleCompaniesRoute(context: RouteContext): Promise<RouteResult> {
-  const { companyId } = matchCompanyPath(context.url.pathname);
-  if (!companyId) return { handled: false };
-
-  const { actor } = await authenticateRequest(context.sql, context.config, context.request);
-
-  if (context.request.method === "GET") {
-    requireCompanyAccess(actor, companyId);
-    const company = await getCompanySettings(context.sql, companyId);
-    if (!company) {
-      throw new HttpError(404, "Company not found");
+  router.get("/", async (req, res) => {
+    assertBoard(req);
+    const result = await svc.list();
+    if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) {
+      res.json(result);
+      return;
     }
-    json(context.response, 200, { company });
-    return { handled: true };
-  }
+    const allowed = new Set(req.actor.companyIds ?? []);
+    res.json(result.filter((company) => allowed.has(company.id)));
+  });
 
-  if (context.request.method === "PATCH") {
-    requireCompanyPermission(actor, companyId, "manage_company");
-    const body = await readJson(context.request);
-    const company = await updateCompanySettings(context.sql, companyId, {
-      name: typeof body.name === "string" ? body.name : null,
-      brief: typeof body.brief === "string" ? body.brief : null,
-      company_type: typeof body.company_type === "string" ? body.company_type : null,
-      brand_color: typeof body.brand_color === "string" ? body.brand_color : null,
+  router.get("/stats", async (req, res) => {
+    assertBoard(req);
+    const allowed = req.actor.source === "local_implicit" || req.actor.isInstanceAdmin
+      ? null
+      : new Set(req.actor.companyIds ?? []);
+    const stats = await svc.stats();
+    if (!allowed) {
+      res.json(stats);
+      return;
+    }
+    const filtered = Object.fromEntries(Object.entries(stats).filter(([companyId]) => allowed.has(companyId)));
+    res.json(filtered);
+  });
+
+  // Common malformed path when companyId is empty in "/api/companies/{companyId}/issues".
+  router.get("/issues", (_req, res) => {
+    res.status(400).json({
+      error: "Missing companyId in path. Use /api/companies/{companyId}/issues.",
     });
+  });
 
-    context.liveEvents.publish({
-      type: "company.updated",
+  router.get("/:companyId", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.getById(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    res.json(company);
+  });
+
+  router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const result = await portability.exportBundle(companyId, req.body);
+    res.json(result);
+  });
+
+  router.post("/import/preview", validate(companyPortabilityPreviewSchema), async (req, res) => {
+    if (req.body.target.mode === "existing_company") {
+      assertCompanyAccess(req, req.body.target.companyId);
+    } else {
+      assertBoard(req);
+    }
+    const preview = await portability.previewImport(req.body);
+    res.json(preview);
+  });
+
+  router.post("/import", validate(companyPortabilityImportSchema), async (req, res) => {
+    if (req.body.target.mode === "existing_company") {
+      assertCompanyAccess(req, req.body.target.companyId);
+    } else {
+      assertBoard(req);
+    }
+    const actor = getActorInfo(req);
+    const result = await portability.importBundle(req.body, req.actor.type === "board" ? req.actor.userId : null);
+    await logActivity(db, {
+      companyId: result.company.id,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      action: "company.imported",
+      entityType: "company",
+      entityId: result.company.id,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      details: {
+        include: req.body.include ?? null,
+        agentCount: result.agents.length,
+        warningCount: result.warnings.length,
+        companyAction: result.company.action,
+      },
+    });
+    res.json(result);
+  });
+
+  router.post("/", validate(createCompanySchema), async (req, res) => {
+    assertBoard(req);
+    if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
+      throw forbidden("Instance admin required");
+    }
+    const company = await svc.create(req.body);
+    await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
+    await logActivity(db, {
+      companyId: company.id,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.created",
+      entityType: "company",
+      entityId: company.id,
+      details: { name: company.name },
+    });
+    if (company.budgetMonthlyCents > 0) {
+      await budgets.upsertPolicy(
+        company.id,
+        {
+          scopeType: "company",
+          scopeId: company.id,
+          amount: company.budgetMonthlyCents,
+          windowKind: "calendar_month_utc",
+        },
+        req.actor.userId ?? "board",
+      );
+    }
+    res.status(201).json(company);
+  });
+
+  router.patch("/:companyId", validate(updateCompanySchema), async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.update(companyId, req.body);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    await logActivity(db, {
       companyId,
-      payload: { actorUserId: actor.user.id, companyId },
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.updated",
+      entityType: "company",
+      entityId: companyId,
+      details: req.body,
     });
+    res.json(company);
+  });
 
-    json(context.response, 200, { company });
-    return { handled: true };
-  }
+  router.post("/:companyId/archive", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.archive(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.archived",
+      entityType: "company",
+      entityId: companyId,
+    });
+    res.json(company);
+  });
 
-  return { handled: false };
+  router.delete("/:companyId", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.remove(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
+  return router;
 }

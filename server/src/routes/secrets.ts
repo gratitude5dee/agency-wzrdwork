@@ -1,64 +1,165 @@
-import { json, noContent, readJson, HttpError } from "../http.js";
-import { requireCompanyAccess } from "../services/access.js";
-import { authenticateRequest } from "../services/auth.js";
-import { deleteCompanySecret, listCompanySecrets, rotateCompanySecret } from "../services/secrets.js";
-import type { RouteContext, RouteResult } from "../types.js";
+import { Router } from "express";
+import type { Db } from "@paperclipai/db";
+import {
+  SECRET_PROVIDERS,
+  type SecretProvider,
+  createSecretSchema,
+  rotateSecretSchema,
+  updateSecretSchema,
+} from "@paperclipai/shared";
+import { validate } from "../middleware/validate.js";
+import { assertBoard, assertCompanyAccess } from "./authz.js";
+import { logActivity, secretService } from "../services/index.js";
 
-export async function handleSecretsRoute(context: RouteContext): Promise<RouteResult> {
-  if (context.url.pathname !== "/api/secrets") {
-    return { handled: false };
-  }
+export function secretRoutes(db: Db) {
+  const router = Router();
+  const svc = secretService(db);
+  const configuredDefaultProvider = process.env.PAPERCLIP_SECRETS_PROVIDER;
+  const defaultProvider = (
+    configuredDefaultProvider && SECRET_PROVIDERS.includes(configuredDefaultProvider as SecretProvider)
+      ? configuredDefaultProvider
+      : "local_encrypted"
+  ) as SecretProvider;
 
-  if (context.request.method === "GET") {
-    const companyId = context.url.searchParams.get("companyId");
-    if (!companyId) throw new HttpError(400, "companyId is required");
-    const { actor } = await authenticateRequest(context.sql, context.config, context.request);
-    requireCompanyAccess(actor, companyId);
+  router.get("/companies/:companyId/secret-providers", (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    res.json(svc.listProviders());
+  });
 
-    const secrets = await listCompanySecrets(context.sql, companyId);
-    json(context.response, 200, { secrets });
-    return { handled: true };
-  }
+  router.get("/companies/:companyId/secrets", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const secrets = await svc.list(companyId);
+    res.json(secrets);
+  });
 
-  const body = await readJson(context.request);
-  const companyId = typeof body.companyId === "string" ? body.companyId : null;
-  if (!companyId) throw new HttpError(400, "companyId is required");
-  const { actor } = await authenticateRequest(context.sql, context.config, context.request);
-  requireCompanyAccess(actor, companyId);
+  router.post("/companies/:companyId/secrets", validate(createSecretSchema), async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
 
-  if (context.request.method === "POST") {
-    const rotated = await rotateCompanySecret(context.sql, {
+    const created = await svc.create(
       companyId,
-      name: String(body.name ?? ""),
-      value: String(body.value ?? ""),
-      description: typeof body.description === "string" ? body.description : null,
+      {
+        name: req.body.name,
+        provider: req.body.provider ?? defaultProvider,
+        value: req.body.value,
+        description: req.body.description,
+        externalRef: req.body.externalRef,
+      },
+      { userId: req.actor.userId ?? "board", agentId: null },
+    );
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret.created",
+      entityType: "secret",
+      entityId: created.id,
+      details: { name: created.name, provider: created.provider },
     });
 
-    context.liveEvents.publish({
-      type: "secret.rotated",
-      companyId,
-      payload: { name: String(body.name ?? ""), actorUserId: actor.user.id },
+    res.status(201).json(created);
+  });
+
+  router.post("/secrets/:id/rotate", validate(rotateSecretSchema), async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const rotated = await svc.rotate(
+      id,
+      {
+        value: req.body.value,
+        externalRef: req.body.externalRef,
+      },
+      { userId: req.actor.userId ?? "board", agentId: null },
+    );
+
+    await logActivity(db, {
+      companyId: rotated.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret.rotated",
+      entityType: "secret",
+      entityId: rotated.id,
+      details: { version: rotated.latestVersion },
     });
 
-    json(context.response, 200, rotated);
-    return { handled: true };
-  }
+    res.json(rotated);
+  });
 
-  if (context.request.method === "DELETE") {
-    await deleteCompanySecret(context.sql, {
-      companyId,
-      name: String(body.name ?? ""),
+  router.patch("/secrets/:id", validate(updateSecretSchema), async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const updated = await svc.update(id, {
+      name: req.body.name,
+      description: req.body.description,
+      externalRef: req.body.externalRef,
     });
 
-    context.liveEvents.publish({
-      type: "secret.deleted",
-      companyId,
-      payload: { name: String(body.name ?? ""), actorUserId: actor.user.id },
+    if (!updated) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: updated.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret.updated",
+      entityType: "secret",
+      entityId: updated.id,
+      details: { name: updated.name },
     });
 
-    noContent(context.response);
-    return { handled: true };
-  }
+    res.json(updated);
+  });
 
-  return { handled: false };
+  router.delete("/secrets/:id", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const removed = await svc.remove(id);
+    if (!removed) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: removed.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret.deleted",
+      entityType: "secret",
+      entityId: removed.id,
+      details: { name: removed.name },
+    });
+
+    res.json({ ok: true });
+  });
+
+  return router;
 }

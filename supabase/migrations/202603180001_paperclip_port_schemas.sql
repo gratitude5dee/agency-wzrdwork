@@ -26,7 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_company_id ON public.heartbeat_run
 CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_created_at ON public.heartbeat_runs(created_at DESC);
 
 ALTER TABLE public.heartbeat_runs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.heartbeat_runs
+DROP POLICY IF EXISTS "public access" ON public.heartbeat_runs;
+CREATE POLICY "public access" ON public.heartbeat_runs
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -44,7 +45,8 @@ CREATE INDEX IF NOT EXISTS idx_heartbeat_run_events_run_id ON public.heartbeat_r
 CREATE INDEX IF NOT EXISTS idx_heartbeat_run_events_created_at ON public.heartbeat_run_events(created_at DESC);
 
 ALTER TABLE public.heartbeat_run_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.heartbeat_run_events
+DROP POLICY IF EXISTS "public access" ON public.heartbeat_run_events;
+CREATE POLICY "public access" ON public.heartbeat_run_events
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -67,7 +69,8 @@ CREATE INDEX IF NOT EXISTS idx_agent_config_revisions_company_id ON public.agent
 CREATE INDEX IF NOT EXISTS idx_agent_config_revisions_revision_number ON public.agent_config_revisions(agent_id, revision_number DESC);
 
 ALTER TABLE public.agent_config_revisions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.agent_config_revisions
+DROP POLICY IF EXISTS "public access" ON public.agent_config_revisions;
+CREATE POLICY "public access" ON public.agent_config_revisions
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -85,7 +88,8 @@ CREATE INDEX IF NOT EXISTS idx_agent_runtime_state_agent_id ON public.agent_runt
 CREATE INDEX IF NOT EXISTS idx_agent_runtime_state_company_id ON public.agent_runtime_state(company_id);
 
 ALTER TABLE public.agent_runtime_state ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.agent_runtime_state
+DROP POLICY IF EXISTS "public access" ON public.agent_runtime_state;
+CREATE POLICY "public access" ON public.agent_runtime_state
   FOR ALL USING (true) WITH CHECK (true);
 
 -- Create trigger for updated_at
@@ -126,7 +130,8 @@ CREATE INDEX IF NOT EXISTS idx_cost_events_run_id ON public.cost_events(run_id);
 CREATE INDEX IF NOT EXISTS idx_cost_events_created_at ON public.cost_events(created_at DESC);
 
 ALTER TABLE public.cost_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.cost_events
+DROP POLICY IF EXISTS "public access" ON public.cost_events;
+CREATE POLICY "public access" ON public.cost_events
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -151,7 +156,8 @@ CREATE INDEX IF NOT EXISTS idx_finance_events_event_type ON public.finance_event
 CREATE INDEX IF NOT EXISTS idx_finance_events_created_at ON public.finance_events(created_at DESC);
 
 ALTER TABLE public.finance_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.finance_events
+DROP POLICY IF EXISTS "public access" ON public.finance_events;
+CREATE POLICY "public access" ON public.finance_events
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -172,7 +178,8 @@ CREATE INDEX IF NOT EXISTS idx_budget_policies_company_id ON public.budget_polic
 CREATE INDEX IF NOT EXISTS idx_budget_policies_agent_id ON public.budget_policies(agent_id);
 
 ALTER TABLE public.budget_policies ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.budget_policies
+DROP POLICY IF EXISTS "public access" ON public.budget_policies;
+CREATE POLICY "public access" ON public.budget_policies
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -195,7 +202,8 @@ CREATE INDEX IF NOT EXISTS idx_budget_incidents_policy_id ON public.budget_incid
 CREATE INDEX IF NOT EXISTS idx_budget_incidents_resolved ON public.budget_incidents(resolved);
 
 ALTER TABLE public.budget_incidents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.budget_incidents
+DROP POLICY IF EXISTS "public access" ON public.budget_incidents;
+CREATE POLICY "public access" ON public.budget_incidents
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -217,7 +225,8 @@ CREATE INDEX IF NOT EXISTS idx_issue_comments_author_agent_id ON public.issue_co
 CREATE INDEX IF NOT EXISTS idx_issue_comments_created_at ON public.issue_comments(created_at DESC);
 
 ALTER TABLE public.issue_comments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.issue_comments
+DROP POLICY IF EXISTS "public access" ON public.issue_comments;
+CREATE POLICY "public access" ON public.issue_comments
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -238,7 +247,8 @@ CREATE INDEX IF NOT EXISTS idx_documents_created_by_agent_id ON public.documents
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON public.documents(created_at DESC);
 
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.documents
+DROP POLICY IF EXISTS "public access" ON public.documents;
+CREATE POLICY "public access" ON public.documents
   FOR ALL USING (true) WITH CHECK (true);
 
 -- Create trigger for updated_at
@@ -276,7 +286,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_status ON public.chat_sessions(stat
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_created_at ON public.chat_sessions(created_at DESC);
 
 ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.chat_sessions
+DROP POLICY IF EXISTS "public access" ON public.chat_sessions;
+CREATE POLICY "public access" ON public.chat_sessions
   FOR ALL USING (true) WITH CHECK (true);
 
 -- Create trigger for updated_at
@@ -315,7 +326,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_role ON public.chat_messages(role);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON public.chat_messages(created_at DESC);
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.chat_messages
+DROP POLICY IF EXISTS "public access" ON public.chat_messages;
+CREATE POLICY "public access" ON public.chat_messages
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
@@ -337,7 +349,8 @@ CREATE INDEX IF NOT EXISTS idx_agent_integrations_company_id ON public.agent_int
 CREATE INDEX IF NOT EXISTS idx_agent_integrations_integration_key ON public.agent_integrations(integration_key);
 
 ALTER TABLE public.agent_integrations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "public access" ON public.agent_integrations
+DROP POLICY IF EXISTS "public access" ON public.agent_integrations;
+CREATE POLICY "public access" ON public.agent_integrations
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================

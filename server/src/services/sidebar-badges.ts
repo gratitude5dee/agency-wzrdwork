@@ -1,14 +1,69 @@
-import type { Sql } from "postgres";
+import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
+import type { Db } from "@paperclipai/db";
+import { agents, approvals, heartbeatRuns } from "@paperclipai/db";
+import type { Sql as PostgresSql } from "postgres";
 
-export async function getSidebarBadges(sql: Sql, companyId: string) {
+const ACTIONABLE_APPROVAL_STATUSES = ["pending", "revision_requested"];
+const FAILED_HEARTBEAT_STATUSES = ["failed", "timed_out"];
+
+export function sidebarBadgeService(db: Db) {
+  return {
+    get: async (
+      companyId: string,
+      extra?: { joinRequests?: number; unreadTouchedIssues?: number },
+    ) => {
+      const actionableApprovals = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(approvals)
+        .where(
+          and(
+            eq(approvals.companyId, companyId),
+            inArray(approvals.status, ACTIONABLE_APPROVAL_STATUSES),
+          ),
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0));
+
+      const latestRunByAgent = await db
+        .selectDistinctOn([heartbeatRuns.agentId], {
+          runStatus: heartbeatRuns.status,
+        })
+        .from(heartbeatRuns)
+        .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
+        .where(
+          and(
+            eq(heartbeatRuns.companyId, companyId),
+            eq(agents.companyId, companyId),
+            not(eq(agents.status, "terminated")),
+          ),
+        )
+        .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
+
+      const failedRuns = latestRunByAgent.filter((row) =>
+        FAILED_HEARTBEAT_STATUSES.includes(row.runStatus),
+      ).length;
+
+      const joinRequests = extra?.joinRequests ?? 0;
+      const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;
+
+      return {
+        inbox: actionableApprovals + failedRuns + joinRequests + unreadTouchedIssues,
+        approvals: actionableApprovals,
+        failedRuns,
+        joinRequests,
+      };
+    },
+  };
+}
+
+export async function getSidebarBadges(sqlClient: PostgresSql, companyId: string) {
   const [approvalRows, runRows] = await Promise.all([
-    sql<Array<{ count: number }>>`
+    sqlClient<Array<{ count: number }>>`
       SELECT count(*)::int AS count
       FROM public.approvals
       WHERE company_id = ${companyId}::uuid
         AND status IN ('pending', 'revision_requested')
     `,
-    sql<Array<{ count: number }>>`
+    sqlClient<Array<{ count: number }>>`
       WITH latest_runs AS (
         SELECT DISTINCT ON (agent_id)
           agent_id,

@@ -1,166 +1,454 @@
-export type LiveEventName =
-  | "activity.created"
-  | "agent.created"
-  | "agent.updated"
-  | "agent.wakeup_enqueued"
-  | "approval.created"
-  | "approval.updated"
-  | "budget.incident"
-  | "company.updated"
-  | "dashboard.updated"
-  | "goal.created"
-  | "goal.deleted"
-  | "goal.updated"
-  | "integration.updated"
-  | "issue.created"
-  | "issue.updated"
-  | "plugin.updated"
-  | "project.created"
-  | "project.deleted"
-  | "project.updated"
-  | "project.workspace_created"
-  | "project.workspace_deleted"
-  | "project.workspace_updated"
-  | "run.updated"
-  | "secret.deleted"
-  | "secret.rotated";
+export {
+  COMPANY_STATUSES,
+  DEPLOYMENT_MODES,
+  DEPLOYMENT_EXPOSURES,
+  AUTH_BASE_URL_MODES,
+  AGENT_STATUSES,
+  AGENT_ADAPTER_TYPES,
+  AGENT_ROLES,
+  AGENT_ROLE_LABELS,
+  AGENT_ICON_NAMES,
+  ISSUE_STATUSES,
+  ISSUE_PRIORITIES,
+  GOAL_LEVELS,
+  GOAL_STATUSES,
+  PROJECT_STATUSES,
+  PAUSE_REASONS,
+  PROJECT_COLORS,
+  APPROVAL_TYPES,
+  APPROVAL_STATUSES,
+  SECRET_PROVIDERS,
+  STORAGE_PROVIDERS,
+  BILLING_TYPES,
+  FINANCE_EVENT_KINDS,
+  FINANCE_DIRECTIONS,
+  FINANCE_UNITS,
+  BUDGET_SCOPE_TYPES,
+  BUDGET_METRICS,
+  BUDGET_WINDOW_KINDS,
+  BUDGET_THRESHOLD_TYPES,
+  BUDGET_INCIDENT_STATUSES,
+  BUDGET_INCIDENT_RESOLUTION_ACTIONS,
+  HEARTBEAT_INVOCATION_SOURCES,
+  HEARTBEAT_RUN_STATUSES,
+  WAKEUP_TRIGGER_DETAILS,
+  WAKEUP_REQUEST_STATUSES,
+  LIVE_EVENT_TYPES,
+  PRINCIPAL_TYPES,
+  MEMBERSHIP_STATUSES,
+  INSTANCE_USER_ROLES,
+  INVITE_TYPES,
+  INVITE_JOIN_TYPES,
+  JOIN_REQUEST_TYPES,
+  JOIN_REQUEST_STATUSES,
+  PERMISSION_KEYS,
+  PLUGIN_API_VERSION,
+  PLUGIN_STATUSES,
+  PLUGIN_CATEGORIES,
+  PLUGIN_CAPABILITIES,
+  PLUGIN_UI_SLOT_TYPES,
+  PLUGIN_UI_SLOT_ENTITY_TYPES,
+  PLUGIN_LAUNCHER_PLACEMENT_ZONES,
+  PLUGIN_LAUNCHER_ACTIONS,
+  PLUGIN_LAUNCHER_BOUNDS,
+  PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS,
+  PLUGIN_STATE_SCOPE_KINDS,
+  PLUGIN_JOB_STATUSES,
+  PLUGIN_JOB_RUN_STATUSES,
+  PLUGIN_JOB_RUN_TRIGGERS,
+  PLUGIN_WEBHOOK_DELIVERY_STATUSES,
+  PLUGIN_EVENT_TYPES,
+  PLUGIN_BRIDGE_ERROR_CODES,
+  type CompanyStatus,
+  type DeploymentMode,
+  type DeploymentExposure,
+  type AuthBaseUrlMode,
+  type AgentStatus,
+  type AgentAdapterType,
+  type AgentRole,
+  type AgentIconName,
+  type IssueStatus,
+  type IssuePriority,
+  type GoalLevel,
+  type GoalStatus,
+  type ProjectStatus,
+  type PauseReason,
+  type ApprovalType,
+  type ApprovalStatus,
+  type SecretProvider,
+  type StorageProvider,
+  type BillingType,
+  type FinanceEventKind,
+  type FinanceDirection,
+  type FinanceUnit,
+  type BudgetScopeType,
+  type BudgetMetric,
+  type BudgetWindowKind,
+  type BudgetThresholdType,
+  type BudgetIncidentStatus,
+  type BudgetIncidentResolutionAction,
+  type HeartbeatInvocationSource,
+  type HeartbeatRunStatus,
+  type WakeupTriggerDetail,
+  type WakeupRequestStatus,
+  type LiveEventType,
+  type PrincipalType,
+  type MembershipStatus,
+  type InstanceUserRole,
+  type InviteType,
+  type InviteJoinType,
+  type JoinRequestType,
+  type JoinRequestStatus,
+  type PermissionKey,
+  type PluginStatus,
+  type PluginCategory,
+  type PluginCapability,
+  type PluginUiSlotType,
+  type PluginUiSlotEntityType,
+  type PluginLauncherPlacementZone,
+  type PluginLauncherAction,
+  type PluginLauncherBounds,
+  type PluginLauncherRenderEnvironment,
+  type PluginStateScopeKind,
+  type PluginJobStatus,
+  type PluginJobRunStatus,
+  type PluginJobRunTrigger,
+  type PluginWebhookDeliveryStatus,
+  type PluginEventType,
+  type PluginBridgeErrorCode,
+} from "./constants.js";
 
-export interface SidebarBadges {
-  inbox: number;
-  approvals: number;
-  failedRuns: number;
-  joinRequests: number;
-}
+export type {
+  Company,
+  InstanceExperimentalSettings,
+  InstanceSettings,
+  Agent,
+  AgentPermissions,
+  AgentKeyCreated,
+  AgentConfigRevision,
+  AdapterEnvironmentCheckLevel,
+  AdapterEnvironmentTestStatus,
+  AdapterEnvironmentCheck,
+  AdapterEnvironmentTestResult,
+  AssetImage,
+  Project,
+  ProjectCodebase,
+  ProjectCodebaseOrigin,
+  ProjectGoalRef,
+  ProjectWorkspace,
+  ExecutionWorkspace,
+  WorkspaceRuntimeService,
+  WorkspaceOperation,
+  WorkspaceOperationPhase,
+  WorkspaceOperationStatus,
+  ExecutionWorkspaceStrategyType,
+  ExecutionWorkspaceMode,
+  ExecutionWorkspaceProviderType,
+  ExecutionWorkspaceStatus,
+  ExecutionWorkspaceStrategy,
+  ProjectExecutionWorkspacePolicy,
+  ProjectExecutionWorkspaceDefaultMode,
+  IssueExecutionWorkspaceSettings,
+  IssueWorkProduct,
+  IssueWorkProductType,
+  IssueWorkProductProvider,
+  IssueWorkProductStatus,
+  IssueWorkProductReviewState,
+  Issue,
+  IssueAssigneeAdapterOverrides,
+  IssueComment,
+  IssueDocument,
+  IssueDocumentSummary,
+  DocumentRevision,
+  DocumentFormat,
+  LegacyPlanDocument,
+  IssueAttachment,
+  IssueLabel,
+  Goal,
+  Approval,
+  ApprovalComment,
+  BudgetPolicy,
+  BudgetPolicySummary,
+  BudgetIncident,
+  BudgetOverview,
+  BudgetPolicyUpsertInput,
+  BudgetIncidentResolutionInput,
+  CostEvent,
+  CostSummary,
+  CostByAgent,
+  CostByProviderModel,
+  CostByBiller,
+  CostByAgentModel,
+  CostWindowSpendRow,
+  CostByProject,
+  FinanceEvent,
+  FinanceSummary,
+  FinanceByBiller,
+  FinanceByKind,
+  HeartbeatRun,
+  HeartbeatRunEvent,
+  AgentRuntimeState,
+  AgentTaskSession,
+  AgentWakeupRequest,
+  InstanceSchedulerHeartbeatAgent,
+  LiveEvent,
+  DashboardSummary,
+  ActivityEvent,
+  SidebarBadges,
+  CompanyMembership,
+  PrincipalPermissionGrant,
+  Invite,
+  JoinRequest,
+  InstanceUserRoleGrant,
+  CompanyPortabilityInclude,
+  CompanyPortabilitySecretRequirement,
+  CompanyPortabilityCompanyManifestEntry,
+  CompanyPortabilityAgentManifestEntry,
+  CompanyPortabilityManifest,
+  CompanyPortabilityExportResult,
+  CompanyPortabilitySource,
+  CompanyPortabilityImportTarget,
+  CompanyPortabilityAgentSelection,
+  CompanyPortabilityCollisionStrategy,
+  CompanyPortabilityPreviewRequest,
+  CompanyPortabilityPreviewAgentPlan,
+  CompanyPortabilityPreviewResult,
+  CompanyPortabilityImportRequest,
+  CompanyPortabilityImportResult,
+  CompanyPortabilityExportRequest,
+  EnvBinding,
+  AgentEnvConfig,
+  CompanySecret,
+  SecretProviderDescriptor,
+  JsonSchema,
+  PluginJobDeclaration,
+  PluginWebhookDeclaration,
+  PluginToolDeclaration,
+  PluginUiSlotDeclaration,
+  PluginLauncherActionDeclaration,
+  PluginLauncherRenderDeclaration,
+  PluginLauncherRenderContextSnapshot,
+  PluginLauncherDeclaration,
+  PluginMinimumHostVersion,
+  PluginUiDeclaration,
+  PaperclipPluginManifestV1,
+  PluginRecord,
+  PluginStateRecord,
+  PluginConfig,
+  PluginEntityRecord,
+  PluginEntityQuery,
+  PluginJobRecord,
+  PluginJobRunRecord,
+  PluginWebhookDeliveryRecord,
+  QuotaWindow,
+  ProviderQuotaResult,
+} from "./types/index.js";
 
-export interface InstanceExperimentalSettings {
-  enableIsolatedWorkspaces: boolean;
-}
+export {
+  instanceExperimentalSettingsSchema,
+  patchInstanceExperimentalSettingsSchema,
+  type PatchInstanceExperimentalSettings,
+} from "./validators/index.js";
 
-export interface ProjectWorkspaceRecord {
-  id: string;
-  companyId: string;
-  projectId: string;
-  name: string;
-  sourceType: string;
-  cwd: string | null;
-  repoUrl: string | null;
-  repoRef: string | null;
-  defaultRef: string | null;
-  visibility: string;
-  setupCommand: string | null;
-  cleanupCommand: string | null;
-  remoteProvider: string | null;
-  remoteWorkspaceRef: string | null;
-  sharedWorkspaceKey: string | null;
-  metadata: Record<string, unknown> | null;
-  isPrimary: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+export {
+  createCompanySchema,
+  updateCompanySchema,
+  type CreateCompany,
+  type UpdateCompany,
+  createAgentSchema,
+  createAgentHireSchema,
+  updateAgentSchema,
+  updateAgentInstructionsPathSchema,
+  createAgentKeySchema,
+  wakeAgentSchema,
+  resetAgentSessionSchema,
+  testAdapterEnvironmentSchema,
+  agentPermissionsSchema,
+  updateAgentPermissionsSchema,
+  type CreateAgent,
+  type CreateAgentHire,
+  type UpdateAgent,
+  type UpdateAgentInstructionsPath,
+  type CreateAgentKey,
+  type WakeAgent,
+  type ResetAgentSession,
+  type TestAdapterEnvironment,
+  type UpdateAgentPermissions,
+  createProjectSchema,
+  updateProjectSchema,
+  createProjectWorkspaceSchema,
+  updateProjectWorkspaceSchema,
+  type CreateProject,
+  type UpdateProject,
+  type CreateProjectWorkspace,
+  type UpdateProjectWorkspace,
+  projectExecutionWorkspacePolicySchema,
+  createIssueSchema,
+  createIssueLabelSchema,
+  updateIssueSchema,
+  issueExecutionWorkspaceSettingsSchema,
+  checkoutIssueSchema,
+  addIssueCommentSchema,
+  linkIssueApprovalSchema,
+  createIssueAttachmentMetadataSchema,
+  createIssueWorkProductSchema,
+  updateIssueWorkProductSchema,
+  issueWorkProductTypeSchema,
+  issueWorkProductStatusSchema,
+  issueWorkProductReviewStateSchema,
+  updateExecutionWorkspaceSchema,
+  executionWorkspaceStatusSchema,
+  issueDocumentFormatSchema,
+  issueDocumentKeySchema,
+  upsertIssueDocumentSchema,
+  type CreateIssue,
+  type CreateIssueLabel,
+  type UpdateIssue,
+  type CheckoutIssue,
+  type AddIssueComment,
+  type LinkIssueApproval,
+  type CreateIssueAttachmentMetadata,
+  type CreateIssueWorkProduct,
+  type UpdateIssueWorkProduct,
+  type UpdateExecutionWorkspace,
+  type IssueDocumentFormat,
+  type UpsertIssueDocument,
+  createGoalSchema,
+  updateGoalSchema,
+  type CreateGoal,
+  type UpdateGoal,
+  createApprovalSchema,
+  upsertBudgetPolicySchema,
+  resolveBudgetIncidentSchema,
+  resolveApprovalSchema,
+  requestApprovalRevisionSchema,
+  resubmitApprovalSchema,
+  addApprovalCommentSchema,
+  type CreateApproval,
+  type UpsertBudgetPolicy,
+  type ResolveBudgetIncident,
+  type ResolveApproval,
+  type RequestApprovalRevision,
+  type ResubmitApproval,
+  type AddApprovalComment,
+  envBindingPlainSchema,
+  envBindingSecretRefSchema,
+  envBindingSchema,
+  envConfigSchema,
+  createSecretSchema,
+  rotateSecretSchema,
+  updateSecretSchema,
+  type CreateSecret,
+  type RotateSecret,
+  type UpdateSecret,
+  createCostEventSchema,
+  createFinanceEventSchema,
+  updateBudgetSchema,
+  createAssetImageMetadataSchema,
+  createCompanyInviteSchema,
+  createOpenClawInvitePromptSchema,
+  acceptInviteSchema,
+  listJoinRequestsQuerySchema,
+  claimJoinRequestApiKeySchema,
+  updateMemberPermissionsSchema,
+  updateUserCompanyAccessSchema,
+  type CreateCostEvent,
+  type CreateFinanceEvent,
+  type UpdateBudget,
+  type CreateAssetImageMetadata,
+  type CreateCompanyInvite,
+  type CreateOpenClawInvitePrompt,
+  type AcceptInvite,
+  type ListJoinRequestsQuery,
+  type ClaimJoinRequestApiKey,
+  type UpdateMemberPermissions,
+  type UpdateUserCompanyAccess,
+  portabilityIncludeSchema,
+  portabilitySecretRequirementSchema,
+  portabilityCompanyManifestEntrySchema,
+  portabilityAgentManifestEntrySchema,
+  portabilityManifestSchema,
+  portabilitySourceSchema,
+  portabilityTargetSchema,
+  portabilityAgentSelectionSchema,
+  portabilityCollisionStrategySchema,
+  companyPortabilityExportSchema,
+  companyPortabilityPreviewSchema,
+  companyPortabilityImportSchema,
+  type CompanyPortabilityExport,
+  type CompanyPortabilityPreview,
+  type CompanyPortabilityImport,
+  jsonSchemaSchema,
+  pluginJobDeclarationSchema,
+  pluginWebhookDeclarationSchema,
+  pluginToolDeclarationSchema,
+  pluginUiSlotDeclarationSchema,
+  pluginLauncherActionDeclarationSchema,
+  pluginLauncherRenderDeclarationSchema,
+  pluginLauncherDeclarationSchema,
+  pluginManifestV1Schema,
+  installPluginSchema,
+  upsertPluginConfigSchema,
+  patchPluginConfigSchema,
+  updatePluginStatusSchema,
+  uninstallPluginSchema,
+  pluginStateScopeKeySchema,
+  setPluginStateSchema,
+  listPluginStateSchema,
+  type PluginJobDeclarationInput,
+  type PluginWebhookDeclarationInput,
+  type PluginToolDeclarationInput,
+  type PluginUiSlotDeclarationInput,
+  type PluginLauncherActionDeclarationInput,
+  type PluginLauncherRenderDeclarationInput,
+  type PluginLauncherDeclarationInput,
+  type PluginManifestV1Input,
+  type InstallPlugin,
+  type UpsertPluginConfig,
+  type PatchPluginConfig,
+  type UpdatePluginStatus,
+  type UninstallPlugin,
+  type PluginStateScopeKey,
+  type SetPluginState,
+  type ListPluginState,
+} from "./validators/index.js";
 
-export type PluginId = string;
-export type PluginVersion = `${number}.${number}.${number}`;
-export type PluginEntrypoint = string;
+export { API_PREFIX, API } from "./api.js";
+export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
+export { deriveProjectUrlKey, normalizeProjectUrlKey } from "./project-url-key.js";
+export {
+  PROJECT_MENTION_SCHEME,
+  buildProjectMentionHref,
+  parseProjectMentionHref,
+  extractProjectMentionIds,
+  type ParsedProjectMention,
+} from "./project-mentions.js";
 
-export interface PluginWorkerConfig {
-  runtime: "node" | "webworker";
-  timeoutMs?: number;
-}
-
-export interface PluginCommandArgument {
-  name: string;
-  description?: string;
-  required?: boolean;
-  defaultValue?: string;
-}
-
-export interface PluginCommand {
-  name: string;
-  description?: string;
-  arguments?: PluginCommandArgument[];
-}
-
-export interface PluginScaffoldFile {
-  path: string;
-  content: string;
-  executable?: boolean;
-}
-
-export interface PluginScaffoldTemplate {
-  name: string;
-  description?: string;
-  files: PluginScaffoldFile[];
-}
-
-export interface PluginManifest {
-  id: PluginId;
-  name: string;
-  description?: string;
-  version: PluginVersion;
-  entrypoint: PluginEntrypoint;
-  worker?: PluginWorkerConfig;
-  commands?: PluginCommand[];
-  scaffold?: PluginScaffoldTemplate[];
-  metadata?: Record<string, unknown>;
-}
-
-export type PluginRpcMethod = "ping" | "manifest" | "run" | "scaffold";
-
-export type PluginRpcRequestMap = {
-  ping: Record<string, never>;
-  manifest: Record<string, never>;
-  run: {
-    input?: unknown;
-  };
-  scaffold: {
-    targetDir: string;
-    pluginName?: string;
-  };
-};
-
-export type PluginRpcResponseMap = {
-  ping: {
-    ok: true;
-    version: PluginVersion;
-  };
-  manifest: {
-    ok: true;
-    manifest: PluginManifest;
-  };
-  run: {
-    ok: true;
-    output: unknown;
-  };
-  scaffold: {
-    ok: true;
-    files: PluginScaffoldFile[];
-  };
-};
-
-export interface PluginRpcError {
-  code: string;
-  message: string;
-  details?: unknown;
-}
-
-export interface PluginRpcRequest<TMethod extends PluginRpcMethod = PluginRpcMethod> {
-  id: string;
-  method: TMethod;
-  params: PluginRpcRequestMap[TMethod];
-}
-
-export interface PluginRpcSuccessResponse<
-  TMethod extends PluginRpcMethod = PluginRpcMethod,
-> {
-  id: string;
-  method: TMethod;
-  result: PluginRpcResponseMap[TMethod];
-}
-
-export interface PluginRpcFailureResponse {
-  id: string;
-  method: PluginRpcMethod;
-  error: PluginRpcError;
-}
-
-export type PluginRpcMessage = PluginRpcRequest | PluginRpcSuccessResponse | PluginRpcFailureResponse;
+export {
+  paperclipConfigSchema,
+  configMetaSchema,
+  llmConfigSchema,
+  databaseBackupConfigSchema,
+  databaseConfigSchema,
+  loggingConfigSchema,
+  serverConfigSchema,
+  authConfigSchema,
+  secretsConfigSchema,
+  storageConfigSchema,
+  storageLocalDiskConfigSchema,
+  storageS3ConfigSchema,
+  secretsLocalEncryptedConfigSchema,
+  type PaperclipConfig,
+  type LlmConfig,
+  type DatabaseBackupConfig,
+  type DatabaseConfig,
+  type LoggingConfig,
+  type ServerConfig,
+  type AuthConfig,
+  type StorageConfig,
+  type StorageLocalDiskConfig,
+  type StorageS3Config,
+  type SecretsConfig,
+  type SecretsLocalEncryptedConfig,
+  type ConfigMeta,
+} from "./config-schema.js";

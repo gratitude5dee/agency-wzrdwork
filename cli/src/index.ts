@@ -1,66 +1,157 @@
-const command = process.argv[2] ?? "help";
+import { Command } from "commander";
+import { onboard } from "./commands/onboard.js";
+import { doctor } from "./commands/doctor.js";
+import { envCommand } from "./commands/env.js";
+import { configure } from "./commands/configure.js";
+import { addAllowedHostname } from "./commands/allowed-hostname.js";
+import { heartbeatRun } from "./commands/heartbeat-run.js";
+import { runCommand } from "./commands/run.js";
+import { bootstrapCeoInvite } from "./commands/auth-bootstrap-ceo.js";
+import { dbBackupCommand } from "./commands/db-backup.js";
+import { registerContextCommands } from "./commands/client/context.js";
+import { registerCompanyCommands } from "./commands/client/company.js";
+import { registerIssueCommands } from "./commands/client/issue.js";
+import { registerAgentCommands } from "./commands/client/agent.js";
+import { registerApprovalCommands } from "./commands/client/approval.js";
+import { registerActivityCommands } from "./commands/client/activity.js";
+import { registerDashboardCommands } from "./commands/client/dashboard.js";
+import { applyDataDirOverride, type DataDirOptionLike } from "./config/data-dir.js";
+import { loadPaperclipEnvFile } from "./config/env.js";
+import { registerWorktreeCommands } from "./commands/worktree.js";
+import { registerPluginCommands } from "./commands/client/plugin.js";
 
-function printHelp() {
-  process.stdout.write(
-    [
-      "agency-wzrdwork CLI",
-      "",
-      "Available commands:",
-      "  doctor         Check orchestration environment prerequisites",
-      "  env            Show relevant environment variable presence",
-      "  configure      Reserved for Paperclip parity port",
-      "  onboard        Reserved for Paperclip parity port",
-      "  run            Reserved for Paperclip parity port",
-      "  heartbeat-run  Reserved for Paperclip parity port",
-      "  worktree       Reserved for Paperclip parity port",
-      "  db-backup      Reserved for Paperclip parity port",
-      "",
-    ].join("\n"),
-  );
-}
+const program = new Command();
+const DATA_DIR_OPTION_HELP =
+  "Paperclip data directory root (isolates state from ~/.paperclip)";
 
-function printEnv() {
-  const keys = [
-    "VITE_SERVER_URL",
-    "DATABASE_URL",
-    "CONTROL_PLANE_ENCRYPTION_KEY",
-    "SERVER_TRUST_WALLET_HEADER",
-  ];
+program
+  .name("paperclipai")
+  .description("Paperclip CLI — setup, diagnose, and configure your instance")
+  .version("0.2.7");
 
-  process.stdout.write(
-    `${keys
-      .map((key) => `${key}=${process.env[key] ? "set" : "missing"}`)
-      .join("\n")}\n`,
-  );
-}
+program.hook("preAction", (_thisCommand, actionCommand) => {
+  const options = actionCommand.optsWithGlobals() as DataDirOptionLike;
+  const optionNames = new Set(actionCommand.options.map((option) => option.attributeName()));
+  applyDataDirOverride(options, {
+    hasConfigOption: optionNames.has("config"),
+    hasContextOption: optionNames.has("context"),
+  });
+  loadPaperclipEnvFile(options.config);
+});
 
-function runDoctor() {
-  const required = ["DATABASE_URL", "CONTROL_PLANE_ENCRYPTION_KEY"];
-  const missing = required.filter((key) => !process.env[key]);
+program
+  .command("onboard")
+  .description("Interactive first-run setup wizard")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-y, --yes", "Accept defaults (quickstart + start immediately)", false)
+  .option("--run", "Start Paperclip immediately after saving config", false)
+  .action(onboard);
 
-  if (missing.length === 0) {
-    process.stdout.write("doctor: ok\n");
-    return;
-  }
+program
+  .command("doctor")
+  .description("Run diagnostic checks on your Paperclip setup")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("--repair", "Attempt to repair issues automatically")
+  .alias("--fix")
+  .option("-y, --yes", "Skip repair confirmation prompts")
+  .action(async (opts) => {
+    await doctor(opts);
+  });
 
-  process.stdout.write(`doctor: missing ${missing.join(", ")}\n`);
-  process.exitCode = 1;
-}
+program
+  .command("env")
+  .description("Print environment variables for deployment")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .action(envCommand);
 
-switch (command) {
-  case "help":
-  case "--help":
-  case "-h":
-    printHelp();
-    break;
-  case "env":
-    printEnv();
-    break;
-  case "doctor":
-    runDoctor();
-    break;
-  default:
-    printHelp();
-    process.exitCode = 1;
-    break;
-}
+program
+  .command("configure")
+  .description("Update configuration sections")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-s, --section <section>", "Section to configure (llm, database, logging, server, storage, secrets)")
+  .action(configure);
+
+program
+  .command("db:backup")
+  .description("Create a one-off database backup using current config")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("--dir <path>", "Backup output directory (overrides config)")
+  .option("--retention-days <days>", "Retention window used for pruning", (value) => Number(value))
+  .option("--filename-prefix <prefix>", "Backup filename prefix", "paperclip")
+  .option("--json", "Print backup metadata as JSON")
+  .action(async (opts) => {
+    await dbBackupCommand(opts);
+  });
+
+program
+  .command("allowed-hostname")
+  .description("Allow a hostname for authenticated/private mode access")
+  .argument("<host>", "Hostname to allow (for example dotta-macbook-pro)")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .action(addAllowedHostname);
+
+program
+  .command("run")
+  .description("Bootstrap local setup (onboard + doctor) and run Paperclip")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-i, --instance <id>", "Local instance id (default: default)")
+  .option("--repair", "Attempt automatic repairs during doctor", true)
+  .option("--no-repair", "Disable automatic repairs during doctor")
+  .action(runCommand);
+
+const heartbeat = program.command("heartbeat").description("Heartbeat utilities");
+
+heartbeat
+  .command("run")
+  .description("Run one agent heartbeat and stream live logs")
+  .requiredOption("-a, --agent-id <agentId>", "Agent ID to invoke")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("--context <path>", "Path to CLI context file")
+  .option("--profile <name>", "CLI context profile name")
+  .option("--api-base <url>", "Base URL for the Paperclip server API")
+  .option("--api-key <token>", "Bearer token for agent-authenticated calls")
+  .option(
+    "--source <source>",
+    "Invocation source (timer | assignment | on_demand | automation)",
+    "on_demand",
+  )
+  .option("--trigger <trigger>", "Trigger detail (manual | ping | callback | system)", "manual")
+  .option("--timeout-ms <ms>", "Max time to wait before giving up", "0")
+  .option("--json", "Output raw JSON where applicable")
+  .option("--debug", "Show raw adapter stdout/stderr JSON chunks")
+  .action(heartbeatRun);
+
+registerContextCommands(program);
+registerCompanyCommands(program);
+registerIssueCommands(program);
+registerAgentCommands(program);
+registerApprovalCommands(program);
+registerActivityCommands(program);
+registerDashboardCommands(program);
+registerWorktreeCommands(program);
+registerPluginCommands(program);
+
+const auth = program.command("auth").description("Authentication and bootstrap utilities");
+
+auth
+  .command("bootstrap-ceo")
+  .description("Create a one-time bootstrap invite URL for first instance admin")
+  .option("-c, --config <path>", "Path to config file")
+  .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("--force", "Create new invite even if admin already exists", false)
+  .option("--expires-hours <hours>", "Invite expiration window in hours", (value) => Number(value))
+  .option("--base-url <url>", "Public base URL used to print invite link")
+  .action(bootstrapCeoInvite);
+
+program.parseAsync().catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
