@@ -26,6 +26,11 @@ import { SkillsPage } from "./pages/Skills";
 import { DelegationsPage } from "./pages/Delegations";
 import { SubmissionProofPage } from "./pages/SubmissionProof";
 import { ChatPage } from "./pages/Chat";
+import { PluginManagerPage } from "./pages/PluginManager";
+import { BudgetQuotaPage } from "./pages/BudgetQuota";
+import { AssetsDocumentsPage } from "./pages/AssetsDocuments";
+import { ExecutionWorkspacesPage } from "./pages/ExecutionWorkspaces";
+import { InviteSettingsPage } from "./pages/InviteSettings";
 import { ThirdwebProvider } from "@/providers/ThirdwebProvider";
 import { AuthGate } from "@/components/AuthGate";
 import { OnboardingGate } from "@/features/onboarding/OnboardingGate";
@@ -106,6 +111,11 @@ const App = () => {
                           <Route path="design-guide" element={<SectionPage section="design-guide" />} />
                           <Route path="settings" element={<SectionPage section="settings" />} />
                           <Route path="runs/:runId" element={<DetailPage kind="run" />} />
+                          <Route path="plugins" element={<PluginManagerPage />} />
+                          <Route path="budgets" element={<BudgetQuotaPage />} />
+                          <Route path="documents" element={<AssetsDocumentsPage />} />
+                          <Route path="workspaces" element={<ExecutionWorkspacesPage />} />
+                          <Route path="invites" element={<InviteSettingsPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>
