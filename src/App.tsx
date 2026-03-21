@@ -111,6 +111,11 @@ const App = () => {
                           <Route path="design-guide" element={<SectionPage section="design-guide" />} />
                           <Route path="settings" element={<SectionPage section="settings" />} />
                           <Route path="runs/:runId" element={<DetailPage kind="run" />} />
+                          <Route path="plugins" element={<PluginManagerPage />} />
+                          <Route path="budgets" element={<BudgetQuotaPage />} />
+                          <Route path="documents" element={<AssetsDocumentsPage />} />
+                          <Route path="workspaces" element={<ExecutionWorkspacesPage />} />
+                          <Route path="invites" element={<InviteSettingsPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>

@@ -83,9 +83,14 @@ export const COMPANY_ITEMS: NavItem[] = [
   { to: "/skills", label: "Skills", icon: Zap },
   { to: "/delegations", label: "Delegations", icon: Link2 },
   { to: "/costs", label: "Costs", icon: BadgeDollarSign },
+  { to: "/budgets", label: "Budgets & Quotas", icon: ShieldCheck },
   { to: "/activity", label: "Activity", icon: Activity },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/plugins", label: "Plugins", icon: PuzzleIcon },
+  { to: "/documents", label: "Documents", icon: FileText },
+  { to: "/workspaces", label: "Workspaces", icon: Monitor },
   { to: "/submission-proof", label: "Submission Proof", icon: Package },
+  { to: "/invites", label: "Invites & Settings", icon: UserPlus },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
