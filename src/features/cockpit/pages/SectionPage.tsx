@@ -87,111 +87,23 @@ export function SectionPage({ section }: { section: SectionName }) {
   }
 
   if (section === "inbox") {
-    return (
-      <div className="grid gap-4 p-6 xl:grid-cols-2">
-        <Card className="border-white/10 bg-[#0d1118]">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Pending approvals</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingApprovals.map((approval) => (
-              <Link key={approval.id} to={approvalHref(approval.id)} className="block rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
-                <p className="font-bold text-orange-100">{approval.summary}</p>
-                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-orange-300">{relativeTime(approval.createdAt)}</p>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-        <Card className="border-white/10 bg-[#0d1118]">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Blocked issues</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {openIssues
-              .filter((issue) => issue.status === "blocked")
-              .map((issue) => (
-                <Link key={issue.id} to={issueHref(issue.id)} className="block rounded-xl border border-white/10 bg-[#080c14] p-3">
-                  <p className="font-bold text-zinc-100">{issue.identifier ?? issue.title}</p>
-                  <p className="mt-2 text-sm text-zinc-400">{issue.title}</p>
-                </Link>
-              ))}
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <InboxSection snapshot={snapshot} />;
   }
 
   if (section === "issues") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.issues.map((issue) => (
-          <Link key={issue.id} to={issueHref(issue.id)} className="block rounded-2xl border border-white/10 bg-[#0d1118] p-4 hover:border-blue-500/30">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-zinc-100">{issue.identifier ?? issue.title}</p>
-                <p className="mt-1 text-zinc-400">{issue.title}</p>
-              </div>
-              <Badge variant="outline" className="border-white/10 bg-black text-zinc-300">
-                {issue.status}
-              </Badge>
-            </div>
-          </Link>
-        ))}
-      </div>
-    );
+    return <IssuesSection snapshot={snapshot} />;
   }
 
   if (section === "goals") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.goals.map((goal) => (
-          <Card key={goal.id} className="border-white/10 bg-[#0d1118]">
-            <CardHeader>
-              <CardTitle className="text-zinc-100">{goal.title}</CardTitle>
-              <CardDescription className="text-zinc-500">{goal.status}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-zinc-300">{goal.summary}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+    return <GoalsSection snapshot={snapshot} />;
   }
 
   if (section === "approvals") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.approvals.map((approval) => (
-          <Link key={approval.id} to={approvalHref(approval.id)} className="block rounded-2xl border border-white/10 bg-[#0d1118] p-4 hover:border-orange-500/30">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-black text-zinc-100">{approval.summary}</p>
-              <Badge variant="outline" className="border-white/10 bg-black text-zinc-300">
-                {approval.status}
-              </Badge>
-            </div>
-          </Link>
-        ))}
-      </div>
-    );
+    return <ApprovalsSection snapshot={snapshot} />;
   }
 
   if (section === "projects") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.projects.map((project) => (
-          <Link key={project.id} to={projectHref(project.id)} className="block rounded-2xl border border-white/10 bg-[#0d1118] p-4 hover:border-blue-500/30">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-black text-zinc-100">{project.name}</p>
-              <Badge variant="outline" className="border-white/10 bg-black text-zinc-300">
-                {project.status}
-              </Badge>
-            </div>
-            <p className="mt-2 text-zinc-400">{project.summary}</p>
-          </Link>
-        ))}
-      </div>
-    );
+    return <ProjectsSection snapshot={snapshot} />;
   }
 
   if (section === "org") {
