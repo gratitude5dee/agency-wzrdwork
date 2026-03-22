@@ -209,7 +209,7 @@ export async function prepareSwap(
     };
   }
 
-  const quoteAny = quote.quote as Record<string, unknown>;
+  const quoteAny = quote.quote as unknown as Record<string, unknown>;
   return {
     quote,
     transaction,
