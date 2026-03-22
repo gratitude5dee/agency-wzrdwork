@@ -1,41 +1,94 @@
 
 
-## Plan: Fix all build errors across 5 files
+## Build out Inbox, Chat, Issues, Goals, Approvals, and Projects pages
 
-### 1. `src/lib/celo/execute-payment.ts` (line 270)
-- `Record<string, unknown>` not assignable to `Json`. Already has `as unknown as Record<string, unknown>` — change to `as unknown as Json` and import `Json` from supabase types.
+### Current State
 
-### 2. `src/lib/delegations/onchain.ts`
-- **Lines 184-186, 297-298, 311**: `Permission` type has `spendLimit` (not `spendLimitUsd`), `recipientWhitelist` (not `allowedRecipients`), `taskPermissions` (not `taskTypes`). Fix all references:
-  - `spendLimitUsd` → `spendLimit.amount`
-  - `allowedRecipients` → `recipientWhitelist`
-  - `taskTypes` → `taskPermissions`
-- **Lines 272-273, upsert calls**: The `.upsert()` expects an array or object matching the table schema. The `company_id` error means the insert signature is wrong — need to add `name` field (required) and ensure it's a single object, not array-typed. Fix by adding the missing `name` field to each upsert call.
+All six pages exist as routes but render minimal content:
+- **Inbox**: Shows pending approvals + blocked issues in two cards — no notifications, no action buttons
+- **Issues**: Flat list of issues — no filters, no status columns, no create button, no inline editing
+- **Goals**: Simple card list — no progress tracking, no owner display, no create/edit
+- **Approvals**: Flat list with badge — no filter tabs, no inline approve/reject
+- **Projects**: Flat list — no issue counts, no progress bar, no create/edit
+- **Chat**: Already fully built with Hermes streaming, session management, agent selection — needs no changes
 
-### 3. `src/lib/ens/index.ts` (lines 230, 288)
-- Same `.upsert()` issue — missing required `name` field. Add `name` to each upsert object.
+Data comes from `useAgencyData()` which fetches an `AgencySnapshot` from the server API or falls back to demo data.
 
-### 4. `src/lib/uniswap/execute-swap.ts`
-- **Line 158**: `TransactionRequest` has no `tokenAddress`. The approval response has `to` field — use `approvalCheck.approval.to` instead.
-- **Line 173**: `slippageTolerance` is `string` in input but `number` expected — parse with `parseFloat()`.
-- **Line 174**: `routingPreference` type mismatch — `"CLASSIC" | "UNISWAPX"` not in `RoutingPreference`. Map to valid values or cast.
-- **Lines 187, 194-198**: `quote.quote` is `ClassicQuote | UniswapXQuote` — need type narrowing. Use the `isClassicQuote` pattern or cast with `as ClassicQuote`.
-- **Lines 204-205**: Access `encodedOrder`/`orderId` on union — cast `quote.quote as UniswapXQuote`.
-- **Lines 216-218**: Access `output`/`priceImpact`/`gasEstimate` on union — use type guards or optional chaining with casts.
+### Plan
 
-### 5. `src/lib/venice/live-inference.ts`
-- **Line 290**: `StepResult` has no `status` field. It has `success: boolean`. Change `prev.status` → `prev.success ? "completed" : "failed"` or similar.
-- **Line 366**: `step: stepName` where `stepName` is `string` but `step` expects `LoopStep`. Cast `stepName as LoopStep`.
+All changes are in **`src/features/cockpit/pages/SectionPage.tsx`** — replace the minimal section blocks with full-featured UI. No new files needed; this keeps the existing architecture.
 
-### Files to modify
-- `src/lib/celo/execute-payment.ts`
-- `src/lib/delegations/onchain.ts`
-- `src/lib/ens/index.ts`
-- `src/lib/uniswap/execute-swap.ts`
-- `src/lib/venice/live-inference.ts`
+---
 
-### Approach
-Add `// @ts-nocheck` to the top of `src/lib/uniswap/execute-swap.ts` and `src/lib/delegations/onchain.ts` since these files have deeply intertwined type mismatches from the original port that would require extensive refactoring. For the simpler fixes (celo, ens, venice), apply targeted corrections.
+### 1. Inbox Page (section="inbox")
 
-**Actually — cleaner approach**: Apply targeted fixes to all files rather than `@ts-nocheck`, since most fixes are straightforward property renames and casts.
+Replace the current two-card layout with a unified notification-style inbox:
+
+- **Tab bar**: "All", "Approvals", "Blocked Issues", "Failed Runs"
+- **Approval items**: Show summary, requesting agent name (lookup from `snapshot.agents`), timestamp, and inline Approve/Reject buttons using `decideApprovalRecord`
+- **Blocked issue items**: Show identifier, title, assignee name, with "View" link
+- **Failed run items**: Filter `snapshot.runs` for `status === "failed"`, show summary + error excerpt
+- **Empty states** per tab
+
+### 2. Issues Page (section="issues")
+
+Replace flat list with a filterable, actionable issue manager:
+
+- **Header row**: Page title + "New Issue" button (reuse `NewIssueDialog`)
+- **Filter bar**: Status filter (dropdown with all `IssueStatus` values), priority filter, assignee filter (from `snapshot.agents`)
+- **Issue table/list**: Each row shows identifier, title, status badge (color-coded), priority badge, assignee avatar/name, relative timestamp
+- **Status badge colors**: backlog=zinc, todo=blue, in_progress=amber, in_review=purple, blocked=red, done=emerald, cancelled=zinc
+- **Click navigates** to `/issues/:id` detail page
+- **Empty state** when no issues match filters
+
+### 3. Goals Page (section="goals")
+
+Replace card list with goal tracking view:
+
+- **Header**: "Goals" title + "New Goal" dialog (inline form: title, summary, status, owner agent)
+- **Goal cards**: Show title, summary, status badge (planned=zinc, active=blue, complete=emerald, at_risk=red), owner agent name
+- **Progress indicator**: Visual status chip with appropriate color
+- **Create goal**: Insert into Supabase `goals` table via `useAgencyData` or direct Supabase call
+- **Edit inline**: Click to expand and edit status/summary
+
+### 4. Approvals Page (section="approvals")
+
+Replace flat list with tabbed approval manager:
+
+- **Tab bar**: "Pending", "Approved", "Rejected", "All"
+- **Approval cards**: Summary, details excerpt, requesting agent name, timestamp, status badge
+- **Pending items**: Inline approve/reject/revision buttons (reuse `decideApprovalRecord` pattern from DetailPage)
+- **Resolution note**: Expandable textarea on pending items
+- **Resolved items**: Show resolution note and resolved timestamp
+
+### 5. Projects Page (section="projects")
+
+Replace flat list with project overview:
+
+- **Header**: "Projects" title + "New Project" dialog (name, summary, status, priority)
+- **Project cards**: Name, summary, status badge, priority badge, issue count (from `snapshot.issues.filter(i => i.projectId === project.id)`)
+- **Progress bar**: Based on done/total issues ratio
+- **Click navigates** to `/projects/:id`
+- **Create project**: Insert into Supabase `projects` table
+
+### 6. Chat Page — No changes needed
+
+Already fully built with session management, streaming, agent selection, and model picker.
+
+---
+
+### Technical Details
+
+**Data source**: All reads come from `useAgencyData().snapshot` which provides `agents`, `issues`, `goals`, `approvals`, `projects`, `runs`, `activity`.
+
+**Writes**: 
+- Issue creation: existing `createIssue` from `useAgencyData()`
+- Approval decisions: existing `decideApprovalRecord` from `@/lib/server-api/approvals`
+- Goal/Project creation: Direct Supabase inserts using `supabase.from("goals").insert(...)` and `supabase.from("projects").insert(...)`, then invalidate `agency-snapshot` query
+
+**Filtering**: All client-side via `useState` filter state + `.filter()` on snapshot arrays
+
+**Components reused**: `Badge`, `Card`, `Button`, `Select`, `Dialog`, `Input`, `Textarea`, `Tabs` (from shadcn), `NewIssueDialog`, status/priority badge color helpers
+
+**File modified**: `src/features/cockpit/pages/SectionPage.tsx` — replace the 5 section blocks (inbox, issues, goals, approvals, projects) with the full implementations described above. Estimated addition: ~600 lines replacing ~80 lines.
 
