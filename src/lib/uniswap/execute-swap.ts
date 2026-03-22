@@ -155,7 +155,7 @@ export async function prepareSwap(
 
   if (approvalNeeded && approvalCheck.approval) {
     approvalTx = {
-      to: approvalCheck.approval.tokenAddress,
+      to: approvalCheck.approval.to,
       data: approvalCheck.approval.data ?? "0x",
       value: "0",
       chainId: input.chainId,
