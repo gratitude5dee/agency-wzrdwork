@@ -1,0 +1,36 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": "vite",
+  "buildCommand": "pnpm run build && pnpm run server:build && pnpm --filter @paperclipai/db build",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install",
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    { "source": "/api/cron/:path*", "destination": "/api/cron/$path*" },
+    { "source": "/api/:path*", "destination": "/api/server" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/heartbeat-scheduler",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/heartbeat-worker",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/reap-orphans",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "env": {
+    "NODE_OPTIONS": "--max-old-space-size=512"
+  }
+}
