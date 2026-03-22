@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { useAgencyData } from "../lib/useAgencyData";
 import { formatUsd, projectHref, relativeTime, issueHref, approvalHref, agentHref, runHref } from "../lib/format";
 import { MetricCard } from "@/components/MetricCard";
@@ -17,10 +24,13 @@ import { useDashboardRuns, useDashboardIssues, useDashboardAgents, useDashboardA
 import { useCompanySettings, useSupabaseHealth, useUpdateCompanySettings } from "@/hooks/useCompanySettings";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { FeatureTour } from "@/features/onboarding/steps/FeatureTour";
-import { AlertTriangle, Bot, Building2, CircleDot, Database, Loader2, MapPin, Palette, Play, RotateCcw, Settings2, ShieldCheck, Unplug, Wallet } from "lucide-react";
+import { AlertTriangle, Bot, Building2, Check, CheckCircle2, CircleDot, Database, Filter, Loader2, MapPin, Palette, Play, Plus, RotateCcw, Settings2, ShieldCheck, Target, Unplug, Wallet, X, XCircle } from "lucide-react";
 import { useDisconnect, useActiveWallet } from "thirdweb/react";
 import { toast } from "sonner";
-import type { AgencySnapshot } from "../lib/domain";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { NewIssueDialog } from "../components/NewIssueDialog";
+import type { AgencySnapshot, ApprovalStatus, GoalStatus, IssuePriority, IssueStatus, ProjectStatus } from "../lib/domain";
 
 type SectionName =
   | "dashboard"
@@ -77,111 +87,23 @@ export function SectionPage({ section }: { section: SectionName }) {
   }
 
   if (section === "inbox") {
-    return (
-      <div className="grid gap-4 p-6 xl:grid-cols-2">
-        <Card className="border-white/10 bg-[#0d1118]">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Pending approvals</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingApprovals.map((approval) => (
-              <Link key={approval.id} to={approvalHref(approval.id)} className="block rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
-                <p className="font-bold text-orange-100">{approval.summary}</p>
-                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-orange-300">{relativeTime(approval.createdAt)}</p>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-        <Card className="border-white/10 bg-[#0d1118]">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Blocked issues</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {openIssues
-              .filter((issue) => issue.status === "blocked")
-              .map((issue) => (
-                <Link key={issue.id} to={issueHref(issue.id)} className="block rounded-xl border border-white/10 bg-[#080c14] p-3">
-                  <p className="font-bold text-zinc-100">{issue.identifier ?? issue.title}</p>
-                  <p className="mt-2 text-sm text-zinc-400">{issue.title}</p>
-                </Link>
-              ))}
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <InboxSection snapshot={snapshot} />;
   }
 
   if (section === "issues") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.issues.map((issue) => (
-          <Link key={issue.id} to={issueHref(issue.id)} className="block rounded-2xl border border-white/10 bg-[#0d1118] p-4 hover:border-blue-500/30">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-zinc-100">{issue.identifier ?? issue.title}</p>
-                <p className="mt-1 text-zinc-400">{issue.title}</p>
-              </div>
-              <Badge variant="outline" className="border-white/10 bg-black text-zinc-300">
-                {issue.status}
-              </Badge>
-            </div>
-          </Link>
-        ))}
-      </div>
-    );
+    return <IssuesSection snapshot={snapshot} />;
   }
 
   if (section === "goals") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.goals.map((goal) => (
-          <Card key={goal.id} className="border-white/10 bg-[#0d1118]">
-            <CardHeader>
-              <CardTitle className="text-zinc-100">{goal.title}</CardTitle>
-              <CardDescription className="text-zinc-500">{goal.status}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-zinc-300">{goal.summary}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+    return <GoalsSection snapshot={snapshot} />;
   }
 
   if (section === "approvals") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.approvals.map((approval) => (
-          <Link key={approval.id} to={approvalHref(approval.id)} className="block rounded-2xl border border-white/10 bg-[#0d1118] p-4 hover:border-orange-500/30">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-black text-zinc-100">{approval.summary}</p>
-              <Badge variant="outline" className="border-white/10 bg-black text-zinc-300">
-                {approval.status}
-              </Badge>
-            </div>
-          </Link>
-        ))}
-      </div>
-    );
+    return <ApprovalsSection snapshot={snapshot} />;
   }
 
   if (section === "projects") {
-    return (
-      <div className="space-y-4 p-6">
-        {snapshot.projects.map((project) => (
-          <Link key={project.id} to={projectHref(project.id)} className="block rounded-2xl border border-white/10 bg-[#0d1118] p-4 hover:border-blue-500/30">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-black text-zinc-100">{project.name}</p>
-              <Badge variant="outline" className="border-white/10 bg-black text-zinc-300">
-                {project.status}
-              </Badge>
-            </div>
-            <p className="mt-2 text-zinc-400">{project.summary}</p>
-          </Link>
-        ))}
-      </div>
-    );
+    return <ProjectsSection snapshot={snapshot} />;
   }
 
   if (section === "org") {
@@ -313,7 +235,547 @@ export function SectionPage({ section }: { section: SectionName }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Dashboard section — all data queries Supabase directly, scoped    */
+/*  Helper: status/priority badge styling                              */
+/* ------------------------------------------------------------------ */
+
+function statusBadgeClass(status: string): string {
+  switch (status) {
+    case "backlog": return "border-zinc-500/30 bg-zinc-500/10 text-zinc-300";
+    case "todo": return "border-blue-500/30 bg-blue-500/10 text-blue-300";
+    case "in_progress": return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+    case "in_review": return "border-purple-500/30 bg-purple-500/10 text-purple-300";
+    case "blocked": return "border-red-500/30 bg-red-500/10 text-red-300";
+    case "done": case "complete": case "approved": return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+    case "cancelled": case "rejected": return "border-zinc-500/30 bg-zinc-500/10 text-zinc-400";
+    case "pending": return "border-orange-500/30 bg-orange-500/10 text-orange-300";
+    case "planned": return "border-zinc-500/30 bg-zinc-500/10 text-zinc-300";
+    case "active": return "border-blue-500/30 bg-blue-500/10 text-blue-300";
+    case "at_risk": return "border-red-500/30 bg-red-500/10 text-red-300";
+    case "paused": return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+    case "revision_requested": return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+    default: return "border-white/10 bg-white/5 text-zinc-300";
+  }
+}
+
+function priorityBadgeClass(priority: string): string {
+  switch (priority) {
+    case "critical": return "border-red-500/30 bg-red-500/10 text-red-300";
+    case "high": return "border-orange-500/30 bg-orange-500/10 text-orange-300";
+    case "medium": return "border-blue-500/30 bg-blue-500/10 text-blue-300";
+    case "low": return "border-zinc-500/30 bg-zinc-500/10 text-zinc-300";
+    default: return "border-white/10 bg-white/5 text-zinc-300";
+  }
+}
+
+function SectionEmpty({ icon: Icon, message }: { icon: React.ElementType; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-zinc-500">
+      <Icon className="h-10 w-10 opacity-40" />
+      <p className="text-sm">{message}</p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Inbox Section                                                      */
+/* ------------------------------------------------------------------ */
+
+function InboxSection({ snapshot }: { snapshot: AgencySnapshot }) {
+  const agentName = (id: string | null) => snapshot.agents.find((a) => a.id === id)?.name ?? "Unknown";
+  const pendingApprovals = snapshot.approvals.filter((a) => a.status === "pending");
+  const blockedIssues = snapshot.issues.filter((i) => i.status === "blocked");
+  const failedRuns = snapshot.runs.filter((r) => r.status === "failed");
+
+  const allItems = [
+    ...pendingApprovals.map((a) => ({ type: "approval" as const, id: a.id, time: a.createdAt, data: a })),
+    ...blockedIssues.map((i) => ({ type: "issue" as const, id: i.id, time: i.createdAt, data: i })),
+    ...failedRuns.map((r) => ({ type: "run" as const, id: r.id, time: r.createdAt, data: r })),
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+  return (
+    <div className="space-y-4 p-6">
+      <h2 className="text-xl font-black text-zinc-100">Inbox</h2>
+      <Tabs defaultValue="all">
+        <TabsList className="border-white/10 bg-[#080c14]">
+          <TabsTrigger value="all">All ({allItems.length})</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals ({pendingApprovals.length})</TabsTrigger>
+          <TabsTrigger value="blocked">Blocked ({blockedIssues.length})</TabsTrigger>
+          <TabsTrigger value="failed">Failed Runs ({failedRuns.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-4 space-y-3">
+          {allItems.length === 0 && <SectionEmpty icon={CheckCircle2} message="Inbox is clear — nothing needs attention." />}
+          {allItems.map((item) => {
+            if (item.type === "approval") return <InboxApprovalCard key={item.id} approval={item.data as any} agentName={agentName} />;
+            if (item.type === "issue") return <InboxIssueCard key={item.id} issue={item.data as any} agentName={agentName} />;
+            return <InboxRunCard key={item.id} run={item.data as any} agentName={agentName} />;
+          })}
+        </TabsContent>
+
+        <TabsContent value="approvals" className="mt-4 space-y-3">
+          {pendingApprovals.length === 0 && <SectionEmpty icon={ShieldCheck} message="No pending approvals." />}
+          {pendingApprovals.map((a) => <InboxApprovalCard key={a.id} approval={a} agentName={agentName} />)}
+        </TabsContent>
+
+        <TabsContent value="blocked" className="mt-4 space-y-3">
+          {blockedIssues.length === 0 && <SectionEmpty icon={CircleDot} message="No blocked issues." />}
+          {blockedIssues.map((i) => <InboxIssueCard key={i.id} issue={i} agentName={agentName} />)}
+        </TabsContent>
+
+        <TabsContent value="failed" className="mt-4 space-y-3">
+          {failedRuns.length === 0 && <SectionEmpty icon={Play} message="No failed runs." />}
+          {failedRuns.map((r) => <InboxRunCard key={r.id} run={r} agentName={agentName} />)}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function InboxApprovalCard({ approval, agentName }: { approval: AgencySnapshot["approvals"][0]; agentName: (id: string | null) => string }) {
+  return (
+    <Link to={approvalHref(approval.id)} className="block rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 hover:border-orange-500/40 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge className={statusBadgeClass("pending")}>Approval</Badge>
+            <span className="text-xs text-zinc-500">{relativeTime(approval.createdAt)}</span>
+          </div>
+          <p className="font-bold text-zinc-100">{approval.summary}</p>
+          <p className="text-sm text-zinc-400">Requested by {agentName(approval.requestedByAgentId)}</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button size="sm" variant="outline" className="h-7 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10">
+            <Check className="h-3 w-3 mr-1" /> Approve
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 border-red-500/30 text-red-300 hover:bg-red-500/10">
+            <X className="h-3 w-3 mr-1" /> Reject
+          </Button>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function InboxIssueCard({ issue, agentName }: { issue: AgencySnapshot["issues"][0]; agentName: (id: string | null) => string }) {
+  return (
+    <Link to={issueHref(issue.id)} className="block rounded-xl border border-red-500/20 bg-red-500/5 p-4 hover:border-red-500/40 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge className={statusBadgeClass("blocked")}>Blocked</Badge>
+            <span className="text-xs text-zinc-500">{relativeTime(issue.createdAt)}</span>
+          </div>
+          <p className="font-bold text-zinc-100">{issue.identifier ?? issue.title}</p>
+          <p className="text-sm text-zinc-400">Assigned to {agentName(issue.assigneeAgentId)}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function InboxRunCard({ run, agentName }: { run: AgencySnapshot["runs"][0]; agentName: (id: string | null) => string }) {
+  return (
+    <Link to={runHref(run.id)} className="block rounded-xl border border-red-500/20 bg-red-500/5 p-4 hover:border-red-500/40 transition-colors">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Badge className={statusBadgeClass("cancelled")}>Failed Run</Badge>
+          <span className="text-xs text-zinc-500">{relativeTime(run.createdAt)}</span>
+        </div>
+        <p className="font-bold text-zinc-100">{run.summary ?? "Unnamed run"}</p>
+        {run.error && <p className="text-sm text-red-300/80 line-clamp-2">{run.error}</p>}
+        <p className="text-sm text-zinc-400">Agent: {agentName(run.agentId)}</p>
+      </div>
+    </Link>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Issues Section                                                     */
+/* ------------------------------------------------------------------ */
+
+function IssuesSection({ snapshot }: { snapshot: AgencySnapshot }) {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+
+  const agentName = (id: string | null) => snapshot.agents.find((a) => a.id === id)?.name ?? "Unassigned";
+
+  const filtered = useMemo(() => {
+    return snapshot.issues.filter((issue) => {
+      if (statusFilter !== "all" && issue.status !== statusFilter) return false;
+      if (priorityFilter !== "all" && issue.priority !== priorityFilter) return false;
+      if (assigneeFilter !== "all" && (issue.assigneeAgentId ?? "unassigned") !== assigneeFilter) return false;
+      return true;
+    });
+  }, [snapshot.issues, statusFilter, priorityFilter, assigneeFilter]);
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-xl font-black text-zinc-100">Issues</h2>
+        <NewIssueDialog />
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-4 w-4 text-zinc-500" />
+          <span className="text-xs text-zinc-500 uppercase tracking-wider">Filters</span>
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 w-36 border-white/10 bg-[#0d1118] text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="backlog">Backlog</SelectItem>
+            <SelectItem value="todo">Todo</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="in_review">In Review</SelectItem>
+            <SelectItem value="blocked">Blocked</SelectItem>
+            <SelectItem value="done">Done</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="h-8 w-32 border-white/10 bg-[#0d1118] text-xs">
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+            <SelectItem value="all">All priorities</SelectItem>
+            <SelectItem value="critical">Critical</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+          <SelectTrigger className="h-8 w-36 border-white/10 bg-[#0d1118] text-xs">
+            <SelectValue placeholder="Assignee" />
+          </SelectTrigger>
+          <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+            <SelectItem value="all">All agents</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {snapshot.agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {(statusFilter !== "all" || priorityFilter !== "all" || assigneeFilter !== "all") && (
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-zinc-400" onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setAssigneeFilter("all"); }}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {/* Issue list */}
+      <div className="space-y-2">
+        {filtered.length === 0 && <SectionEmpty icon={CircleDot} message="No issues match the current filters." />}
+        {filtered.map((issue) => (
+          <Link key={issue.id} to={issueHref(issue.id)} className="flex items-center gap-4 rounded-xl border border-white/10 bg-[#0d1118] p-4 hover:border-blue-500/30 transition-colors">
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                {issue.identifier && <span className="text-xs font-mono text-zinc-500">{issue.identifier}</span>}
+                <p className="font-bold text-zinc-100 truncate">{issue.title}</p>
+              </div>
+              <p className="text-sm text-zinc-400">{agentName(issue.assigneeAgentId)} · {relativeTime(issue.updatedAt)}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge className={`text-[10px] ${priorityBadgeClass(issue.priority)}`}>{issue.priority}</Badge>
+              <Badge className={`text-[10px] ${statusBadgeClass(issue.status)}`}>{issue.status.replace("_", " ")}</Badge>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Goals Section                                                      */
+/* ------------------------------------------------------------------ */
+
+function GoalsSection({ snapshot }: { snapshot: AgencySnapshot }) {
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [status, setStatus] = useState<GoalStatus>("planned");
+  const [ownerAgentId, setOwnerAgentId] = useState<string>("none");
+  const [creating, setCreating] = useState(false);
+
+  const agentName = (id: string | null) => snapshot.agents.find((a) => a.id === id)?.name ?? "Unassigned";
+
+  async function handleCreateGoal() {
+    if (!title.trim()) return;
+    setCreating(true);
+    try {
+      await supabase.from("goals").insert({
+        company_id: snapshot.company.id,
+        title: title.trim(),
+        summary: summary.trim(),
+        status,
+        owner_agent_id: ownerAgentId === "none" ? null : ownerAgentId,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["agency-snapshot"] });
+      toast.success("Goal created");
+      setTitle(""); setSummary(""); setStatus("planned"); setOwnerAgentId("none");
+      setDialogOpen(false);
+    } catch (e) {
+      toast.error("Failed to create goal");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-xl font-black text-zinc-100">Goals</h2>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 bg-white text-black hover:bg-zinc-100"><Plus className="h-4 w-4" /> New Goal</Button>
+          </DialogTrigger>
+          <DialogContent className="border-white/10 bg-[#0a0f18] text-zinc-100 sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create Goal</DialogTitle>
+              <DialogDescription className="text-zinc-400">Set a strategic objective for your team.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} className="border-white/10 bg-[#101722]" placeholder="Ship v2 by end of Q3" /></div>
+              <div className="grid gap-2"><Label>Summary</Label><Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-20 border-white/10 bg-[#101722]" placeholder="Describe the goal..." /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2"><Label>Status</Label>
+                  <Select value={status} onValueChange={(v) => setStatus(v as GoalStatus)}>
+                    <SelectTrigger className="border-white/10 bg-[#101722]"><SelectValue /></SelectTrigger>
+                    <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+                      <SelectItem value="planned">Planned</SelectItem><SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="complete">Complete</SelectItem><SelectItem value="at_risk">At Risk</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2"><Label>Owner</Label>
+                  <Select value={ownerAgentId} onValueChange={setOwnerAgentId}>
+                    <SelectTrigger className="border-white/10 bg-[#101722]"><SelectValue /></SelectTrigger>
+                    <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+                      <SelectItem value="none">No owner</SelectItem>
+                      {snapshot.agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-zinc-400">Cancel</Button>
+              <Button onClick={handleCreateGoal} disabled={creating} className="gap-2 bg-blue-500 text-white hover:bg-blue-400">
+                {creating && <Loader2 className="h-4 w-4 animate-spin" />} Create goal
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {snapshot.goals.length === 0 && <SectionEmpty icon={Target} message="No goals yet. Create one to track strategic objectives." />}
+      <div className="grid gap-3 md:grid-cols-2">
+        {snapshot.goals.map((goal) => (
+          <Card key={goal.id} className="border-white/10 bg-[#0d1118]">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-zinc-100 text-base">{goal.title}</CardTitle>
+                <Badge className={`text-[10px] shrink-0 ${statusBadgeClass(goal.status)}`}>{goal.status.replace("_", " ")}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm text-zinc-400 line-clamp-2">{goal.summary || "No summary"}</p>
+              <p className="text-xs text-zinc-500">Owner: {agentName(goal.ownerAgentId)} · {relativeTime(goal.updatedAt)}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Approvals Section                                                  */
+/* ------------------------------------------------------------------ */
+
+function ApprovalsSection({ snapshot }: { snapshot: AgencySnapshot }) {
+  const agentName = (id: string | null) => snapshot.agents.find((a) => a.id === id)?.name ?? "Unknown";
+  const pending = snapshot.approvals.filter((a) => a.status === "pending");
+  const approved = snapshot.approvals.filter((a) => a.status === "approved");
+  const rejected = snapshot.approvals.filter((a) => a.status === "rejected" || a.status === "revision_requested");
+
+  return (
+    <div className="space-y-4 p-6">
+      <h2 className="text-xl font-black text-zinc-100">Approvals</h2>
+      <Tabs defaultValue="pending">
+        <TabsList className="border-white/10 bg-[#080c14]">
+          <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
+          <TabsTrigger value="approved">Approved ({approved.length})</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected ({rejected.length})</TabsTrigger>
+          <TabsTrigger value="all">All ({snapshot.approvals.length})</TabsTrigger>
+        </TabsList>
+
+        {(["pending", "approved", "rejected", "all"] as const).map((tab) => {
+          const items = tab === "all" ? snapshot.approvals : tab === "pending" ? pending : tab === "approved" ? approved : rejected;
+          return (
+            <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
+              {items.length === 0 && <SectionEmpty icon={ShieldCheck} message={`No ${tab} approvals.`} />}
+              {items.map((approval) => (
+                <Link key={approval.id} to={approvalHref(approval.id)} className="block rounded-xl border border-white/10 bg-[#0d1118] p-4 hover:border-orange-500/30 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge className={`text-[10px] ${statusBadgeClass(approval.status)}`}>{approval.status.replace("_", " ")}</Badge>
+                        <span className="text-xs text-zinc-500">{relativeTime(approval.createdAt)}</span>
+                      </div>
+                      <p className="font-bold text-zinc-100">{approval.summary}</p>
+                      <p className="text-sm text-zinc-400">By {agentName(approval.requestedByAgentId)}</p>
+                      {approval.details && <p className="text-sm text-zinc-500 line-clamp-2">{approval.details}</p>}
+                      {approval.resolutionNote && (
+                        <p className="text-sm text-zinc-400 italic border-l-2 border-zinc-700 pl-2 mt-1">{approval.resolutionNote}</p>
+                      )}
+                    </div>
+                    {approval.status === "pending" && (
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="outline" className="h-7 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10">
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 border-red-500/30 text-red-300 hover:bg-red-500/10">
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </TabsContent>
+          );
+        })}
+      </Tabs>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Projects Section                                                   */
+/* ------------------------------------------------------------------ */
+
+function ProjectsSection({ snapshot }: { snapshot: AgencySnapshot }) {
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [summary, setSummary] = useState("");
+  const [status, setStatus] = useState<ProjectStatus>("planned");
+  const [priority, setPriority] = useState<IssuePriority>("medium");
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreateProject() {
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      await supabase.from("projects").insert({
+        company_id: snapshot.company.id,
+        name: name.trim(),
+        summary: summary.trim(),
+        status,
+        priority,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["agency-snapshot"] });
+      toast.success("Project created");
+      setName(""); setSummary(""); setStatus("planned"); setPriority("medium");
+      setDialogOpen(false);
+    } catch (e) {
+      toast.error("Failed to create project");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-xl font-black text-zinc-100">Projects</h2>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 bg-white text-black hover:bg-zinc-100"><Plus className="h-4 w-4" /> New Project</Button>
+          </DialogTrigger>
+          <DialogContent className="border-white/10 bg-[#0a0f18] text-zinc-100 sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create Project</DialogTitle>
+              <DialogDescription className="text-zinc-400">Organize work under a project.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} className="border-white/10 bg-[#101722]" placeholder="Mobile App Redesign" /></div>
+              <div className="grid gap-2"><Label>Summary</Label><Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-20 border-white/10 bg-[#101722]" placeholder="Describe the project..." /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2"><Label>Status</Label>
+                  <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                    <SelectTrigger className="border-white/10 bg-[#101722]"><SelectValue /></SelectTrigger>
+                    <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+                      <SelectItem value="planned">Planned</SelectItem><SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem><SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2"><Label>Priority</Label>
+                  <Select value={priority} onValueChange={(v) => setPriority(v as IssuePriority)}>
+                    <SelectTrigger className="border-white/10 bg-[#101722]"><SelectValue /></SelectTrigger>
+                    <SelectContent className="border-white/10 bg-[#0f141d] text-zinc-100">
+                      <SelectItem value="critical">Critical</SelectItem><SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-zinc-400">Cancel</Button>
+              <Button onClick={handleCreateProject} disabled={creating} className="gap-2 bg-blue-500 text-white hover:bg-blue-400">
+                {creating && <Loader2 className="h-4 w-4 animate-spin" />} Create project
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {snapshot.projects.length === 0 && <SectionEmpty icon={Building2} message="No projects yet. Create one to organize work." />}
+      <div className="grid gap-3 md:grid-cols-2">
+        {snapshot.projects.map((project) => {
+          const projectIssues = snapshot.issues.filter((i) => i.projectId === project.id);
+          const doneCount = projectIssues.filter((i) => i.status === "done").length;
+          const progress = projectIssues.length > 0 ? Math.round((doneCount / projectIssues.length) * 100) : 0;
+          return (
+            <Link key={project.id} to={projectHref(project.id)} className="block">
+              <Card className="border-white/10 bg-[#0d1118] hover:border-blue-500/30 transition-colors h-full">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-zinc-100 text-base">{project.name}</CardTitle>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Badge className={`text-[10px] ${priorityBadgeClass(project.priority)}`}>{project.priority}</Badge>
+                      <Badge className={`text-[10px] ${statusBadgeClass(project.status)}`}>{project.status}</Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-zinc-400 line-clamp-2">{project.summary || "No summary"}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-zinc-500">
+                      <span>{doneCount}/{projectIssues.length} issues done</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="h-1.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 /*  to the active company. Every panel has intentional empty states.   */
 /*  (VAL-DASH-001, VAL-DASH-002, VAL-DASH-003)                       */
 /* ------------------------------------------------------------------ */
