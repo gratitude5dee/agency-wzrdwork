@@ -287,7 +287,7 @@ function buildStepUserMessage(
         typeof prev.data === "object"
           ? JSON.stringify(prev.data, null, 2).slice(0, 1000)
           : String(prev.data);
-      context.push(`\n[${prev.step}] (${prev.status}):\n${summary}`);
+      context.push(`\n[${prev.step}] (${prev.success ? "completed" : "failed"}):\n${summary}`);
     }
   }
 
@@ -363,8 +363,8 @@ export async function executeVeniceLiveLoop(
 
     // Build context for next step
     previousSteps.push({
-      step: stepName,
-      status: result.success ? "completed" : "failed",
+      step: stepName as import("@/lib/agent-loop/types").LoopStep,
+      success: result.success,
       data: result.data,
     });
 

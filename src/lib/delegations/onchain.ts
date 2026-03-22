@@ -181,9 +181,9 @@ export function prepareSignedDelegation(
       message: {
         delegator: input.from,
         delegate: input.to,
-        spendLimitUsd: input.permissions.spendLimitUsd,
-        allowedRecipients: input.permissions.allowedRecipients ?? [],
-        taskTypes: input.permissions.taskTypes ?? [],
+        spendLimitUsd: input.permissions.spendLimit.amount,
+        allowedRecipients: input.permissions.recipientWhitelist ?? [],
+        taskTypes: input.permissions.taskPermissions ?? [],
         timeWindowStart,
         timeWindowEnd,
         nonce,
@@ -271,6 +271,7 @@ export async function confirmSignedDelegation(
     // 4. Persist signed delegation to Supabase
     await supabase.from("integrations").upsert({
       company_id: companyId,
+      name: `Delegation ${delegationId}`,
       integration_key: `delegation_signed_${delegationId}`,
       config: {
         delegationId,
@@ -294,8 +295,8 @@ export async function confirmSignedDelegation(
         delegationId,
         from: delegation.from,
         to: delegation.to,
-        spendLimitUsd: delegation.permissions.spendLimitUsd,
-        taskTypes: delegation.permissions.taskTypes,
+        spendLimitUsd: delegation.permissions.spendLimit.amount,
+        taskTypes: delegation.permissions.taskPermissions,
         signature: signature.slice(0, 20) + "...", // Truncate for log
         messageHash,
         signedAt: signedDelegation.signedAt,
@@ -308,7 +309,7 @@ export async function confirmSignedDelegation(
       company_id: companyId,
       agent_id: agentId ?? null,
       action: "delegation_signed",
-      details: `Delegation signed: ${delegation.from.slice(0, 8)}... → ${delegation.to.slice(0, 8)}... (limit: $${delegation.permissions.spendLimitUsd})`,
+      details: `Delegation signed: ${delegation.from.slice(0, 8)}... → ${delegation.to.slice(0, 8)}... (limit: $${delegation.permissions.spendLimit.amount})`,
     });
 
     return {
