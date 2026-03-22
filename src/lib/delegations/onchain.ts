@@ -271,6 +271,7 @@ export async function confirmSignedDelegation(
     // 4. Persist signed delegation to Supabase
     await supabase.from("integrations").upsert({
       company_id: companyId,
+      name: `Delegation ${delegationId}`,
       integration_key: `delegation_signed_${delegationId}`,
       config: {
         delegationId,
