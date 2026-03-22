@@ -33,3 +33,14 @@ export {
 } from "./private-reasoning";
 
 export type { VeniceStepInput } from "./private-reasoning";
+
+// Venice Live Inference — Real API calls
+export {
+  executeVeniceLiveStep,
+  executeVeniceLiveLoop,
+} from "./live-inference";
+
+export type {
+  VeniceLiveStepInput,
+  VeniceLiveStepResult,
+} from "./live-inference";

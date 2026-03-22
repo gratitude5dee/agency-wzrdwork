@@ -43,3 +43,18 @@ export type {
   SwapResult,
   UniswapClientConfig,
 } from "./types";
+
+// Swap execution with wallet signing
+export {
+  prepareSwap,
+  confirmSwapExecution,
+  executeServerSideSwap,
+  BASE_TOKENS,
+  MAINNET_TOKENS,
+} from "./execute-swap";
+
+export type {
+  ExecuteSwapInput,
+  PreparedSwapTx,
+  SwapExecutionResult,
+} from "./execute-swap";

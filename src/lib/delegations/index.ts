@@ -37,3 +37,22 @@ export type {
   DelegationAction,
   PermissionValidationResult,
 } from "./types";
+
+// On-chain signing & enforcement
+export {
+  prepareSignedDelegation,
+  confirmSignedDelegation,
+  buildSignedDelegationChain,
+  loadSignedDelegations,
+  verifyDelegationSignature,
+  DELEGATION_EIP712_DOMAIN,
+  DELEGATION_EIP712_TYPES,
+} from "./onchain";
+
+export type {
+  SignedDelegationInput,
+  PreparedDelegationMessage,
+  SignedDelegation,
+  CreateSignedDelegationResult,
+  ConfirmSignedDelegationResult,
+} from "./onchain";

@@ -30,3 +30,28 @@ export type {
   InferenceOptions,
   WalletBalance,
 } from "./types";
+
+// Bankr Signals — Provider registration & signal publishing
+export {
+  registerSignalProvider,
+  publishSignal,
+  closeSignal,
+  getSignalFeed,
+  getLeaderboard,
+  getProviderSignals,
+  getBankrWalletAddress,
+  checkHealth as checkBankrSignalsHealth,
+} from "./signals";
+
+export type {
+  RegisterProviderInput,
+  RegisterProviderResult,
+  PublishSignalInput,
+  PublishSignalResult,
+  CloseSignalInput,
+  CloseSignalResult,
+  SignalFeedEntry,
+  LeaderboardEntry,
+  SignalAction,
+  SignalStatus,
+} from "./signals";

@@ -24,3 +24,21 @@ export type { CeloConfig, CeloNetwork, CeloStablecoin } from "./integration-conf
 
 export { executeCeloPayment } from "./payment-flow";
 export type { CeloPaymentInput, CeloPaymentResult } from "./payment-flow";
+
+// Live payment execution with wallet signing
+export {
+  prepareCeloPayment,
+  confirmCeloPayment,
+  executeCeloPaymentViaBankr,
+  checkCeloBalance,
+  encodeERC20Transfer,
+  CELO_CHAINS,
+  CELO_RPC,
+  CELO_EXPLORERS,
+} from "./execute-payment";
+
+export type {
+  ExecuteCeloPaymentInput,
+  PreparedCeloTx,
+  CeloPaymentExecutionResult,
+} from "./execute-payment";

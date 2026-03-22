@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Wallet } from "lucide-react";
+import { Building2, Wallet, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { saveCompanyENSName, preparePrimaryNameTx } from "@/lib/ens";
 
 interface CompanySetupProps {
   walletAddress: string;
@@ -26,6 +27,8 @@ export function CompanySetup({ walletAddress, onComplete }: CompanySetupProps) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [ensName, setEnsName] = useState("");
+  const [showEns, setShowEns] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -100,9 +103,26 @@ export function CompanySetup({ walletAddress, onComplete }: CompanySetupProps) {
           metadata: {},
         });
       }
+      // Save ENS name if provided
+      if (ensName.trim()) {
+        try {
+          await saveCompanyENSName(data.id, ensName.trim(), "base");
+          // Prepare the ENS primary name tx for later signing
+          const prepared = preparePrimaryNameTx({
+            ensName: ensName.trim(),
+            chain: "base",
+            walletAddress,
+          });
+          // Store prepared tx in session for later wallet signing
+          sessionStorage.setItem("ens_prepared_tx", JSON.stringify(prepared));
+        } catch {
+          // ENS save is non-blocking — company creation still succeeds
+          console.warn("Failed to save ENS name, continuing with onboarding");
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["user-onboarding"] });
       queryClient.invalidateQueries({ queryKey: ["agency-snapshot"] });
-      toast.success("Company created!");
+      toast.success(ensName.trim() ? "Company created with ENS identity!" : "Company created!");
       onComplete(data.id);
     },
     onError: (error) => {
@@ -168,6 +188,38 @@ export function CompanySetup({ walletAddress, onComplete }: CompanySetupProps) {
           <p className="text-[11px] text-zinc-600">
             Auto-filled from your connected wallet.
           </p>
+        </div>
+
+        {/* ENS Name (optional) */}
+        <div className="space-y-2">
+          {!showEns ? (
+            <button
+              type="button"
+              onClick={() => setShowEns(true)}
+              className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Register company name on ENS
+            </button>
+          ) : (
+            <>
+              <Label htmlFor="ens-name" className="text-zinc-300">
+                <Globe className="mr-1 inline h-3 w-3" />
+                ENS Name (optional)
+              </Label>
+              <Input
+                id="ens-name"
+                placeholder="e.g. mycompany.eth"
+                value={ensName}
+                onChange={(e) => setEnsName(e.target.value)}
+                className="border-white/10 bg-[#080c14] text-zinc-200 placeholder:text-zinc-600"
+              />
+              <p className="text-[11px] text-zinc-600">
+                Set your company's ENS primary name on Base. This creates a human-readable
+                identity for your agent company onchain. You must already own this name.
+              </p>
+            </>
+          )}
         </div>
 
         <Button
