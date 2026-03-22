@@ -295,8 +295,8 @@ export async function confirmSignedDelegation(
         delegationId,
         from: delegation.from,
         to: delegation.to,
-        spendLimitUsd: delegation.permissions.spendLimitUsd,
-        taskTypes: delegation.permissions.taskTypes,
+        spendLimitUsd: delegation.permissions.spendLimit.amount,
+        taskTypes: delegation.permissions.taskPermissions,
         signature: signature.slice(0, 20) + "...", // Truncate for log
         messageHash,
         signedAt: signedDelegation.signedAt,
