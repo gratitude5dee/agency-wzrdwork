@@ -1,22 +1,41 @@
 
 
-## Plan: Add missing CONTROL_PLANE_ENCRYPTION_KEY secret
+## Plan: Fix all build errors across 5 files
 
-### Current state
-All 6 runtime API keys are already set:
-- VENICE_API_KEY, OPENROUTER_API_KEY, UNISWAP_API_KEY, BANKR_API_KEY, VITE_THIRDWEB_CLIENT_ID, LOVABLE_API_KEY
+### 1. `src/lib/celo/execute-payment.ts` (line 270)
+- `Record<string, unknown>` not assignable to `Json`. Already has `as unknown as Record<string, unknown>` — change to `as unknown as Json` and import `Json` from supabase types.
 
-The 3 Supabase built-in secrets (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY) are auto-available in edge functions.
+### 2. `src/lib/delegations/onchain.ts`
+- **Lines 184-186, 297-298, 311**: `Permission` type has `spendLimit` (not `spendLimitUsd`), `recipientWhitelist` (not `allowedRecipients`), `taskPermissions` (not `taskTypes`). Fix all references:
+  - `spendLimitUsd` → `spendLimit.amount`
+  - `allowedRecipients` → `recipientWhitelist`
+  - `taskTypes` → `taskPermissions`
+- **Lines 272-273, upsert calls**: The `.upsert()` expects an array or object matching the table schema. The `company_id` error means the insert signature is wrong — need to add `name` field (required) and ensure it's a single object, not array-typed. Fix by adding the missing `name` field to each upsert call.
 
-Composio API keys are stored per-company in the `integrations` table via the app UI, not as Supabase secrets — so that's handled through the Integrations page.
+### 3. `src/lib/ens/index.ts` (lines 230, 288)
+- Same `.upsert()` issue — missing required `name` field. Add `name` to each upsert object.
 
-### Only missing secret
-**CONTROL_PLANE_ENCRYPTION_KEY** — needed by the `adapter-secrets` edge function to encrypt/decrypt agent secrets at rest. Must be a 32-byte key encoded as base64.
+### 4. `src/lib/uniswap/execute-swap.ts`
+- **Line 158**: `TransactionRequest` has no `tokenAddress`. The approval response has `to` field — use `approvalCheck.approval.to` instead.
+- **Line 173**: `slippageTolerance` is `string` in input but `number` expected — parse with `parseFloat()`.
+- **Line 174**: `routingPreference` type mismatch — `"CLASSIC" | "UNISWAPX"` not in `RoutingPreference`. Map to valid values or cast.
+- **Lines 187, 194-198**: `quote.quote` is `ClassicQuote | UniswapXQuote` — need type narrowing. Use the `isClassicQuote` pattern or cast with `as ClassicQuote`.
+- **Lines 204-205**: Access `encodedOrder`/`orderId` on union — cast `quote.quote as UniswapXQuote`.
+- **Lines 216-218**: Access `output`/`priceImpact`/`gasEstimate` on union — use type guards or optional chaining with casts.
 
-### Action
-1. Generate a cryptographically random 32-byte key via a script, encode as base64.
-2. Add it as a Supabase secret using the secrets tool.
+### 5. `src/lib/venice/live-inference.ts`
+- **Line 290**: `StepResult` has no `status` field. It has `success: boolean`. Change `prev.status` → `prev.success ? "completed" : "failed"` or similar.
+- **Line 366**: `step: stepName` where `stepName` is `string` but `step` expects `LoopStep`. Cast `stepName as LoopStep`.
 
-### Result
-After this, every edge function will have all required secrets and the app will work out of the box for demo purposes. No code changes needed.
+### Files to modify
+- `src/lib/celo/execute-payment.ts`
+- `src/lib/delegations/onchain.ts`
+- `src/lib/ens/index.ts`
+- `src/lib/uniswap/execute-swap.ts`
+- `src/lib/venice/live-inference.ts`
+
+### Approach
+Add `// @ts-nocheck` to the top of `src/lib/uniswap/execute-swap.ts` and `src/lib/delegations/onchain.ts` since these files have deeply intertwined type mismatches from the original port that would require extensive refactoring. For the simpler fixes (celo, ens, venice), apply targeted corrections.
+
+**Actually — cleaner approach**: Apply targeted fixes to all files rather than `@ts-nocheck`, since most fixes are straightforward property renames and casts.
 
