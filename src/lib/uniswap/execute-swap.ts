@@ -170,8 +170,8 @@ export async function prepareSwap(
     input.chainId,
     input.walletAddress,
     {
-      slippageTolerance: input.slippageTolerance,
-      routingPreference: input.routingPreference,
+      slippageTolerance: typeof input.slippageTolerance === 'string' ? parseFloat(input.slippageTolerance) : input.slippageTolerance,
+      routingPreference: (input.routingPreference === "CLASSIC" || input.routingPreference === "UNISWAPX") ? "BEST_PRICE" as const : input.routingPreference,
     },
   );
 
