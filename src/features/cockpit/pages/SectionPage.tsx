@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { useAgencyData } from "../lib/useAgencyData";
 import { formatUsd, projectHref, relativeTime, issueHref, approvalHref, agentHref, runHref } from "../lib/format";
 import { MetricCard } from "@/components/MetricCard";
@@ -17,10 +24,13 @@ import { useDashboardRuns, useDashboardIssues, useDashboardAgents, useDashboardA
 import { useCompanySettings, useSupabaseHealth, useUpdateCompanySettings } from "@/hooks/useCompanySettings";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { FeatureTour } from "@/features/onboarding/steps/FeatureTour";
-import { AlertTriangle, Bot, Building2, CircleDot, Database, Loader2, MapPin, Palette, Play, RotateCcw, Settings2, ShieldCheck, Unplug, Wallet } from "lucide-react";
+import { AlertTriangle, Bot, Building2, Check, CheckCircle2, CircleDot, Database, Filter, Loader2, MapPin, Palette, Play, Plus, RotateCcw, Settings2, ShieldCheck, Target, Unplug, Wallet, X, XCircle } from "lucide-react";
 import { useDisconnect, useActiveWallet } from "thirdweb/react";
 import { toast } from "sonner";
-import type { AgencySnapshot } from "../lib/domain";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { NewIssueDialog } from "../components/NewIssueDialog";
+import type { AgencySnapshot, ApprovalStatus, GoalStatus, IssuePriority, IssueStatus, ProjectStatus } from "../lib/domain";
 
 type SectionName =
   | "dashboard"
