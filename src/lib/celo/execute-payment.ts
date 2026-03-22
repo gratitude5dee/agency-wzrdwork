@@ -267,7 +267,7 @@ export async function confirmCeloPayment(
 
       await supabase
         .from("agent_execution_logs")
-        .update({ content: updatedContent as unknown as Record<string, unknown> })
+        .update({ content: updatedContent as unknown as import("@/integrations/supabase/types").Json })
         .eq("id", preparedLog.id);
     }
   }

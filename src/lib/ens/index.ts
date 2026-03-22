@@ -287,6 +287,7 @@ export async function saveCompanyENSName(
 ): Promise<void> {
   await supabase.from("integrations").upsert({
     company_id: companyId,
+    name: "ENS Primary Name",
     integration_key: "ens_primary_name",
     config: {
       ensName,

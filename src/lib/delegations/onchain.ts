@@ -309,7 +309,7 @@ export async function confirmSignedDelegation(
       company_id: companyId,
       agent_id: agentId ?? null,
       action: "delegation_signed",
-      details: `Delegation signed: ${delegation.from.slice(0, 8)}... → ${delegation.to.slice(0, 8)}... (limit: $${delegation.permissions.spendLimitUsd})`,
+      details: `Delegation signed: ${delegation.from.slice(0, 8)}... → ${delegation.to.slice(0, 8)}... (limit: $${delegation.permissions.spendLimit.amount})`,
     });
 
     return {

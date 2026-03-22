@@ -363,8 +363,8 @@ export async function executeVeniceLiveLoop(
 
     // Build context for next step
     previousSteps.push({
-      step: stepName,
-      status: result.success ? "completed" : "failed",
+      step: stepName as import("@/lib/agent-loop/types").LoopStep,
+      success: result.success,
       data: result.data,
     });
 

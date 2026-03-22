@@ -183,29 +183,33 @@ export async function prepareSwap(
 
   if (routingType === "CLASSIC") {
     // Classic swap: returns calldata for on-chain execution
+    const classicQuote = quote.quote as import("./types").ClassicQuote;
     const swapResponse = await client.executeSwap({
-      quote: quote.quote,
+      quote: classicQuote,
       signature: "0x", // Placeholder — wallet signs the actual tx
       permitData: quote.permitData,
     });
 
     if (swapResponse) {
+      const swapAny = swapResponse as unknown as Record<string, unknown>;
       transaction = {
-        to: (swapResponse as Record<string, unknown>).to as string ?? "",
-        data: (swapResponse as Record<string, unknown>).data as string ?? "0x",
-        value: (swapResponse as Record<string, unknown>).value as string ?? "0",
+        to: (swapAny.to as string) ?? "",
+        data: (swapAny.data as string) ?? "0x",
+        value: (swapAny.value as string) ?? "0",
         chainId: input.chainId,
-        gasLimit: (swapResponse as Record<string, unknown>).gasLimit as string,
+        gasLimit: swapAny.gasLimit as string,
       };
     }
   } else {
     // UniswapX: returns an order to sign
+    const uniswapXQuote = quote.quote as import("./types").UniswapXQuote;
     order = {
-      encodedOrder: quote.quote?.encodedOrder ?? "",
-      orderId: quote.quote?.orderId ?? "",
+      encodedOrder: uniswapXQuote?.encodedOrder ?? "",
+      orderId: uniswapXQuote?.orderId ?? "",
     };
   }
 
+  const quoteAny = quote.quote as Record<string, unknown>;
   return {
     quote,
     transaction,
@@ -213,9 +217,9 @@ export async function prepareSwap(
     approvalNeeded,
     approvalTx,
     routingType,
-    estimatedOutput: quote.quote?.output?.amount ?? "0",
-    priceImpact: quote.quote?.priceImpact?.toString(),
-    gasEstimate: quote.quote?.gasEstimate ?? undefined,
+    estimatedOutput: (quoteAny as any)?.output?.amount ?? "0",
+    priceImpact: (quoteAny as any)?.priceImpact?.toString(),
+    gasEstimate: (quoteAny as any)?.gasEstimate ?? undefined,
   };
 }
 
