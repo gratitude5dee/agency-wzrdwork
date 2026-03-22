@@ -6,8 +6,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "npm run build && node dist/index.js",
+    "compile": "tsc -p tsconfig.json",
+    "start": "npm run compile && node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
