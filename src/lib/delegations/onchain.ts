@@ -181,9 +181,9 @@ export function prepareSignedDelegation(
       message: {
         delegator: input.from,
         delegate: input.to,
-        spendLimitUsd: input.permissions.spendLimitUsd,
-        allowedRecipients: input.permissions.allowedRecipients ?? [],
-        taskTypes: input.permissions.taskTypes ?? [],
+        spendLimitUsd: input.permissions.spendLimit.amount,
+        allowedRecipients: input.permissions.recipientWhitelist ?? [],
+        taskTypes: input.permissions.taskPermissions ?? [],
         timeWindowStart,
         timeWindowEnd,
         nonce,
