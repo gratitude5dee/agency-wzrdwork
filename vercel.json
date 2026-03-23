@@ -13,6 +13,8 @@
   },
   "rewrites": [
     { "source": "/api/cron/:path*", "destination": "/api/cron/$path*" },
+    { "source": "/api/sandbox/spawn", "destination": "/api/sandbox/spawn" },
+    { "source": "/api/sandbox/proxy/:path*", "destination": "/api/sandbox/proxy" },
     { "source": "/api/:path*", "destination": "/api/server" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
@@ -27,6 +29,10 @@
     },
     {
       "path": "/api/cron/reap-orphans",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/sandbox-keepalive",
       "schedule": "*/5 * * * *"
     }
   ],
