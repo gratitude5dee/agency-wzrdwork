@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Agent, Issue, LiveEvent } from "@paperclipai/shared";
 import { authApi } from "../api/auth";
@@ -10,6 +10,20 @@ import { queryKeys } from "../lib/queryKeys";
 const TOAST_COOLDOWN_WINDOW_MS = 10_000;
 const TOAST_COOLDOWN_MAX = 3;
 const RECONNECT_SUPPRESS_MS = 2000;
+const EVENT_HISTORY_SIZE = 50;
+
+type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
+
+interface LiveEventWithTimestamp extends LiveEvent {
+  receivedAt: string;
+}
+
+interface ConnectionContextValue {
+  status: ConnectionStatus;
+  eventHistory: LiveEventWithTimestamp[];
+}
+
+const ConnectionContext = createContext<ConnectionContextValue | null>(null);
 
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
@@ -24,11 +38,7 @@ function shortId(value: string) {
   return value.slice(0, 8);
 }
 
-function resolveAgentName(
-  queryClient: QueryClient,
-  companyId: string,
-  agentId: string,
-): string | null {
+function resolveAgentName(queryClient: QueryClient, companyId: string, agentId: string): string | null {
   const agents = queryClient.getQueryData<Agent[]>(queryKeys.agents.list(companyId));
   if (!agents) return null;
   const agent = agents.find((a) => a.id === agentId);
@@ -40,19 +50,12 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max - 1) + "\u2026";
 }
 
-function resolveActorLabel(
-  queryClient: QueryClient,
-  companyId: string,
-  actorType: string | null,
-  actorId: string | null,
-): string {
+function resolveActorLabel(queryClient: QueryClient, companyId: string, actorType: string | null, actorId: string | null): string {
   if (actorType === "agent" && actorId) {
     return resolveAgentName(queryClient, companyId, actorId) ?? `Agent ${shortId(actorId)}`;
   }
   if (actorType === "system") return "System";
-  if (actorType === "user" && actorId) {
-    return "Board";
-  }
+  if (actorType === "user" && actorId) return "Board";
   return "Someone";
 }
 
@@ -63,21 +66,13 @@ interface IssueToastContext {
   href: string;
 }
 
-function resolveIssueQueryRefs(
-  queryClient: QueryClient,
-  companyId: string,
-  issueId: string,
-  details: Record<string, unknown> | null,
-): string[] {
+function resolveIssueQueryRefs(queryClient: QueryClient, companyId: string, issueId: string, details: Record<string, unknown> | null): string[] {
   const refs = new Set<string>([issueId]);
   const detailIssue = queryClient.getQueryData<Issue>(queryKeys.issues.detail(issueId));
   const listIssues = queryClient.getQueryData<Issue[]>(queryKeys.issues.list(companyId));
-  const detailsIdentifier =
-    readString(details?.identifier) ??
-    readString(details?.issueIdentifier);
+  const detailsIdentifier = readString(details?.identifier) ?? readString(details?.issueIdentifier);
 
   if (detailsIdentifier) refs.add(detailsIdentifier);
-
   if (detailIssue?.id) refs.add(detailIssue.id);
   if (detailIssue?.identifier) refs.add(detailIssue.identifier);
 
@@ -93,12 +88,7 @@ function resolveIssueQueryRefs(
   return Array.from(refs);
 }
 
-function resolveIssueToastContext(
-  queryClient: QueryClient,
-  companyId: string,
-  issueId: string,
-  details: Record<string, unknown> | null,
-): IssueToastContext {
+function resolveIssueToastContext(queryClient: QueryClient, companyId: string, issueId: string, details: Record<string, unknown> | null): IssueToastContext {
   const issueRefs = resolveIssueQueryRefs(queryClient, companyId, issueId, details);
   const detailIssue = issueRefs
     .map((ref) => queryClient.getQueryData<Issue>(queryKeys.issues.detail(ref)))
@@ -107,16 +97,8 @@ function resolveIssueToastContext(
     .getQueryData<Issue[]>(queryKeys.issues.list(companyId))
     ?.find((issue) => issueRefs.some((ref) => issue.id === ref || issue.identifier === ref));
   const cachedIssue = detailIssue ?? listIssue ?? null;
-  const ref =
-    readString(details?.identifier) ??
-    readString(details?.issueIdentifier) ??
-    cachedIssue?.identifier ??
-    `Issue ${shortId(issueId)}`;
-  const title =
-    readString(details?.title) ??
-    readString(details?.issueTitle) ??
-    cachedIssue?.title ??
-    null;
+  const ref = readString(details?.identifier) ?? readString(details?.issueIdentifier) ?? cachedIssue?.identifier ?? `Issue ${shortId(issueId)}`;
+  const title = readString(details?.title) ?? readString(details?.issueTitle) ?? cachedIssue?.title ?? null;
   return {
     ref,
     title,
@@ -149,12 +131,7 @@ function describeIssueUpdate(details: Record<string, unknown> | null): string | 
   return null;
 }
 
-function buildActivityToast(
-  queryClient: QueryClient,
-  companyId: string,
-  payload: Record<string, unknown>,
-  currentActor: { userId: string | null; agentId: string | null },
-): ToastInput | null {
+function buildActivityToast(queryClient: QueryClient, companyId: string, payload: Record<string, unknown>, currentActor: { userId: string | null; agentId: string | null }): ToastInput | null {
   const entityType = readString(payload.entityType);
   const entityId = readString(payload.entityId);
   const action = readString(payload.action);
@@ -184,18 +161,11 @@ function buildActivityToast(
   }
 
   if (action === "issue.updated") {
-    if (readString(details?.source) === "comment") {
-      // Comment-driven updates emit a paired comment event; show one combined toast on the comment event.
-      return null;
-    }
+    if (readString(details?.source) === "comment") return null;
     const changeDesc = describeIssueUpdate(details);
     const body = changeDesc
-      ? issue.title
-        ? `${truncate(issue.title, 64)} - ${changeDesc}`
-        : changeDesc
-      : issue.title
-        ? truncate(issue.title, 96)
-        : issue.label;
+      ? issue.title ? `${truncate(issue.title, 64)} - ${changeDesc}` : changeDesc
+      : issue.title ? truncate(issue.title, 96) : issue.label;
     return {
       title: `${actor} updated ${issue.ref}`,
       body: truncate(body, 100),
@@ -210,25 +180,14 @@ function buildActivityToast(
   const reopened = details?.reopened === true;
   const updated = details?.updated === true;
   const reopenedFrom = readString(details?.reopenedFrom);
-  const reopenedLabel = reopened
-    ? reopenedFrom
-      ? `reopened from ${reopenedFrom.replace(/_/g, " ")}`
-      : "reopened"
-    : null;
+  const reopenedLabel = reopened ? (reopenedFrom ? `reopened from ${reopenedFrom.replace(/_/g, " ")}` : "reopened") : null;
   const title = reopened
     ? `${actor} reopened and commented on ${issue.ref}`
-    : updated
-      ? `${actor} commented and updated ${issue.ref}`
+    : updated ? `${actor} commented and updated ${issue.ref}`
       : `${actor} commented on ${issue.ref}`;
   const body = bodySnippet
-    ? reopenedLabel
-      ? `${reopenedLabel} - ${bodySnippet.replace(/^#+\s*/m, "").replace(/\n/g, " ")}`
-      : bodySnippet.replace(/^#+\s*/m, "").replace(/\n/g, " ")
-    : reopenedLabel
-      ? issue.title
-        ? `${reopenedLabel} - ${issue.title}`
-        : reopenedLabel
-      : issue.title ?? undefined;
+    ? reopenedLabel ? `${reopenedLabel} - ${bodySnippet.replace(/^#+\s*/m, "").replace(/\n/g, " ")}` : bodySnippet.replace(/^#+\s*/m, "").replace(/\n/g, " ")
+    : reopenedLabel ? (issue.title ? `${reopenedLabel} - ${issue.title}` : reopenedLabel) : issue.title ?? undefined;
   return {
     title,
     body: body ? truncate(body, 96) : undefined,
@@ -238,9 +197,7 @@ function buildActivityToast(
   };
 }
 
-function buildJoinRequestToast(
-  payload: Record<string, unknown>,
-): ToastInput | null {
+function buildJoinRequestToast(payload: Record<string, unknown>): ToastInput | null {
   const entityType = readString(payload.entityType);
   const action = readString(payload.action);
   const entityId = readString(payload.entityId);
@@ -261,22 +218,14 @@ function buildJoinRequestToast(
   };
 }
 
-function buildAgentStatusToast(
-  payload: Record<string, unknown>,
-  nameOf: (id: string) => string | null,
-  queryClient: QueryClient,
-  companyId: string,
-): ToastInput | null {
+function buildAgentStatusToast(payload: Record<string, unknown>, nameOf: (id: string) => string | null, queryClient: QueryClient, companyId: string): ToastInput | null {
   const agentId = readString(payload.agentId);
   const status = readString(payload.status);
   if (!agentId || !status || !AGENT_TOAST_STATUSES.has(status)) return null;
 
   const tone = status === "error" ? "error" : "info";
   const name = nameOf(agentId) ?? `Agent ${shortId(agentId)}`;
-  const title =
-    status === "running"
-      ? `${name} started`
-      : `${name} errored`;
+  const title = status === "running" ? `${name} started` : `${name} errored`;
 
   const agents = queryClient.getQueryData<Agent[]>(queryKeys.agents.list(companyId));
   const agent = agents?.find((a) => a.id === agentId);
@@ -291,10 +240,7 @@ function buildAgentStatusToast(
   };
 }
 
-function buildRunStatusToast(
-  payload: Record<string, unknown>,
-  nameOf: (id: string) => string | null,
-): ToastInput | null {
+function buildRunStatusToast(payload: Record<string, unknown>, nameOf: (id: string) => string | null): ToastInput | null {
   const runId = readString(payload.runId);
   const agentId = readString(payload.agentId);
   const status = readString(payload.status);
@@ -305,10 +251,7 @@ function buildRunStatusToast(
   const name = nameOf(agentId) ?? `Agent ${shortId(agentId)}`;
   const tone = status === "succeeded" ? "success" : status === "cancelled" ? "warn" : "error";
   const statusLabel =
-    status === "succeeded" ? "succeeded"
-      : status === "failed" ? "failed"
-        : status === "timed_out" ? "timed out"
-          : "cancelled";
+    status === "succeeded" ? "succeeded" : status === "failed" ? "failed" : status === "timed_out" ? "timed out" : "cancelled";
   const title = `${name} run ${statusLabel}`;
 
   let body: string | undefined;
@@ -328,11 +271,7 @@ function buildRunStatusToast(
   };
 }
 
-function invalidateHeartbeatQueries(
-  queryClient: ReturnType<typeof useQueryClient>,
-  companyId: string,
-  payload: Record<string, unknown>,
-) {
+function invalidateHeartbeatQueries(queryClient: ReturnType<typeof useQueryClient>, companyId: string, payload: Record<string, unknown>) {
   queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(companyId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(companyId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) });
@@ -347,11 +286,7 @@ function invalidateHeartbeatQueries(
   }
 }
 
-function invalidateActivityQueries(
-  queryClient: ReturnType<typeof useQueryClient>,
-  companyId: string,
-  payload: Record<string, unknown>,
-) {
+function invalidateActivityQueries(queryClient: ReturnType<typeof useQueryClient>, companyId: string, payload: Record<string, unknown>) {
   queryClient.invalidateQueries({ queryKey: queryKeys.activity(companyId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(companyId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(companyId) });
@@ -382,10 +317,7 @@ function invalidateActivityQueries(
   if (entityType === "agent") {
     queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.org(companyId) });
-    if (entityId) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(entityId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(companyId, entityId) });
-    }
+    if (entityId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(entityId) });
     return;
   }
 
@@ -415,8 +347,6 @@ function invalidateActivityQueries(
     queryClient.invalidateQueries({ queryKey: queryKeys.costs(companyId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.usageByProvider(companyId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.usageWindowSpend(companyId) });
-    // usageQuotaWindows is intentionally excluded: quota windows come from external provider
-    // apis on a 5-minute poll and do not change in response to cost events logged by agents
     return;
   }
 
@@ -449,12 +379,7 @@ function recordToastHit(gate: ToastGate, category: string) {
   gate.cooldownHits.set(category, hits);
 }
 
-function gatedPushToast(
-  gate: ToastGate,
-  pushToast: (toast: ToastInput) => string | null,
-  category: string,
-  toast: ToastInput,
-) {
+function gatedPushToast(gate: ToastGate, pushToast: (toast: ToastInput) => string | null, category: string, toast: ToastInput) {
   if (shouldSuppressToast(gate, category)) return;
   const id = pushToast(toast);
   if (id !== null) recordToastHit(gate, category);
@@ -515,12 +440,22 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
   const gateRef = useRef<ToastGate>({ cooldownHits: new Map(), suppressUntil: 0 });
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [eventHistory, setEventHistory] = useState<LiveEventWithTimestamp[]>([]);
+
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
     retry: false,
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+
+  const recordEvent = useCallback((event: LiveEvent) => {
+    setEventHistory((prev) => [
+      { ...event, receivedAt: new Date().toISOString() },
+      ...prev,
+    ].slice(0, EVENT_HISTORY_SIZE));
+  }, []);
 
   useEffect(() => {
     if (!selectedCompanyId) return;
@@ -540,7 +475,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
     const scheduleReconnect = () => {
       if (closed) return;
       reconnectAttempt += 1;
-      const delayMs = Math.min(15000, 1000 * 2 ** Math.min(reconnectAttempt - 1, 4));
+      const delayMs = Math.min(30000, 1000 * Math.pow(2, Math.min(reconnectAttempt - 1, 4)));
       reconnectTimer = window.setTimeout(() => {
         reconnectTimer = null;
         connect();
@@ -549,11 +484,13 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
     const connect = () => {
       if (closed) return;
+      setConnectionStatus('connecting');
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
       const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(selectedCompanyId)}/events/ws`;
       socket = new WebSocket(url);
 
       socket.onopen = () => {
+        setConnectionStatus('connected');
         if (reconnectAttempt > 0) {
           gateRef.current.suppressUntil = Date.now() + RECONNECT_SUPPRESS_MS;
         }
@@ -566,6 +503,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
         try {
           const parsed = JSON.parse(raw) as LiveEvent;
+          recordEvent(parsed);
           handleLiveEvent(queryClient, selectedCompanyId, parsed, pushToast, gateRef.current, {
             userId: currentUserId,
             agentId: null,
@@ -581,6 +519,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
       socket.onclose = () => {
         if (closed) return;
+        setConnectionStatus('disconnected');
         scheduleReconnect();
       };
     };
@@ -598,7 +537,32 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
         socket.close(1000, "provider_unmount");
       }
     };
-  }, [queryClient, selectedCompanyId, pushToast, currentUserId]);
+  }, [queryClient, selectedCompanyId, pushToast, currentUserId, recordEvent]);
 
-  return <>{children}</>;
+  const value = {
+    status: connectionStatus,
+    eventHistory,
+  };
+
+  return (
+    <ConnectionContext.Provider value={value}>
+      {children}
+    </ConnectionContext.Provider>
+  );
+}
+
+export function useConnectionStatus(): ConnectionStatus {
+  const ctx = useContext(ConnectionContext);
+  if (!ctx) {
+    throw new Error("useConnectionStatus must be used within LiveUpdatesProvider");
+  }
+  return ctx.status;
+}
+
+export function useLiveEventHistory(): LiveEventWithTimestamp[] {
+  const ctx = useContext(ConnectionContext);
+  if (!ctx) {
+    throw new Error("useLiveEventHistory must be used within LiveUpdatesProvider");
+  }
+  return ctx.eventHistory;
 }

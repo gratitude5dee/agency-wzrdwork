@@ -9,6 +9,11 @@ import {
   SquarePen,
   Network,
   Settings,
+  MessageSquare,
+  Link2,
+  Sparkles,
+  Trophy,
+  ShieldCheck,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -98,6 +103,8 @@ export function Sidebar() {
         <SidebarSection label="Work">
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+          <SidebarNavItem to="/chat" label="Chat" icon={MessageSquare} />
+          <SidebarNavItem to="/approvals" label="Approvals" icon={ShieldCheck} />
         </SidebarSection>
 
         <SidebarProjects />
@@ -106,8 +113,11 @@ export function Sidebar() {
 
         <SidebarSection label="Company">
           <SidebarNavItem to="/org" label="Org" icon={Network} />
+          <SidebarNavItem to="/delegations" label="Delegations" icon={Link2} />
+          <SidebarNavItem to="/skills" label="Skills" icon={Sparkles} />
           <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
           <SidebarNavItem to="/activity" label="Activity" icon={History} />
+          <SidebarNavItem to="/submission-proof" label="Submission" icon={Trophy} />
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
         </SidebarSection>
 

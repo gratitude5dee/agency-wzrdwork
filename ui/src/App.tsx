@@ -35,6 +35,10 @@ import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { NotFoundPage } from "./pages/NotFound";
+import { Chat } from "./pages/Chat";
+import { Delegations } from "./pages/Delegations";
+import { Skills } from "./pages/Skills";
+import { SubmissionProof } from "./pages/SubmissionProof";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
@@ -151,6 +155,10 @@ function boardRoutes() {
       <Route path="approvals/all" element={<Approvals />} />
       <Route path="approvals/:approvalId" element={<ApprovalDetail />} />
       <Route path="costs" element={<Costs />} />
+      <Route path="chat" element={<Chat />} />
+      <Route path="delegations" element={<Delegations />} />
+      <Route path="skills" element={<Skills />} />
+      <Route path="submission-proof" element={<SubmissionProof />} />
       <Route path="activity" element={<Activity />} />
       <Route path="inbox" element={<InboxRootRedirect />} />
       <Route path="inbox/recent" element={<Inbox />} />
