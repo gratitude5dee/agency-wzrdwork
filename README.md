@@ -1,6 +1,8 @@
-# Agency Synthesis — Autonomous Agent OS
+# yoke by WZRD.work — Autonomous Agent OS
 
-A unified autonomous agent operating system built for the **Synthesis hackathon**, combining 5 codebases into a single platform for managing AI agent companies with wallet-based auth, ERC-8004 on-chain identity, x402 payments, and integrations across 7+ hackathon prize tracks.
+an operating system for AI-native organizations. It gives teams a single control plane for identity, delegation, execution, payments, and observability across autonomous agents.
+
+Unifies agent operations into a single product surface: agents have identity, authority is scoped, work is observable, spend is traceable, and operational evidence is exportable.
 
 ## What Was Built
 
@@ -18,12 +20,6 @@ A unified autonomous agent operating system built for the **Synthesis hackathon*
 - **4-step user onboarding wizard** — with interactive feature tour (Joyride)
 - **Integrations management page** — 17 integrations with connect/disconnect UI
 - **918 unit & component tests** across 52 test suites
-
-# Agency WZRD — Autonomous Agent OS
-
-Agency WZRD is an operating system for AI-native organizations. It gives teams a single control plane for identity, delegation, execution, payments, and observability across autonomous agents.
-
-It unifies agent operations into a single product surface: agents have identity, authority is scoped, work is observable, spend is traceable, and operational evidence is exportable.
 
 ## Overview
 
