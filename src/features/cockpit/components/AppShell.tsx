@@ -6,6 +6,8 @@ import {
   Bot,
   CheckCircle2,
   ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   FileText,
   FolderOpen,
   Goal,
@@ -13,6 +15,7 @@ import {
   Inbox,
   LayoutDashboard,
   Link2,
+  LogOut,
   MessageSquare,
   Monitor,
   Network,
@@ -41,19 +44,20 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NewIssueDialog } from "./NewIssueDialog";
 import { useAgencyData } from "../lib/useAgencyData";
 
@@ -104,7 +108,7 @@ function NavMenuItem({ item }: { item: NavItem }) {
             isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
           }
         >
-          <item.icon className="h-4 w-4" />
+          <item.icon className="h-4 w-4 shrink-0" />
           <span>{item.label}</span>
           {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
         </NavLink>
@@ -113,11 +117,95 @@ function NavMenuItem({ item }: { item: NavItem }) {
   );
 }
 
+/** Sidebar header with logo + collapse toggle */
+function SidebarHeaderContent() {
+  const { state, toggleSidebar } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
+  return (
+    <SidebarHeader className="border-b border-white/10 px-3 py-3">
+      <div className="flex items-center justify-between">
+        {/* Logo area */}
+        <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
+          <img
+            src={wzrdLogo}
+            alt="WZRD.tech"
+            className="h-7 w-7 shrink-0 object-contain"
+          />
+          {!isCollapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-black uppercase tracking-[0.22em] text-zinc-200">
+                Agency
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Collapse toggle */}
+        {!isCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="h-7 w-7 shrink-0 text-zinc-500 hover:text-white hover:bg-white/5"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+            <span className="sr-only">Collapse sidebar</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Collapsed: show expand button centered */}
+      {isCollapsed && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="h-7 w-7 mx-auto text-zinc-500 hover:text-white hover:bg-white/5"
+            >
+              <ChevronsRight className="h-4 w-4" />
+              <span className="sr-only">Expand sidebar</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Expand sidebar</TooltipContent>
+        </Tooltip>
+      )}
+    </SidebarHeader>
+  );
+}
+
+/** Search + New Issue (hidden when collapsed) */
+function SidebarSearchArea() {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
+  if (isCollapsed) return null;
+
+  return (
+    <SidebarGroup className="border-b border-white/10 px-3 py-3">
+      <SidebarGroupContent className="space-y-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Input
+            placeholder="Search"
+            className="border-white/10 bg-[#0d1118] pl-9 text-zinc-200 placeholder:text-zinc-600"
+          />
+        </div>
+        <NewIssueDialog />
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 function AccountFooter() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
   const { disconnect } = useDisconnect();
   const navigate = useNavigate();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const address = account?.address;
   const truncated = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Not connected";
@@ -126,6 +214,28 @@ function AccountFooter() {
     if (wallet) disconnect(wallet);
     navigate("/");
   }, [wallet, disconnect, navigate]);
+
+  if (isCollapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
+            className="h-8 w-8 mx-auto text-zinc-400 hover:text-white hover:bg-white/5"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="sr-only">Sign out</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p className="font-medium">{truncated}</p>
+          <p className="text-xs text-zinc-400">Sign out</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <div className="flex items-center justify-between glass-card px-3 py-2">
@@ -154,8 +264,6 @@ export function AppShell() {
   const { snapshot } = useAgencyData();
   const liveWalletAddress = useTruncatedAddress();
   const { storedAddress } = useStoredWalletAddress();
-  // VAL-AUTH-004: Show live wallet address, or fall back to stored company
-  // wallet so header and settings agree after reload.
   const storedTruncated = storedAddress
     ? `${storedAddress.slice(0, 6)}…${storedAddress.slice(-4)}`
     : null;
@@ -194,32 +302,16 @@ export function AppShell() {
   return (
     <div className="dark min-h-screen bg-black text-zinc-100">
       <SidebarProvider defaultOpen>
-        <Sidebar className="border-r border-white/10 glass-sidebar">
-          <SidebarContent className="gap-0 glass-sidebar text-white">
-            <SidebarGroup className="border-b border-white/10 px-3 py-4">
-              <SidebarGroupContent className="space-y-3">
-                <div className="flex items-center gap-3 px-2">
-                  <img src={wzrdLogo} alt="WZRD.tech" className="h-8" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black">{snapshot.company.name}</p>
-                    <p className="truncate text-[11px] uppercase tracking-[0.2em] text-zinc-500">
-                      {snapshot.company.companyType}
-                    </p>
-                  </div>
-                </div>
+        <Sidebar collapsible="icon" className="border-r border-white/10 glass-sidebar">
+          {/* Header: logo + collapse toggle */}
+          <SidebarHeaderContent />
 
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                  <Input
-                    placeholder="Search"
-                    className="border-white/10 bg-[#0d1118] pl-9 text-zinc-200 placeholder:text-zinc-600"
-                  />
-                </div>
+          {/* Search + new issue (expanded only) */}
+          <SidebarSearchArea />
 
-                <NewIssueDialog />
-              </SidebarGroupContent>
-            </SidebarGroup>
-
+          {/* Scrollable navigation content */}
+          <SidebarContent className="gap-0 glass-sidebar text-white overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            {/* Top nav items */}
             <SidebarGroup className="px-3 py-3">
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -230,8 +322,11 @@ export function AppShell() {
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Work section */}
             <SidebarGroup className="px-3 py-1">
-              <SidebarGroupLabel>Work</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+                Work
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {workItems.map((item) => (
@@ -241,12 +336,13 @@ export function AppShell() {
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Projects collapsible */}
             <SidebarGroup className="px-3 py-1">
               <SidebarGroupContent>
                 <Collapsible defaultOpen>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500 group-data-[collapsible=icon]:hidden">
                     Projects
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenu>
@@ -254,6 +350,7 @@ export function AppShell() {
                         <SidebarMenuItem key={project.id}>
                           <SidebarMenuButton asChild tooltip={project.name}>
                             <NavLink to={`/projects/${project.id}`}>
+                              <FolderOpen className="h-4 w-4 shrink-0" />
                               <span className="truncate">{project.name}</span>
                             </NavLink>
                           </SidebarMenuButton>
@@ -265,12 +362,13 @@ export function AppShell() {
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Agents collapsible */}
             <SidebarGroup className="px-3 py-1">
               <SidebarGroupContent>
                 <Collapsible defaultOpen>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500 group-data-[collapsible=icon]:hidden">
                     Agents
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenu>
@@ -283,7 +381,7 @@ export function AppShell() {
                               isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
                             }
                           >
-                            <Bot className="h-4 w-4" />
+                            <Bot className="h-4 w-4 shrink-0" />
                             <span>All Agents</span>
                           </NavLink>
                         </SidebarMenuButton>
@@ -297,6 +395,7 @@ export function AppShell() {
                                 isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
                               }
                             >
+                              <Bot className="h-4 w-4 shrink-0 opacity-60" />
                               <span className="truncate">{agent.name}</span>
                             </NavLink>
                           </SidebarMenuButton>
@@ -308,8 +407,11 @@ export function AppShell() {
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Company section */}
             <SidebarGroup className="px-3 py-1">
-              <SidebarGroupLabel>Company</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+                Company
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {COMPANY_ITEMS.map((item) => (
@@ -320,16 +422,15 @@ export function AppShell() {
             </SidebarGroup>
           </SidebarContent>
 
+          {/* Footer */}
           <SidebarFooter className="border-t border-white/10 glass-sidebar p-3">
             <AccountFooter />
           </SidebarFooter>
-          <SidebarRail />
         </Sidebar>
 
         <SidebarInset className="h-screen overflow-hidden flex flex-col bg-[#020409]">
           <header className="shrink-0 z-20 flex h-14 items-center justify-between glass-header px-4">
             <div className="flex items-center gap-3 min-w-0">
-              <SidebarTrigger className="text-zinc-300 hover:text-white shrink-0" />
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500 hidden sm:block">
                   Agency
