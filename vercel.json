@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
-  "buildCommand": "echo \"BUILD_CWD=$(pwd)\" && ls -la index.html && pnpm exec vite build",
+  "buildCommand": "echo BUILD_CWD=$(pwd) && ls index.html && pnpm exec vite build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
   "functions": {
