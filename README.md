@@ -19,6 +19,189 @@ A unified autonomous agent operating system built for the **Synthesis hackathon*
 - **Integrations management page** — 17 integrations with connect/disconnect UI
 - **918 unit & component tests** across 52 test suites
 
+# Agency WZRD — Autonomous Agent OS
+
+Agency WZRD is an operating system for AI-native organizations. It gives teams a single control plane for identity, delegation, execution, payments, and observability across autonomous agents.
+
+It unifies agent operations into a single product surface: agents have identity, authority is scoped, work is observable, spend is traceable, and operational evidence is exportable.
+
+## Overview
+
+Agency WZRD combines multiple previously separate systems into one platform for running agent-powered teams. It includes wallet-based authentication, agent identity, delegation controls, orchestration workflows, payment rails, integration management, and a company workspace designed for operating autonomous organizations.
+
+The platform is built around a practical model for agent-native work:
+
+- agents are treated like employees
+- permissions are explicit
+- execution is logged
+- budgets are governed
+- outputs are reviewable
+- artifacts are portable
+
+## Core capabilities
+
+- **Agent cockpit** with a 3D delegation office, drag-and-drop work management, and org visualization
+- **Wallet-based authentication** via thirdweb with Google, email, passkey, MetaMask, Coinbase, Rainbow, and Rabby
+- **Multi-agent orchestration** across 10 harness adapters including Claude, Codex, Cursor, Gemini, HTTP, Hermes, and more
+- **Agent identity manifests** with auto-generated `agent.json` files for portable identity and registration flows
+- **Structured execution logging** through `agent_log.json` run artifacts
+- **Payment infrastructure** using x402 flows and USDC on Arbitrum
+- **Autonomous execution loop** with safety guardrails, budget tracking, and multi-step planning
+- **Private inference support** through Venice
+- **Token action workflows** through Uniswap integrations
+- **Delegation chains** modeled from leadership to department to task agent
+- **Cross-chain operations** through Bankr and Celo-connected surfaces
+- **Guided onboarding** with a 4-step setup wizard and feature tour
+- **Integrations management** with connect/disconnect controls across 17 integrations
+- **Comprehensive test coverage** with 918 unit and component tests across 52 suites
+
+## Product surfaces
+
+### Cockpit
+
+The cockpit is the visual control layer for the system. It combines a 3D delegation office, task surfaces, approval flows, and organizational views to make agent activity legible at a glance.
+
+### Chat orchestration
+
+A streaming chat surface lets operators assign work, coordinate agent execution, and monitor ongoing sessions in real time.
+
+### Delegation framework
+
+Authority can be distributed across the organization through structured delegation chains. This supports inspection, validation, and revocation of permissions across leadership, department, and task layers.
+
+### Agent identity
+
+Each agent can expose a portable identity surface and downloadable manifest describing capabilities, tools, and metadata.
+
+### Payments and settlement
+
+Invoice creation, settlement validation, and downloadable payment evidence are built into the system, making spend and service execution auditable.
+
+### Exportable evidence
+
+Key operational artifacts can be assembled and downloaded in one place for audits, demos, internal review, or system handoff.
+
+## Tech stack
+
+React 18 · TypeScript · Vite · Supabase · Three.js · thirdweb · TanStack React Query · Zustand · shadcn/ui · Tailwind CSS
+
+## Getting started
+
+```sh
+npm install
+# Copy .env.example or create .env with required variables
+npm run dev
+
+By default, the app starts on http://localhost:5173.
+
+The application can run in demo mode if the Supabase schema has not yet been applied.
+
+Database setup
+
+Run the SQL files in Supabase SQL Editor in this order:
+	1.	supabase/migrations/202603110001_create_agency_cockpit.sql
+	2.	src/db/migration-snippets.sql
+
+Verification
+
+Run the standard repo checks before shipping changes:
+
+npm test
+npx tsc -p tsconfig.app.json --noEmit
+npm run build
+
+Key artifacts
+
+Agency WZRD can generate and export structured artifacts that describe agent identity, execution, payments, and system routes.
+
+Artifact	Description	Retrieval path
+agent.json	Agent manifest with identity, tools, and capabilities	/submission-proof or /agents/:id
+agent_log.json	Run-scoped execution log with entries and usage	/submission-proof or /runs/:id
+payment_evidence.json	Invoice and settlement records	/submission-proof
+route_matrix.json	Reachable product routes	/submission-proof
+submission_proof_pack.json	Complete bundled export	/submission-proof
+
+Proof pack flow
+
+To retrieve the full export bundle:
+	1.	Start the app:
+
+npm run dev -- --host 127.0.0.1 --port 3101
+
+
+	2.	Navigate to /submission-proof
+	3.	Click Load agents and runs
+	4.	Select an agent to enable agent.json
+	5.	Select a run to enable agent_log.json
+	6.	Click Assemble Proof Pack
+	7.	Download individual artifacts or the full bundle
+
+Route map
+
+All major product routes are accessible from the left navigation.
+
+Section	Routes
+Top	/cockpit, /dashboard, /inbox
+Work	/issues, /goals, /approvals, /projects
+Agents	/agents, /agents/new, /agents/:id
+Company	/org-chart, /skills, /delegations, /costs, /activity, /integrations, /submission-proof, /settings
+
+Repo entry points
+
+This repository includes multiple entry points depending on what you want to run:
+
+pnpm install
+
+# Public app
+pnpm dev
+
+# API server
+pnpm dev:server
+
+# Workspace UI
+pnpm dev:ui
+
+For deeper setup and deployment guidance, see:
+	•	docs/DEVELOPING.md
+	•	docs/DATABASE.md
+	•	docs/start/architecture.md
+	•	docs/start/what-is-paperclip.md
+
+Repository structure
+
+src/                Public app and product-facing surfaces
+ui/                 Workspace board UI for the control plane
+server/             Express API and orchestration services
+packages/db/        Drizzle schema, migrations, and DB runtime
+packages/shared/    Shared types, constants, validators, API contracts
+docs/               Development, architecture, and deployment docs
+
+Shipped surfaces in this repo
+	•	Public app in src/: landing, auth, cockpit, chat, delegations, skills, integrations, proof flow, agent detail, onboarding
+	•	Workspace UI in ui/: company-scoped control-plane surfaces and showcase pages
+	•	Server/API in server/: routes, services, auth, adapter execution, activity, approvals, costs, workspaces, and orchestration logic
+	•	Shared schema and contracts in packages/db/ and packages/shared/
+	•	Integration modules in src/lib/ for Venice, Uniswap, x402, Bankr, Celo, MetaMask delegations, OpenServ, and AgentCash
+
+Scaffolded surfaces
+
+The repo also includes routes for budgets, workspaces, documents, plugins, invites, and settings that appear in parts of the UI but are not all fully wired to live or server-backed data yet. These should be treated as scaffolded product surfaces rather than the primary system path.
+
+Recent improvements
+	•	Faster landing experience with intro animation and a clearer demo narrative
+	•	Lightweight product-theatre preview using the real office.glb and character.glb assets
+	•	Expanded proof-pack flow across the public product experience
+	•	New workspace surfaces for chat, skills, delegations, proof flow, and execution detail
+	•	Documentation refresh aligned to the current repository structure and shipped surfaces
+
+Notes
+	•	The 3D cockpit requires WebGPU. Unsupported browsers receive a fallback overlay.
+	•	The package manager is npm; keep package-lock.json intact.
+	•	This repository includes both the public-facing product experience and the deeper company-scoped workspace UI.
+	•	Claims in this README are limited to routes, modules, and surfaces currently present in the repository, with scaffolded areas called out explicitly.
+
+
+
 ## Tech Stack
 
 React 18 · TypeScript · Vite · Supabase · Three.js · thirdweb · TanStack React Query · Zustand · Shadcn/UI · Tailwind CSS
