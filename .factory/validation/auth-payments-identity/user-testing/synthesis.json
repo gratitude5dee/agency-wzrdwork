@@ -1,0 +1,49 @@
+{
+  "milestone": "auth-payments-identity",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 16,
+    "passed": 14,
+    "failed": 0,
+    "blocked": 2
+  },
+  "passedAssertions": [
+    "VAL-AUTH-001",
+    "VAL-AUTH-002",
+    "VAL-PAY-001",
+    "VAL-PAY-002",
+    "VAL-PAY-003",
+    "VAL-PAY-004",
+    "VAL-PAY-005",
+    "VAL-ID-001",
+    "VAL-ID-002",
+    "VAL-ID-003",
+    "VAL-LOOP-001",
+    "VAL-LOOP-002",
+    "VAL-LOOP-003",
+    "VAL-BUDGET-001"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-AUTH-003",
+      "blockedBy": "Real-wallet connection requires headed browser with wallet extension \u2014 headless Chromium cannot interact with MetaMask or equivalent extensions"
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "blockedBy": "Real-wallet auth and reload verification requires headed browser with wallet extension \u2014 same blocker as VAL-AUTH-003"
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "override": {
+    "deferredAssertions": [
+      "VAL-AUTH-003",
+      "VAL-AUTH-004"
+    ],
+    "deferredToFeatureId": "m6-first-run-and-agent-consistency-flows",
+    "reason": "Deferred because the current validator environment is headless Chromium without a real wallet extension. These wallet-persistence assertions require headed/manual validation with an actual wallet connection and will be revalidated in the end-to-end milestone."
+  },
+  "executionNotes": " Override applied: VAL-AUTH-003 and VAL-AUTH-004 were deferred to m6-first-run-and-agent-consistency-flows for later headed/manual validation with a real wallet."
+}

@@ -1,0 +1,51 @@
+{
+  "featureId": "thirdweb-wallet-auth",
+  "reviewedAt": "2026-03-16T12:10:00.000Z",
+  "commitId": "242f4af",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation covering all 7 expected behaviors. ThirdwebProvider wraps the app, AuthGate blocks unauthenticated access with a full-screen sign-in page, ConnectButton is correctly configured with inAppWallet (google/email/passkey) + 4 external wallets (MetaMask, Coinbase, Rainbow, Rabby), wallet address syncs to companies.wallet_address, and truncated address displays in the AppShell header. 8 well-structured tests cover provider rendering, auth screen UI, gate states (disconnected/connecting/connected), and address truncation. No blocking issues found.",
+    "issues": [
+      {
+        "file": "src/components/WalletAuth.tsx",
+        "line": 70,
+        "severity": "non_blocking",
+        "description": "WalletHeaderButton component is exported but never imported or used anywhere in the app. The header uses useTruncatedAddress + Badge instead. This is dead code — consider removing or documenting its intended future use."
+      },
+      {
+        "file": "src/hooks/useWalletAddressSync.ts",
+        "line": 30,
+        "severity": "non_blocking",
+        "description": "The Supabase update call does not check for .error in the response. If the update fails (e.g., RLS policy issue), the error is silently lost. The outer try/catch only catches network-level exceptions, not Supabase-level errors returned in the response object."
+      },
+      {
+        "file": "src/hooks/useWalletAddressSync.ts",
+        "line": 24,
+        "severity": "non_blocking",
+        "description": "The 'first company' query (select('id').limit(1)) has no ORDER BY, so the row selected is non-deterministic if multiple companies exist. Acceptable for hackathon single-tenant model but worth noting."
+      },
+      {
+        "file": "src/providers/ThirdwebProvider.tsx",
+        "line": 11,
+        "severity": "non_blocking",
+        "description": "Fallback clientId 'placeholder' will cause thirdweb SDK errors at runtime if VITE_THIRDWEB_CLIENT_ID is not set. The comment acknowledges this, but a more explicit error message or console.warn at module load time would improve DX."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The architecture.md entry point description says 'Entry: src/main.tsx → src/App.tsx (QueryClient, Router, Toasters, TooltipProvider)' but should now mention that ThirdwebProvider wraps the entire app and AuthGate wraps all routes. Other workers building features that depend on wallet state (onboarding-flow, bankr-celo-integration) need to know that useActiveAccount() from 'thirdweb/react' is available throughout the app tree.",
+      "evidence": "src/App.tsx — ThirdwebProvider is outermost wrapper, AuthGate wraps inside BrowserRouter. architecture.md 'App Structure' section doesn't mention either."
+    },
+    {
+      "area": "conventions",
+      "observation": "New pattern introduced: auth providers and hooks live in src/providers/ and src/hooks/ respectively. The src/providers/ directory is new (created by this feature). architecture.md's 'Component Conventions' section doesn't mention this directory for provider wrappers.",
+      "evidence": "src/providers/ThirdwebProvider.tsx is the first file in src/providers/. architecture.md lists src/features/{feature}/, src/components/, src/pages/ but not src/providers/."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "thirdweb-wallet-auth passes review. All 7 expected behaviors are implemented correctly: ThirdwebProvider wrapping, sign-in screen with correct wallet options, auth gate blocking, wallet address persistence to Supabase, truncated address in header. The diff is clean (7 files, 448 additions), only App.tsx and AppShell.tsx were modified among existing files. 8 tests cover all key paths. 4 non-blocking issues noted: unused WalletHeaderButton export, unchecked Supabase error response, non-deterministic company selection, and fallback placeholder client ID. Two shared state observations flagged for architecture.md updates regarding the auth wrapper pattern and new src/providers/ directory convention."
+}

@@ -1,0 +1,51 @@
+{
+  "featureId": "org-chart-port",
+  "reviewedAt": "2026-03-16T12:10:00.000Z",
+  "commitId": "0de22ab",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Clean, faithful port of the Paperclip OrgChart component. The layout algorithm (subtreeWidth, layoutTree, layoutForest) is correctly preserved with identical constants (CARD_W=200, CARD_H=100, GAP_X=32, GAP_Y=80, PADDING=60). Data layer properly adapted: Paperclip's Express API calls replaced with direct Supabase client query plus useAgencyData demo fallback. A new buildOrgTree function correctly converts flat agent rows with reports_to into the OrgNode tree that Paperclip received pre-built from its API. Hybrid SVG+HTML rendering with L-shaped path connectors, pan/drag, wheel zoom (0.2-2x), auto-fit on load, and +/-/Fit zoom controls all present and correctly implemented. Agent cards display name, role/title (with fallback chain: title → roleLabel → raw role), status dot (color-coded per spec), and adapter type. The zoom button logic was refactored from Paperclip's inline handlers into a reusable zoomBy callback — an improvement. Route /org-chart added in App.tsx, sidebar nav item with GitBranch icon added in AppShell.tsx Company section. 5 tests cover rendering, card content, SVG connectors, zoom controls, and click safety. All verification commands passed (npm test, typecheck, build, lint).",
+    "issues": [
+      {
+        "file": "src/pages/OrgChart.tsx",
+        "line": 80,
+        "severity": "non_blocking",
+        "description": "subtreeWidth is called redundantly during layout — once in layoutTree to compute totalW, then again for each child inside the loop. For large org charts this is O(n²). Could be memoized with a Map<OrgNode, number>, but for typical org sizes (<100 agents) this is negligible."
+      },
+      {
+        "file": "src/pages/OrgChart.tsx",
+        "line": 166,
+        "severity": "non_blocking",
+        "description": "roleLabels map is hardcoded locally. If other features need the same role→display-name mapping, this should be extracted to a shared utility. Currently only used here so acceptable, but worth noting for future features."
+      },
+      {
+        "file": "src/pages/OrgChart.tsx",
+        "line": 404,
+        "severity": "non_blocking",
+        "description": "All agent cards use a generic Network icon. Paperclip's original used a custom AgentIcon component that rendered per-agent icons for visual differentiation. This is a reasonable simplification since the AgentIcon/picker doesn't exist in the base app, but cards will look visually identical in the icon area."
+      },
+      {
+        "file": "src/pages/OrgChart.tsx",
+        "line": 199,
+        "severity": "non_blocking",
+        "description": "Demo fallback type casting (adapter_config: {} as Tables<\"agents\">[\"adapter_config\"]) is slightly unsafe. Acceptable for demo/fallback data path but could cause unexpected behavior if downstream code expects populated adapter_config fields."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker created App.tsx and AppShell.tsx as entirely new files (1044 insertions across 4 files). Since this was the first feature committed (0de22ab is the earliest in the log), creating these foundational files was necessary. However, the feature description says 'Add route /org-chart in App.tsx' which implies modification, not creation. Future feature descriptions should clarify whether files need to be created vs modified.",
+      "evidence": "git show 0de22ab --stat shows all 4 files as 'new file mode 100644'. App.tsx (50 lines) and AppShell.tsx (301 lines) were created alongside OrgChart.tsx (511 lines) and its test (182 lines)."
+    },
+    {
+      "area": "conventions",
+      "observation": "roleLabels and adapterLabels maps are hardcoded in OrgChart.tsx. If more features need these mappings (e.g., agent detail pages, agent list pages), they should be extracted to a shared location like src/lib/constants.ts. AGENTS.md doesn't mention a pattern for shared display-name mappings.",
+      "evidence": "src/pages/OrgChart.tsx lines 148-175 define roleLabels and adapterLabels as local constants. Paperclip used AGENT_ROLE_LABELS from @paperclipai/shared package."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The OrgChart port is a clean, complete implementation that faithfully reproduces the Paperclip original while properly adapting the data layer to Supabase with demo fallback. All 8 expectedBehavior items are satisfied: tree rendering with reports_to hierarchy, root agents at top, SVG path connectors, agent cards with name/role/status/adapter, mouse drag panning, scroll wheel zoom (0.2-2x), +/-/Fit buttons, and auto-fit on load. No blocking issues. Four non-blocking observations noted: redundant subtreeWidth computation, hardcoded role/adapter labels, generic agent icons, and minor type casting in demo fallback. Worker followed all AGENTS.md conventions and skill procedure."
+}

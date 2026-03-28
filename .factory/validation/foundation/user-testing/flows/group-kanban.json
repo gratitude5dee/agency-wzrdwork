@@ -1,0 +1,87 @@
+{
+  "groupId": "kanban",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "page": "/cockpit",
+    "sessionId": "b9999ea2afc5__kanban"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-KANBAN-001",
+      "title": "Board renders with correct columns",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /cockpit", "expected": "Cockpit page loads", "observed": "Cockpit page loaded with sidebar, 3D scene area, and project info panel" },
+        { "action": "Scroll down to Kanban panel", "expected": "Kanban panel visible", "observed": "Kanban panel visible at bottom of cockpit page with chevron toggle and 'KANBAN' header" },
+        { "action": "Take full-page screenshot and verify column headers", "expected": "7 columns: backlog, todo, in_progress, in_review, blocked, done, cancelled", "observed": "All 7 columns visible: BACKLOG (0), TODO (0), IN PROGRESS (0), IN REVIEW (0), BLOCKED (0), DONE (0), CANCELLED (0). Each column has a colored status dot, uppercase label, and count badge." },
+        { "action": "Verify column headers via DOM text extraction", "expected": "Body text contains all 7 status labels", "observed": "DOM innerText confirmed: 'KANBAN\\n0 issues\\nBACKLOG\\n0\\nTODO\\n0\\nIN PROGRESS\\n0\\nIN REVIEW\\n0\\nBLOCKED\\n0\\nDONE\\n0\\nCANCELLED\\n0'" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban/VAL-KANBAN-001-fullpage.png", "foundation/kanban/VAL-KANBAN-001-columns.png"],
+        "consoleErrors": "none (WebGL/WebGPU renderer error is expected and ignored per guidance)",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KANBAN-002",
+      "title": "Issue cards display Supabase data",
+      "status": "pass",
+      "steps": [
+        { "action": "Inspect Kanban columns for issue cards", "expected": "Cards showing identifier, title, priority from Supabase issues table", "observed": "All columns show 0 issues. App is in 'Demo fallback' mode — Supabase issues table appears empty or unreachable." },
+        { "action": "Verify data layer wiring in source code", "expected": "KanbanPanel queries Supabase issues table", "observed": "KanbanPanel.tsx uses React Query with supabase.from('issues').select('*'). Each KanbanCard renders issue.identifier, issue.title, and issue.priority with priority color coding. Data layer is correctly wired to Supabase." },
+        { "action": "Verify card template renders correct fields", "expected": "Card shows identifier, title, priority badge", "observed": "Source confirms: identifier (or first 8 chars of ID), title with line-clamp-2, priority badge with color-coded border/background" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban/VAL-KANBAN-002-empty-columns.png"],
+        "consoleErrors": "none (WebGL error ignored per guidance)",
+        "network": "Supabase query for issues table executed (returned empty or demo fallback active)"
+      },
+      "issues": "No issue cards visible because Supabase issues table is empty or in demo fallback mode. Per task guidance: columns render correctly and data layer is wired to Supabase — marked as pass."
+    },
+    {
+      "id": "VAL-KANBAN-003",
+      "title": "Drag-drop moves issues between columns",
+      "status": "blocked",
+      "steps": [
+        { "action": "Look for issue cards to drag", "expected": "At least one issue card in a column", "observed": "All columns are empty (0 issues). No cards available to test drag-drop." },
+        { "action": "Verify empty column structure and drag-drop framework", "expected": "Columns render as droppable targets", "observed": "All 7 columns render correctly. Source code confirms @dnd-kit/core DndContext, useDroppable columns, useSortable cards, and Supabase updateStatusMutation with optimistic update." },
+        { "action": "Verify drag-drop implementation in source", "expected": "handleDragEnd updates status via Supabase", "observed": "KanbanPanel.tsx implements: PointerSensor with 5px activation distance, handleDragStart/handleDragEnd, status mutation via supabase.from('issues').update({status}).eq('id', issueId), optimistic UI update with rollback on error, and query invalidation on settle." }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban/VAL-KANBAN-001-fullpage.png"],
+        "consoleErrors": "none",
+        "network": "N/A — no cards to drag"
+      },
+      "issues": "Cannot test drag-drop because no issue cards exist in the Kanban board (0 issues in Supabase/demo fallback). The drag-drop infrastructure is fully implemented in code (@dnd-kit with Supabase mutation), but functional testing requires at least one issue card."
+    },
+    {
+      "id": "VAL-KANBAN-004",
+      "title": "Kanban panel is collapsible",
+      "status": "pass",
+      "steps": [
+        { "action": "Verify Kanban panel is initially expanded", "expected": "Kanban columns visible with down-chevron", "observed": "Kanban panel expanded with down-chevron icon, 'KANBAN' label, '0 issues' count, and all 7 columns visible below the header" },
+        { "action": "Click Kanban header to collapse", "expected": "Columns hidden, only header bar visible", "observed": "Panel collapsed — only the header bar with right-chevron, 'KANBAN' label, and '0 issues' shown. All column content hidden. Takes minimal vertical space (single row)." },
+        { "action": "Click Kanban header to expand again", "expected": "Columns visible again with down-chevron", "observed": "Panel expanded again — all 7 columns visible with down-chevron in header. Toggle works bidirectionally." }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban/VAL-KANBAN-004-expanded.png", "foundation/kanban/VAL-KANBAN-004-collapsed.png", "foundation/kanban/VAL-KANBAN-004-expanded-after.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Supabase issues table is empty or in demo fallback mode — no issue cards rendered in Kanban columns. This prevents testing VAL-KANBAN-003 (drag-drop) which requires at least one card.",
+      "affectedAssertions": ["VAL-KANBAN-003"],
+      "quickFixAttempted": "Verified Demo fallback badge visible in sidebar. Confirmed Kanban queries supabase.from('issues').select('*') which returns empty. Did not create test data as instructed not to modify shared Supabase data."
+    }
+  ],
+  "summary": "Tested 4 assertions: 3 passed (VAL-KANBAN-001, VAL-KANBAN-002, VAL-KANBAN-004), 1 blocked (VAL-KANBAN-003: no issue cards to drag because Supabase issues table is empty/demo fallback). All 7 Kanban columns render correctly with proper headers and status dots. The collapse/expand toggle works as specified. Data layer is properly wired to Supabase but no data is available for card rendering or drag-drop testing."
+}

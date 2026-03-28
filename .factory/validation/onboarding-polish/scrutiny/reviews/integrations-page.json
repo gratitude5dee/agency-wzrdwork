@@ -1,0 +1,51 @@
+{
+  "featureId": "integrations-page",
+  "reviewedAt": "2026-03-16T15:30:00.000Z",
+  "commitId": "d2fcc2b",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation of the Integrations management page. All 16 integration cards render in a responsive grid with correct Shadcn UI components (Card, Switch, Dialog, Input, Button, Select). Toggle and config save mutations properly interact with Supabase. Status derivation logic correctly checks enabled + api_key presence. The code follows project conventions: TypeScript with Database types from supabase/types.ts, @/ import aliases, lucide-react icons, Tailwind dark theme styling, React Query for server state. One non-blocking lint warning exists (rowMap in useCallback deps). 8 tests cover rendering, status badges, toggles, dialog, and connected state derivation. Route is properly wired in App.tsx.",
+    "issues": [
+      {
+        "file": "src/pages/Integrations.tsx",
+        "line": 186,
+        "severity": "non_blocking",
+        "description": "Lint warning: rowMap is constructed on every render (new Map from integrationRows), which causes the useCallback at line 246 (openConfigDialog) to have unstable dependencies. Should wrap rowMap in useMemo(() => new Map(integrationRows.map(r => [r.integration_key, r])), [integrationRows]) to stabilize the reference. This doesn't cause a bug since openConfigDialog is only called on user click, but it defeats the purpose of useCallback and causes unnecessary re-creation of the callback on every render."
+      },
+      {
+        "file": "src/pages/Integrations.tsx",
+        "line": 199,
+        "severity": "non_blocking",
+        "description": "rowMap is also used inside toggleMutation.mutationFn (line 199) and saveMutation.mutationFn (line 235). Since mutations capture rowMap via closure at definition time and useMutation doesn't have a deps array, there's a subtle staleness risk: if the user toggles rapidly while integrationRows is refetching, the mutation could read a stale rowMap. In practice this is very unlikely given the invalidateQueries in onSuccess, but wrapping rowMap in useMemo would also help here by making the reference stable and tied to integrationRows."
+      },
+      {
+        "file": "src/pages/Integrations.tsx",
+        "line": 130,
+        "severity": "non_blocking",
+        "description": "The config column is typed as Json in Supabase types but cast to Record<string, unknown> in deriveStatus and Record<string, string> in openConfigDialog/saveMutation. These casts are reasonable for this hackathon-scoped project but could be made safer with a type guard or Zod schema. Not blocking."
+      },
+      {
+        "file": "src/test/integrations-page.test.tsx",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "Tests cover rendering well but don't test the toggle mutation (clicking a Switch) or the save-config mutation (filling API key and clicking Save). These would require more elaborate mock setup but would increase confidence in the data persistence path. Non-blocking since the handoff confirms manual interactive verification of both flows."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker used `as Record<string, unknown>` and `as Record<string, string>` casts on the Supabase Json type for the config column. This is a reasonable pattern for JSONB columns but isn't documented in AGENTS.md. Other workers dealing with JSONB columns (e.g., agent_config, metadata) may benefit from a convention note about how to handle Json-typed columns.",
+      "evidence": "src/pages/Integrations.tsx:130 — `const config = row.config as Record<string, unknown> | null;`, line 243 — `const existingConfig = (existing?.config ?? {}) as Record<string, string>;`"
+    },
+    {
+      "area": "conventions",
+      "observation": "Worker correctly used the single-tenant hackathon pattern (fetch first company row with .limit(1).single()). This pattern is used across multiple pages but not explicitly documented in AGENTS.md as a convention.",
+      "evidence": "src/pages/Integrations.tsx:153-159 — company query uses .limit(1).single(). Same pattern visible in other pages like Settings."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The Integrations page is well-implemented with all 16 integration cards, toggle/config mutations, responsive grid layout, and proper use of project conventions (Shadcn UI, React Query, Supabase client, Tailwind dark theme, lucide-react icons). The Supabase types file has the integrations table properly defined and the component correctly uses Database['public']['Tables']['integrations']['Row']. Route is wired in App.tsx. 8 tests pass covering rendering and status derivation. One non-blocking lint warning (rowMap should be wrapped in useMemo) and minor test coverage gaps for mutation paths. No blocking issues found."
+}

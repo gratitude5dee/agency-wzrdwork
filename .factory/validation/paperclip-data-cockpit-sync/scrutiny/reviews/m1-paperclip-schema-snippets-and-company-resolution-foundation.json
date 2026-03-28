@@ -1,0 +1,21 @@
+{
+  "featureId": "m1-paperclip-schema-snippets-and-company-resolution-foundation",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [
+    {
+      "severity": "suggestion",
+      "description": "useActiveCompany staleTime is 30s which may feel slow for wallet-switch scenarios. Consider reducing or invalidating on wallet change.",
+      "file": "src/hooks/useActiveCompany.ts",
+      "line": null
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "observation": "useActiveCompany is now the canonical active-company resolution hook used across all company-scoped surfaces. Workers should always use this rather than direct company queries.",
+      "suggestedTarget": "library"
+    }
+  ],
+  "summary": "Added tenant-safe active-company resolution with two-stage lookup (onboarding→wallet fallback), 319-line SQL snippet artifact for Paperclip control-plane tables, and updated all shared pages/hooks to use useActiveCompany. 5 new tests cover all resolution paths. Clean implementation with good error handling."
+}

@@ -1,0 +1,83 @@
+{
+  "groupId": "settings-auth",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "devServerPort": 8080,
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "supabaseBackend": "lptryhnnhhvbblrrsaqa.supabase.co"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-SET-001",
+      "title": "Settings page loads correctly",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/settings", "expected": "Settings page renders", "observed": "Settings page rendered with 'AGENCY SETTINGS' header" },
+        { "action": "Check page content", "expected": "Company information and configuration options visible", "observed": "Four sections displayed: Company Information (name: Acme Delegation, wallet: Not connected), Backend Status (Connected, Live Supabase tables), Feature Tour (Replay Tour button), Onboarding (status: In progress, Reset Onboarding button)" },
+        { "action": "Check console errors", "expected": "No relevant console errors", "observed": "No console errors detected" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/settings-auth/VAL-SET-001-settings-page.png"],
+        "consoleErrors": "none",
+        "network": "Page loaded successfully"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SET-002",
+      "title": "Replay Tour button functional",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /settings", "expected": "Settings page loads", "observed": "Settings page loaded" },
+        { "action": "Locate Replay Tour button", "expected": "Button visible in Feature Tour section", "observed": "Replay Tour button visible in Feature Tour card with description 'Revisit the guided walkthrough of the platform'" },
+        { "action": "Click Replay Tour button", "expected": "Feature tour tooltip sequence starts", "observed": "Quick Tour modal appeared showing 'Cockpit' as step 1 of 7, with navigation dots for 7 tour stops (Cockpit, Dashboard, Kanban Board, Org Chart, Agents, Integrations, Settings), Skip Tour option, and Next button" }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/settings-auth/VAL-SET-001-settings-page.png", "onboarding-polish/settings-auth/VAL-SET-002-replay-tour-clicked.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-003",
+      "title": "Wallet address persisted to Supabase",
+      "status": "blocked",
+      "steps": [
+        { "action": "Check environment", "expected": "Wallet connected for persistence test", "observed": "VITE_DEV_SKIP_AUTH=true is active — AuthGate bypasses wallet check, useActiveAccount() returns undefined, no wallet is connected" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "N/A",
+        "network": "N/A"
+      },
+      "issues": "No real wallet connected in test environment — auth bypass active. useActiveAccount() returns undefined so no wallet address can be persisted to Supabase companies.wallet_address column. The useWalletAddressSync hook exists in code and is called from AuthGate.tsx, but cannot function without a connected wallet."
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "title": "Connected wallet address displayed in header",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to /cockpit and inspect header area", "expected": "Wallet address display in header", "observed": "Header shows page title, 'live runs' badge, 'approvals' badge, and Supabase link — no wallet address displayed" },
+        { "action": "Verify wallet display component exists in code", "expected": "Component exists but may be hidden", "observed": "AppShell.tsx (lines 100, 300-303) has conditional wallet address rendering: useTruncatedAddress() hook provides truncated address, rendered only when walletAddress is truthy. Since useActiveAccount() returns undefined (auth bypass), walletAddress is null and the element is not rendered." }
+      ],
+      "evidence": {
+        "screenshots": ["onboarding-polish/settings-auth/VAL-AUTH-004-cockpit-header.png", "onboarding-polish/settings-auth/VAL-AUTH-004-header-no-wallet.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": "No real wallet connected in test environment. The wallet address display component EXISTS in AppShell.tsx (useTruncatedAddress hook + conditional render at lines 300-303) but is hidden because useActiveAccount() returns undefined with auth bypass active. Component is correctly implemented — it would show truncated address when a wallet is connected."
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Auth bypass (VITE_DEV_SKIP_AUTH=true) prevents testing wallet-dependent features — useActiveAccount() returns undefined, so wallet address cannot be persisted to Supabase and header wallet display is conditionally hidden",
+      "affectedAssertions": ["VAL-AUTH-003", "VAL-AUTH-004"],
+      "quickFixAttempted": "Verified component implementations exist in source code (useWalletAddressSync hook in AuthGate.tsx, useTruncatedAddress + conditional render in AppShell.tsx lines 300-303). Components are correctly wired but require a real wallet connection to function."
+    }
+  ],
+  "summary": "Tested 4 assertions: 2 passed (VAL-SET-001, VAL-SET-002), 2 blocked (VAL-AUTH-003, VAL-AUTH-004 — no real wallet connected due to auth bypass). Settings page renders correctly with company info, backend status, feature tour, and onboarding sections. Replay Tour button successfully triggers 7-step Quick Tour tooltip sequence. Wallet-dependent features have correct implementations in code but cannot be exercised without a real wallet connection."
+}

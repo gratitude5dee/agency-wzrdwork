@@ -1,0 +1,37 @@
+{
+  "flowId": "terminal-crossflows",
+  "milestone": "end-to-end-validation-submission",
+  "assertions": {
+    "VAL-CROSS-003": {
+      "status": "pass",
+      "evidence": [
+        "Vitest crossflow-issue-runtime.test.ts: 9/9 tests passed",
+        "Tests verify: coherent trace with matching IDs, activity events share issue_id and company_id, runs share same IDs, execution logs reference linked run IDs, approvals share identifiers, incoherent traces detected, pre-execution state handled",
+        "The autonomous loop creates a coherent trail via shared IDs confirmed"
+      ],
+      "issues": []
+    },
+    "VAL-CROSS-004": {
+      "status": "pass",
+      "evidence": [
+        "Vitest crossflow-payment-trace.test.ts: 10/10 tests passed",
+        "Tests verify: paid invoice traces to owning company/agent/runtime, company_id match, agent belongs to same company, runs and logs share company_id, company mismatch detected, missing records handled gracefully, company-level invoices handled, payment proof includes tx_hash and buyer_wallet"
+      ],
+      "issues": []
+    },
+    "VAL-CROSS-005": {
+      "status": "pass",
+      "evidence": [
+        "Vitest crossflow-integration-downstream.test.ts: 10/10 tests passed",
+        "Tests verify: readIntegrationConfig, updateIntegrationConfig, proveConfigSurvivesReload, and integration-specific downstream proofs for Bankr, Venice, Composio, and Uniswap",
+        "Browser evidence: Integrations page renders 17 integration cards with toggle switches and Configure buttons, 2 integrations shown as checked/enabled"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Task tool subagent spawning fails with bun-eval parsing errors - used direct testing as fallback"
+  ],
+  "blockers": [],
+  "toolsUsed": ["vitest", "agent-browser"]
+}

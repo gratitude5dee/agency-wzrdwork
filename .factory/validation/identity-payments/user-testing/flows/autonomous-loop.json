@@ -1,0 +1,25 @@
+{
+  "group": "autonomous-loop",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "assertions": {
+    "VAL-LOOP-001": {
+      "status": "pass",
+      "evidence": "src/lib/agent-loop/autonomousLoop.ts defines loopSteps = ['discover','plan','execute','verify','submit'] and iterates through all 5 steps. Each step calls logExecution() (from src/lib/erc8004/execution-log.ts) to create agent_execution_logs entries: step_start logged as 'decision', step_complete logged as 'output'. Individual step functions (executeDiscover, executePlan, executeRun, executeVerify, executeSubmit) each make additional logExecution calls with log_types: tool_call, decision, tool_call+output, safety_check, and output respectively. Loop start and loop end are also logged.",
+      "notes": "The 5-step cycle (discover→plan→execute→verify→submit) is fully implemented. The loop creates a run entry, iterates each step with retry logic, and every step invokes logExecution() which inserts into agent_execution_logs table. Log types used: decision, tool_call, output, safety_check, retry, failure."
+    },
+    "VAL-LOOP-002": {
+      "status": "pass",
+      "evidence": "src/lib/agent-loop/guardrails.ts exports validateTransaction(params, limits) which checks: (1) operation not in UNSAFE_OPERATIONS list (drain_wallet, transfer_all, approve_unlimited, self_destruct, delegate_all), (2) params.amount > limits.maxAmountUsd returns invalid with spend limit reason, (3) negative amounts blocked, (4) if limits.recipientWhitelist is non-empty, params.recipient must be in whitelist (case-insensitive comparison). Types TransactionParams has {amount, recipient, operation} and SpendLimits has {maxAmountUsd, recipientWhitelist}.",
+      "notes": "validateTransaction correctly enforces spend limits (amount vs maxAmountUsd) and validates recipient addresses against the whitelist (case-insensitive). Also blocks unsafe operations. logValidation() logs validation results via the execution log system."
+    },
+    "VAL-LOOP-003": {
+      "status": "pass",
+      "evidence": "src/lib/agent-loop/budget.ts exports trackBudget(runId, tokensUsed, costUsd) which reads current runs row then updates total_input_tokens, total_output_tokens, total_cost_usd by adding new values to existing totals. enforceBudget(agentId, estimatedCost) calls checkBudgetRemaining() which sums all runs' costs for the agent and reads maxBudgetUsd from agent_identities.manifest.compute_constraints.budget_usd (default $10). If estimatedCost > remainingUsd, it throws an error and logs a 'failure' entry. autonomousLoop.ts calls trackBudget after each step and enforceBudget before each step.",
+      "notes": "Budget tracking is fully implemented: trackBudget accumulates token counts and cost in the runs table, checkBudgetRemaining aggregates across all agent runs, and enforceBudget prevents operations that would exceed the configured max budget. The autonomous loop integrates both functions in its step iteration."
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["source-review"],
+  "summary": "Tested 3 assertions: 3 passed. All autonomous loop code (5-step cycle with logging, transaction guardrails with spend limits and whitelist, budget tracking and enforcement) is correctly implemented."
+}

@@ -1,0 +1,58 @@
+{
+  "flowId": "payments-terminal",
+  "milestone": "auth-payments-identity",
+  "assertions": {
+    "VAL-PAY-001": {
+      "status": "pass",
+      "evidence": [
+        "Vitest x402-settlement.test.ts — 'VAL-PAY-001: Invoice creation data shape' suite: 2/2 tests pass",
+        "Test: 'creates an invoice with seller, chain, line items, and unpaid state' — verifies seller_wallet, chain_id (42161), line_items, amount_usdc, paid=false, buyer_wallet=null, tx_hash=null, paid_at=null",
+        "Test: 'total economics match submitted line items' — verifies multi-item invoice total matches (10*5 + 2*12.5 = 75 USDC)",
+        "Vitest x402-payment.test.ts — 34/34 tests pass including createInvoice, getInvoice, listInvoices, updateInvoicePayment"
+      ],
+      "issues": []
+    },
+    "VAL-PAY-002": {
+      "status": "pass",
+      "evidence": [
+        "Vitest x402-settlement.test.ts — 'VAL-PAY-002: Successful settlement records payment proof' suite: 1/1 test passes",
+        "Test: 'marks invoice paid with payer proof, tx hash, and paid timestamp' — verifies result.success=true, status=200, txHash present, paidAt defined, update includes paid=true, tx_hash, buyer_wallet, paid_at",
+        "Settlement uses optimistic lock (eq paid=false) to prevent race conditions"
+      ],
+      "issues": []
+    },
+    "VAL-PAY-003": {
+      "status": "pass",
+      "evidence": [
+        "Vitest x402-settlement.test.ts — 'VAL-PAY-003: Invalid proof leaves invoice unpaid' suite: 6/6 tests pass",
+        "Tests: missing txHash returns 402, missing payerWallet returns 402, nonexistent invoice returns 404, amount mismatch returns 422, chain mismatch returns 422, recipient mismatch returns 422",
+        "All failure cases return success=false with descriptive error messages"
+      ],
+      "issues": []
+    },
+    "VAL-PAY-004": {
+      "status": "pass",
+      "evidence": [
+        "Vitest x402-settlement.test.ts — 'VAL-PAY-004: Settlement runs through server-side surface' suite: 3/3 tests pass",
+        "Test: 'submitSettlement calls supabase.functions.invoke with x402-settle' — verifies settlement goes through server-side edge function, not direct browser call",
+        "Test: invoke error returns failure, thrown error returns failure — both with status 500",
+        "Code review: settlement-client.ts calls supabase.functions.invoke('x402-settle', {body: proof}) — browser never handles settlement secrets"
+      ],
+      "issues": []
+    },
+    "VAL-PAY-005": {
+      "status": "pass",
+      "evidence": [
+        "Vitest x402-settlement.test.ts — 'VAL-PAY-005: Settlement proof matching and idempotency' suite: 4/4 tests pass",
+        "Test: 'settlement succeeds only when proof matches amount, chain, and recipient' — exact match required",
+        "Test: 'already-paid invoice cannot be settled twice' — returns 409 with 'already paid' error",
+        "Test: 'case-insensitive wallet comparison' — handles mixed-case wallets correctly",
+        "Test: 'optimistic lock prevents race conditions' — concurrent settlement attempts return 409"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["vitest"]
+}

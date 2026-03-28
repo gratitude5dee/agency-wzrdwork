@@ -1,0 +1,45 @@
+{
+  "featureId": "adapter-system-port",
+  "reviewedAt": "2026-03-16T11:30:00.000Z",
+  "commitId": "d9b840f",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid port of the adapter UI system from Paperclip. All 9 adapters implemented with correct structure (type, label, parseStdoutLine, ConfigFields, buildAdapterConfig). Types are comprehensive and well-documented. Registry uses Map with sensible fallback to process adapter. Stdout parsers for claude_local and codex_local handle complex JSON event streams with proper defensive parsing. 77 tests cover registry completeness, interface contracts, config building specifics, and stdout parsing. TypeScript compiles clean, build succeeds. Three non-blocking issues found.",
+    "issues": [
+      {
+        "file": "src/adapters/claude-local/build-config.ts",
+        "line": 3,
+        "severity": "non_blocking",
+        "description": "Helper functions parseCommaArgs, parseEnvVars, and parseEnvBindings are duplicated verbatim across 6 adapter build-config files (claude-local, codex-local, cursor, gemini-local, opencode-local, pi-local). These should be extracted to a shared utility (e.g., src/adapters/utils.ts) to reduce maintenance burden and risk of drift."
+      },
+      {
+        "file": "src/adapters/openclaw-gateway/config-fields.tsx",
+        "line": 82,
+        "severity": "non_blocking",
+        "description": "Uses a raw HTML <select> element instead of the Shadcn Select component from @/components/ui/select. AGENTS.md and the feature description specify that ConfigFields should use Shadcn UI primitives. All other adapters consistently use Shadcn Input, Label, Switch, Textarea components."
+      },
+      {
+        "file": "src/adapters/pi-local/build-config.ts",
+        "line": 49,
+        "severity": "non_blocking",
+        "description": "extraArgs is assigned as a raw string (`ac.extraArgs = v.extraArgs`) instead of being parsed through parseCommaArgs() like all other adapters. Similarly, args is assigned as raw string (`ac.args = v.args`) without parseCommaArgs(). This inconsistency may cause issues if the backend expects arrays for these fields, as every other adapter that sets extraArgs uses parseCommaArgs() to produce string[]."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The adapter system introduces a pattern of per-module helper functions (parseCommaArgs, parseEnvVars, parseEnvBindings) duplicated across 6 build-config files. AGENTS.md and architecture.md don't mention a convention for shared adapter utilities or when to extract common logic. A note in architecture.md about the adapter module structure and where shared utilities should live would help future workers avoid further duplication.",
+      "evidence": "parseCommaArgs is defined identically in claude-local/build-config.ts:3, codex-local/build-config.ts:6, cursor/build-config.ts:5, gemini-local/build-config.ts:5, opencode-local/build-config.ts:3, process/build-config.ts:3. parseEnvVars duplicated across 6 files similarly."
+    },
+    {
+      "area": "conventions",
+      "observation": "OpenClaw gateway config-fields uses a raw <select> HTML element (line 82 of openclaw-gateway/config-fields.tsx) while all other adapters and the project conventions specify Shadcn UI components. AGENTS.md says 'Use existing Shadcn/UI components from src/components/ui/' but doesn't explicitly prohibit raw HTML form elements, which could lead to future inconsistencies.",
+      "evidence": "src/adapters/openclaw-gateway/config-fields.tsx:82 uses raw <select> while all other config-fields.tsx files use only @/components/ui/* imports."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The adapter system port is well-executed with all 9 adapters implementing the UIAdapterModule interface correctly. Types are comprehensive, the registry works with proper fallback, stdout parsers handle complex JSON event formats defensively, and 77 tests provide good coverage. Three non-blocking issues found: (1) significant helper function duplication across 6 build-config files that should be extracted to a shared utility, (2) openclaw-gateway config-fields uses raw HTML <select> instead of Shadcn Select component, (3) pi-local build-config assigns extraArgs/args as raw strings instead of parsing them through parseCommaArgs() like all other adapters. None of these block the feature from functioning correctly."
+}

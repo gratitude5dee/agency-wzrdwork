@@ -1,0 +1,21 @@
+{
+  "featureId": "m1-validator-baseline-lint-hardening",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [
+    {
+      "severity": "suggestion",
+      "description": "useAgencyData.ts uses a blanket DbRow type alias with eslint-disable for 17 mapper parameters. Consider adding proper per-table types when the data contracts stabilize.",
+      "file": "src/features/cockpit/lib/useAgencyData.ts",
+      "line": null
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "observation": "Test suite NODE_OPTIONS needs --max-old-space-size=8192 to complete all test files without OOM. The services.yaml test command should be updated accordingly.",
+      "suggestedTarget": "services.yaml"
+    }
+  ],
+  "summary": "Resolved all 53 lint errors across 15 files (cockpit Three.js, auth gate, data hooks, UI components) bringing lint from 53 errors/14 warnings to 0 errors/14 warnings. Changes are mechanical: proper type casts, hook ordering fixes, ESM imports, and targeted eslint-disable for TSL shader code. 362 existing tests verified to pass."
+}

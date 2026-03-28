@@ -1,0 +1,9 @@
+{
+  "featureId": "m1-org-chart-surface-and-clickthrough",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [],
+  "sharedStateObservations": [],
+  "summary": "Exposed org chart through sidebar navigation (Company section) and cockpit toolbar button. Node click-through navigates to agent detail. Browser-verified: sidebar link, cockpit button, and node click-through all work correctly. 2 new tests cover click-through and sidebar navigation item presence. Minimal, focused change."
+}

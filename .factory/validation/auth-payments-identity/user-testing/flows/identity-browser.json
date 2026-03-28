@@ -1,0 +1,29 @@
+{
+  "flowId": "identity-browser",
+  "milestone": "auth-payments-identity",
+  "assertions": {
+    "VAL-ID-001": {
+      "status": "pass",
+      "evidence": [
+        "Screenshot: agent-detail-identity.png — Agent detail page shows ERC-8004 Identity section with registration status and operator wallet for existing agent",
+        "Unit tests (27 passing): createAgentIdentity creates identity with non-placeholder wallet, isPlaceholderWallet rejects 0x0/empty/null/zero-address, AgentIdentitySection renders identity data",
+        "Code: createAgentIdentity called during agent creation (CeoAgentCreation.tsx, NewAgent.tsx) with company wallet from active company context",
+        "Unit test: createAgentIdentity throws on placeholder wallet — enforces non-placeholder operator wallet requirement"
+      ],
+      "issues": []
+    },
+    "VAL-ID-002": {
+      "status": "pass",
+      "evidence": [
+        "Screenshot: agent-detail-identity.png — Agent detail shows ERC-8004 Identity card with Registration Status (Pending badge), Operator Wallet (0xa...), and Agent Manifest label",
+        "Screenshot: agent-detail-identity-scrolled.png — Same identity card confirmed after scroll",
+        "Unit tests: AgentIdentitySection renders loading state, empty state, identity with registration/wallet/manifest, Registered badge when on-chain, and manifest JSON with erc8004_identity field",
+        "No console errors observed"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}

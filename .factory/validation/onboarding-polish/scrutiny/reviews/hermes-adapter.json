@@ -1,0 +1,45 @@
+{
+  "featureId": "hermes-adapter",
+  "reviewedAt": "2026-03-16T15:30:00.000Z",
+  "commitId": "2230180b12f835a12566af05c01c76a6b72ada4d",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Clean, well-structured Hermes adapter implementation following the exact same 4-file pattern as all other adapters (index.ts, build-config.ts, parse-stdout.ts, config-fields.tsx). TypeScript types are properly used throughout. The stdout parser handles 7 JSON event types with robust defensive parsing (safe JSON parse, type guards, fallbacks). The config builder correctly produces all required fields with sensible defaults and filters invalid MCP server entries. The ConfigFields component uses Shadcn UI components (Select, Checkbox, Input, Button, Label) with proper Tailwind dark-theme styling and lucide-react icons. Both create and edit mode paths are handled. 41 comprehensive tests cover registration, config building, extras parsing, constants, and stdout parsing. The adapter-system.test.ts was correctly updated to expect 10 adapters.",
+    "issues": [
+      {
+        "file": "src/adapters/hermes/config-fields.tsx",
+        "line": 161,
+        "severity": "non_blocking",
+        "description": "MCP server list items use array index as React key (`key={idx}`). When items are removed from the middle of the list, this can cause stale state in React reconciliation. Consider generating a unique id for each MCP server entry when adding. Low impact since the list is typically small and each item is controlled via state."
+      },
+      {
+        "file": "src/adapters/hermes/build-config.ts",
+        "line": 88,
+        "severity": "non_blocking",
+        "description": "hermes_home is hardcoded to '~/.hermes' with no way to override via config fields. This is consistent with Hermes defaults but limits customization. Acceptable for now since this matches the reference codebase's DEFAULT_CONFIG."
+      },
+      {
+        "file": "src/adapters/hermes/config-fields.tsx",
+        "line": 48,
+        "severity": "non_blocking",
+        "description": "readModel(), readProvider(), readToolsets(), readMemoryMode(), readMcpServers() are defined as regular functions that re-execute on every render. Could use useMemo for slight optimization, but with only 5-7 dropdown items the performance impact is negligible."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The Hermes adapter stores its config extras in envBindings under a special key (__hermes_extras__) rather than using top-level CreateConfigValues fields. This pattern (using envBindings as a namespace for adapter-specific config) is new — no other adapter does this. It works well and avoids modifying the shared CreateConfigValues interface, but if other adapters adopt this pattern it should be documented as a convention.",
+      "evidence": "src/adapters/hermes/build-config.ts:71 — HERMES_EXTRAS_KEY = '__hermes_extras__'. Compare to claude-local/build-config.ts which reads directly from CreateConfigValues fields (cwd, model, etc.)."
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed the synthesis-worker skill procedure correctly: read reference codebase first, wrote tests, implemented, wired into registry, verified with all 4 commands plus manual browser check. skillFeedback confirms followedProcedure=true with no deviations.",
+      "evidence": "Handoff skillFeedback.followedProcedure=true, transcript shows reference codebase reads before implementation, 41 tests written."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The Hermes adapter is a clean, well-tested implementation that follows project conventions precisely. It adds 4 source files and 1 test file (1002 lines total across 7 changed files). All 41 new tests pass along with the updated adapter-system tests (10 adapters). The code uses proper TypeScript types, Shadcn UI components, Tailwind dark-theme styling, and lucide-react icons. The stdout parser robustly handles 7 Hermes JSON event types with safe parsing. Three non-blocking issues noted: array-index React keys for MCP server list, hardcoded hermes_home path, and render-time helper function recreations. None are blocking. PASS."
+}

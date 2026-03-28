@@ -1,0 +1,36 @@
+{
+  "milestone": "identity-payments",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-ID-001",
+    "VAL-ID-002",
+    "VAL-ID-003",
+    "VAL-ID-004",
+    "VAL-PAY-001",
+    "VAL-PAY-002",
+    "VAL-PAY-003",
+    "VAL-LOOP-001",
+    "VAL-LOOP-002",
+    "VAL-LOOP-003",
+    "VAL-VENICE-001",
+    "VAL-VENICE-002",
+    "VAL-UNI-001",
+    "VAL-UNI-002",
+    "VAL-DELEG-001",
+    "VAL-DELEG-002",
+    "VAL-BANKR-001",
+    "VAL-CELO-001",
+    "VAL-CROSS-002"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null
+}

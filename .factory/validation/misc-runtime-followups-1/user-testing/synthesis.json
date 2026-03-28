@@ -1,0 +1,17 @@
+{
+  "milestone": "misc-runtime-followups-1",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "notes": "Milestone misc-runtime-followups-1 contains one implementation feature (misc-regenerate-supabase-types-for-skills-schema) with an empty fulfills array. No validation contract assertions are mapped to this milestone, so there are zero testable assertions. The scrutiny validator for this milestone already passed."
+}

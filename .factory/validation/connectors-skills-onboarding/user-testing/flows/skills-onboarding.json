@@ -1,0 +1,91 @@
+{
+  "flowId": "skills-onboarding",
+  "milestone": "connectors-skills-onboarding",
+  "assertions": {
+    "VAL-SKILLS-001": {
+      "status": "blocked",
+      "evidence": [
+        "Skills page renders with Import, New Skill buttons, search field (screenshot: skills-page.png)",
+        "Import Reference Skills dialog lists 12 skills across categories (screenshot: skills-import.png)",
+        "New Skill dialog has Name, Description, Category, Prerequisite Integration fields (screenshot: new-skill-dialog.png)",
+        "BLOCKED: skills table does not exist in remote Supabase (PGRST205 error). Import/Create operations fail silently. Schema detection isMissingTable() doesn't catch PGRST205 code."
+      ],
+      "issues": [
+        "skills table missing from remote Supabase — needs SQL snippet applied",
+        "isMissingTable() checks for code 42P01 but REST API returns PGRST205 — schema-required banner not shown"
+      ]
+    },
+    "VAL-SKILLS-002": {
+      "status": "blocked",
+      "evidence": [
+        "Agent detail page has Skills section with 'No skills assigned yet' message and link to Skills page (screenshot: agent-skills-section.png)",
+        "BLOCKED: agent_skills table does not exist in remote Supabase"
+      ],
+      "issues": ["agent_skills table missing from remote Supabase — needs SQL snippet applied"]
+    },
+    "VAL-SKILLS-003": {
+      "status": "blocked",
+      "evidence": [
+        "Import dialog shows prerequisite badges: 'Requires composio', 'Requires venice', 'Requires uniswap', 'Requires lido', 'Requires agentcash' (screenshot: skills-import.png)",
+        "BLOCKED: Cannot test live prerequisite gating without skills table"
+      ],
+      "issues": ["skills table missing — cannot verify live prerequisite enforcement"]
+    },
+    "VAL-SKILLS-004": {
+      "status": "blocked",
+      "evidence": [
+        "Onboarding step 4 shows 'Select skills for your CEO agent' with Import Reference Skills and Continue Without Skills buttons (screenshot: onboarding-skills-loaded.png)",
+        "BLOCKED: Cannot persist skills without skills table. Onboarding allows skip, which is correct behavior."
+      ],
+      "issues": ["skills table missing — cannot verify skill persistence onto CEO agent"]
+    },
+    "VAL-ONBOARD-001": {
+      "status": "pass",
+      "evidence": [
+        "After reset onboarding and creating company (step 1), refreshing page resumes at CEO Agent step (step 2) (screenshot: onboarding-resume-after-refresh.png)",
+        "user_onboarding record shows current_step properly tracked",
+        "Company context (company_id=191fee08) preserved across refresh"
+      ],
+      "issues": []
+    },
+    "VAL-ONBOARD-002": {
+      "status": "pass",
+      "evidence": [
+        "Skipping tour at step 5 marks onboarding_completed=true in Supabase (query: user_onboarding)",
+        "App default route redirects / to /cockpit (App.tsx line 77: Navigate to='/cockpit')",
+        "OnboardingGate renders app children when completed, app shell renders at default route"
+      ],
+      "issues": []
+    },
+    "VAL-ONBOARD-003": {
+      "status": "pass",
+      "evidence": [
+        "Settings page shows Replay Tour button (screenshot: settings-page.png)",
+        "Clicking Replay Tour shows Quick Tour from stop 1/7 (Sandbox) (screenshot: replay-tour.png)",
+        "Skipping tour returns to /settings URL (screenshot: after-tour-skip.png)",
+        "Onboarding status remains 'Completed' after replay (Settings shows Status: Completed)"
+      ],
+      "issues": []
+    },
+    "VAL-ONBOARD-004": {
+      "status": "pass",
+      "evidence": [
+        "Settings shows Reset Onboarding button (screenshot: settings-page.png)",
+        "Clicking Reset Onboarding triggers onboarding wizard (screenshot: reset-onboarding.png)",
+        "Toast confirms 'Onboarding reset. The wizard will appear on next visit.'",
+        "After reset: user_onboarding shows onboarding_completed=false, current_step=0, same company_id=191fee08",
+        "After re-completing: only 1 company row for wallet (no duplicates), new ceo_agent_id recorded",
+        "Same company name 'Test Agency Co' preserved through reset"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Task tool subagent spawning fails with bun-eval errors — had to fall back to direct testing",
+    "Skills table schema not applied to remote Supabase — blocks all skills-related assertions"
+  ],
+  "blockers": [
+    "skills and agent_skills tables do not exist in remote Supabase project. The schema SQL snippets exist in the codebase but need to be applied. isMissingTable() checks for postgres error code 42P01 but Supabase REST API returns PGRST205."
+  ],
+  "toolsUsed": ["agent-browser", "curl"]
+}

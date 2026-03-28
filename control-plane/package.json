@@ -1,0 +1,21 @@
+{
+  "name": "@paperclipai/control-plane",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@paperclipai/adapter-claude-local": "file:../packages/adapters/claude-local",
+    "@paperclipai/adapter-cursor-local": "file:../packages/adapters/cursor-local",
+    "@paperclipai/adapter-gemini-local": "file:../packages/adapters/gemini-local",
+    "@paperclipai/adapter-openclaw-gateway": "file:../packages/adapters/openclaw-gateway",
+    "@paperclipai/adapter-opencode-local": "file:../packages/adapters/opencode-local",
+    "@paperclipai/adapter-pi-local": "file:../packages/adapters/pi-local",
+    "@paperclipai/adapter-utils": "file:../packages/adapter-utils",
+    "postgres": "^3.4.7"
+  }
+}

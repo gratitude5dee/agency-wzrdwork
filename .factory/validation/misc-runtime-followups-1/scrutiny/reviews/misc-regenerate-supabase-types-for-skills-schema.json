@@ -1,0 +1,30 @@
+{
+  "featureId": "misc-regenerate-supabase-types-for-skills-schema",
+  "milestone": "misc-runtime-followups-1",
+  "reviewer": "direct-review (subagent spawn failed due to bun-eval parsing)",
+  "status": "pass",
+  "summary": "Supabase types were properly regenerated to include skills and agent_skills tables. The temporary fromTable() untyped workaround was fully removed from both useSkills.ts and SkillSelection.tsx. All table access is now type-safe via supabase.from() with generated table names. Skill and AgentSkill types were upgraded from manual interfaces to Tables<> from generated types. Nullable field access for description and category was properly handled with nullish coalescing.",
+  "filesReviewed": [
+    "src/hooks/useSkills.ts",
+    "src/features/onboarding/steps/SkillSelection.tsx",
+    "src/integrations/supabase/types.ts",
+    "src/pages/Skills.tsx"
+  ],
+  "findings": {
+    "blocking": [],
+    "nonBlocking": [
+      {
+        "severity": "suggestion",
+        "description": "The import of Tables and Json from types.ts could be combined into a single import statement for cleanliness: `import type { Tables, Json } from '@/integrations/supabase/types';`",
+        "file": "src/hooks/useSkills.ts",
+        "line": "21-22"
+      }
+    ]
+  },
+  "codeQuality": {
+    "typeSafety": "All fromTable() workarounds removed. Skills CRUD, assignment, and schema-readiness checks all use typed supabase.from() calls.",
+    "conventions": "Follows existing codebase patterns with React Query hooks and company-scoped access.",
+    "testCoverage": "Existing skills-registry test suite (34 tests) passes with the type-safe changes."
+  },
+  "sharedStateObservations": []
+}

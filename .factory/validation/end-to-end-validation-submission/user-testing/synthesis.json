@@ -1,0 +1,47 @@
+{
+  "milestone": "end-to-end-validation-submission",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 11,
+    "passed": 7,
+    "failed": 0,
+    "blocked": 4
+  },
+  "passedAssertions": [
+    "VAL-THREE-002",
+    "VAL-CROSS-002",
+    "VAL-CROSS-003",
+    "VAL-CROSS-004",
+    "VAL-CROSS-005",
+    "VAL-CROSS-006",
+    "VAL-CROSS-007"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-AUTH-003",
+      "blockedBy": "Requires headed browser with real wallet extension for wallet-to-company persistence proof; headless automation cannot interact with wallet browser extensions"
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "blockedBy": "Requires headed browser with real wallet auth to verify post-reload wallet display; headless automation cannot complete real-wallet auth cycle"
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "blockedBy": "Real-wallet auth portion of first-run funnel cannot be tested in headless automation; unit tests verify duplicate prevention and onboarding gating"
+    },
+    {
+      "id": "VAL-THREE-003",
+      "blockedBy": "WebGPU unavailable in headless Chromium; backend-to-scene propagation requires headed browser with WebGPU support for visual confirmation"
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "notes": [
+    "Task tool subagent spawning failed with bun-eval parsing errors (known issue documented in user-testing.md). All testing performed directly in synthesizer session.",
+    "All 7 passed assertions have strong evidence: Vitest unit/integration tests (47 tests total across 5 suites, all passing) plus browser screenshots and DOM queries.",
+    "4 blocked assertions share a common root cause: headless Chromium cannot interact with browser wallet extensions or render WebGPU scenes. These assertions are documented in AGENTS.md as requiring headed/manual evidence.",
+    "VAL-THREE-002 passes because CockpitSceneProofPanel data-* attributes prove NPC population reflects live Supabase data (not demo), even though the visual scene cannot render in headless."
+  ]
+}

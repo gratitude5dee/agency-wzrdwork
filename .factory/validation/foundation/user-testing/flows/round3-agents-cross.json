@@ -1,0 +1,100 @@
+{
+  "group": "round3-agents-cross",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "sharedSupabase": true
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": {
+    "VAL-CROSS-006": {
+      "status": "pass",
+      "evidence": [
+        "foundation/round3-agents-cross/VAL-CROSS-006-dashboard-metrics.png",
+        "foundation/round3-agents-cross/VAL-CROSS-006-agents-list.png",
+        "foundation/round3-agents-cross/VAL-CROSS-006-issues-page.png"
+      ],
+      "steps": [
+        {
+          "action": "Navigate to /dashboard",
+          "expected": "Dashboard shows metric cards with counts",
+          "observed": "Dashboard shows: Agents=2, Open Issues=2, Live Runs=1, Pending Approvals=1"
+        },
+        {
+          "action": "Navigate to /agents",
+          "expected": "Agent list count matches dashboard Agents metric",
+          "observed": "Agent list shows 2 agents (CEO, Founding Engineer) — matches dashboard count of 2"
+        },
+        {
+          "action": "Navigate to /issues",
+          "expected": "Issue count matches dashboard Open Issues metric",
+          "observed": "Issues page shows 2 issues (ACM-1 blocked, ACM-2 in_progress) — matches dashboard count of 2"
+        }
+      ],
+      "consoleErrors": "none",
+      "notes": "Dashboard metric cards correctly reflect the actual data counts. Agent count (2) matches agents list page count. Issue count (2) matches issues page count."
+    },
+    "VAL-AGENT-001": {
+      "status": "pass",
+      "evidence": [
+        "foundation/round3-agents-cross/VAL-AGENT-001-agents-list.png"
+      ],
+      "steps": [
+        {
+          "action": "Navigate to /agents",
+          "expected": "All agents from Supabase displayed with name, role, status, adapter type",
+          "observed": "2 seed agents displayed: (1) CEO — role: ceo, adapter: Claude Code (local), status: pending_approval; (2) Founding Engineer — role: founding_engineer, adapter: Codex (local), status: running"
+        }
+      ],
+      "consoleErrors": "none",
+      "notes": "Both seed agents render with all required information: name, role, status indicator (color dot), and adapter type badge."
+    },
+    "VAL-AGENT-003": {
+      "status": "pass",
+      "evidence": [
+        "foundation/round3-agents-cross/VAL-AGENT-003-agent-detail.png",
+        "foundation/round3-agents-cross/VAL-AGENT-003-agent-detail-bottom.png"
+      ],
+      "steps": [
+        {
+          "action": "Click CEO agent in list",
+          "expected": "Agent detail page shows all properties",
+          "observed": "Detail page shows: Name=CEO, Role=ceo, Title=CEO, Status=pending_approval, Adapter Type=Claude Code (local), Reports To=None (root), Capabilities=Strategy/planning/delegation/approval routing, Private Cognition=Disabled, Created/Updated timestamps. Adapter Configuration panel shows JSON config. Bottom sections show Recent Runs (1 failed run) and Assigned Issues (ACM-1 blocked)."
+        }
+      ],
+      "consoleErrors": "none",
+      "notes": "Agent detail page displays all required properties: name, role, status, adapter type, configuration details (adapter JSON config, capabilities, private cognition), and associated data (recent runs, assigned issues)."
+    },
+    "VAL-AGENT-002": {
+      "status": "pass",
+      "evidence": [
+        "foundation/round3-agents-cross/VAL-AGENT-002-new-agent-form.png",
+        "foundation/round3-agents-cross/VAL-AGENT-002-form-filled.png",
+        "foundation/round3-agents-cross/VAL-AGENT-002-agent-created.png"
+      ],
+      "steps": [
+        {
+          "action": "Navigate to /agents/new",
+          "expected": "Form with name, title, role selector, reports_to picker, adapter type dropdown",
+          "observed": "Form rendered with: Name input (required), Title input, Role selector (12 role options), Reports To picker (lists existing agents), Adapter Type dropdown (9 adapter types). Create Agent button initially disabled."
+        },
+        {
+          "action": "Fill form: Name='Test Validator Agent', Title='QA Test Agent', Role=Engineer, Reports To=CEO, Adapter Type=Codex (local)",
+          "expected": "Fields populated, Create Agent button enabled",
+          "observed": "All fields filled successfully. Adapter-specific config fields appeared (Agent instructions file, Bypass sandbox, Enable search). Create Agent button became enabled."
+        },
+        {
+          "action": "Click Create Agent",
+          "expected": "Agent created in Supabase, redirected to agent detail",
+          "observed": "Redirected to agent detail page showing: Name=Test Validator Agent, Role=engineer, Title=QA Test Agent, Status=idle, Adapter Type=Codex (local), Reports To=(CEO UUID), Created=just now. Adapter Configuration JSON visible."
+        }
+      ],
+      "consoleErrors": "none",
+      "notes": "Agent creation form fully functional. All required fields present. Selecting an adapter type dynamically shows adapter-specific configuration fields. Submission creates agent in Supabase and redirects to its detail page."
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed, 0 blocked. All agent management features (list, detail, create) and cross-view data consistency verified with seed data. Agent creation form successfully creates a new agent in Supabase with all required fields."
+}

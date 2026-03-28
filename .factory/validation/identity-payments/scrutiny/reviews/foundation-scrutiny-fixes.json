@@ -1,0 +1,55 @@
+{
+  "featureId": "foundation-scrutiny-fixes",
+  "reviewedAt": "2026-03-16T13:05:00.000Z",
+  "commitId": "7faf9d3",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "All 3 active fixes are correctly implemented. (1) NewAgent.tsx: reports_to sentinel correctly changed from `reportsTo || null` to `reportsTo && reportsTo !== 'none' ? reportsTo : null`, preventing the string 'none' from being sent to Supabase when 'None (root agent)' is selected. (2) parse-stdout.ts: unnecessary backslash before '[' removed inside regex character class, fixing no-useless-escape lint error without changing regex behavior. (3) Dashboard data consistency (VAL-CROSS-006): new useDashboardMetrics.ts hook with 4 Supabase-direct query hooks replaces snapshot-derived metric card counts in SectionPage.tsx. Charts/panels correctly continue to use useAgencyData() snapshot since they need full data arrays. Test mock updated to match. (4) Auth bypass correctly NOT re-applied per instructions. Build, typecheck, and all non-pre-existing tests pass. Lint clean on all modified files.",
+    "issues": [
+      {
+        "file": "src/hooks/useDashboardMetrics.ts",
+        "line": 23,
+        "severity": "non_blocking",
+        "description": "useAgentMetrics uses `as { status: string }[]` type assertion instead of Database types from src/integrations/supabase/types.ts. AGENTS.md convention says to prefer Database types (e.g., Database['public']['Tables']['agents']['Row']). Same pattern on lines 48, 76. Minor convention violation."
+      },
+      {
+        "file": "src/hooks/useDashboardMetrics.ts",
+        "line": 87,
+        "severity": "non_blocking",
+        "description": "useApprovalMetrics is nearly identical to the existing usePendingApprovalCount hook (src/hooks/usePendingApprovalCount.ts) — both query approvals table for status='pending' with count/head:true and 15s refetch. Could have reused the existing hook instead of creating a duplicate. The only difference is the query key ('dashboard-approval-metrics' vs 'pending-approval-count'), which means two separate polling queries for the same data."
+      },
+      {
+        "file": "src/hooks/useDashboardMetrics.ts",
+        "line": 65,
+        "severity": "non_blocking",
+        "description": "useRunMetrics fetches ALL run rows (select('status')) to compute live/succeeded/failed counts. As the runs table grows this could become expensive. The existing useLiveRunCount hook uses the more efficient count+head pattern. For the dashboard metrics, fetching all rows is needed to break down by multiple statuses, but this is worth noting as a potential future performance concern."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker used `as { status: string }[]` type assertions in useDashboardMetrics.ts instead of Supabase Database types. AGENTS.md documents this convention ('Prefer using Database types from src/integrations/supabase/types.ts over defining local interfaces for Supabase data') but workers may not apply it consistently for simple select queries where only one column is fetched.",
+      "evidence": "src/hooks/useDashboardMetrics.ts lines 23, 48, 76 use `as { status: string }[]` instead of Database['public']['Tables']['agents']['Row'][] etc."
+    },
+    {
+      "area": "conventions",
+      "observation": "Worker created a new useApprovalMetrics hook that duplicates the existing usePendingApprovalCount hook. No convention in AGENTS.md about checking for existing hooks before creating new ones, and no index of existing hooks. Workers may not discover existing hooks unless they search for them.",
+      "evidence": "src/hooks/useDashboardMetrics.ts:useApprovalMetrics vs src/hooks/usePendingApprovalCount.ts — both query approvals with status=pending, count+head, 15s refetch. Transcript shows worker did grep for useLiveRunCount and usePendingApprovalCount but still created a duplicate rather than importing the existing one."
+    },
+    {
+      "area": "skills",
+      "observation": "Skill says 'Write Tests First (TDD)' in step 2, but for fix-type features the worker understandably skipped writing new tests and only updated existing ones. The skill procedure doesn't distinguish between greenfield features and fix/patch features. The worker's deviation was justified — TDD for a lint escape fix or a one-line sentinel fix would be wasteful.",
+      "evidence": "Transcript shows no new test files created. Only src/test/dashboard-components.test.tsx was updated to mock the new hooks. skillFeedback.followedProcedure is true, which is a reasonable interpretation."
+    },
+    {
+      "area": "skills",
+      "observation": "Skill lists 'npm run lint' as a verification step, but worker ran eslint only on modified files. This is justified because AGENTS.md documents 47 pre-existing lint errors causing npm run lint to exit non-zero. The skill procedure doesn't mention this known issue, so workers must discover it independently.",
+      "evidence": "Skill step 5 says 'npm run lint # Lint passes'. Worker ran: npx eslint src/adapters/cursor/parse-stdout.ts src/pages/NewAgent.tsx src/hooks/useDashboardMetrics.ts src/features/cockpit/pages/SectionPage.tsx (exitCode 0). AGENTS.md 'Known Pre-Existing Issues' section documents the lint failures."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. All 3 active fixes correctly implemented: (1) reports_to 'none' sentinel now sends null to Supabase, (2) useless regex escape removed from parse-stdout.ts, (3) dashboard metric cards query Supabase directly via new useDashboardMetrics hooks, fixing VAL-CROSS-006 data consistency issue. Auth bypass correctly left untouched per instructions. Build succeeds, typecheck clean, 138/140 tests pass (2 pre-existing AuthGate failures documented in AGENTS.md). Three non-blocking issues noted: type assertion convention, hook duplication with existing usePendingApprovalCount, and potential future perf concern with fetching all run rows."
+}

@@ -1,0 +1,21 @@
+{
+  "featureId": "m1-three-scene-live-agent-sync",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [
+    {
+      "severity": "non_blocking",
+      "description": "The 10s refetch interval means scene state can lag up to 10 seconds behind backend changes. This is documented as acceptable in user-testing guidance but may surprise users expecting real-time scene updates.",
+      "file": "src/features/cockpit/lib/useAgencyData.ts",
+      "line": null
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "observation": "Three.js scene assertions (VAL-THREE-*) cannot be fully validated in headless Chromium due to WebGPU requirements. Unit tests covering data-sync and overlay states provide primary validation; headed/manual evidence is needed for full scene rendering proof.",
+      "suggestedTarget": "library"
+    }
+  ],
+  "summary": "Wired Three.js cockpit scene to live agent sync with 10s refetch, fixed a bug where new agents weren't registered in the scene due to constant agent set ID, and added NPC driver sync for dynamic population changes. 20-case test suite covers scene population, inspector sync, run/approval propagation, and 4 graceful degradation states. Build passes cleanly."
+}

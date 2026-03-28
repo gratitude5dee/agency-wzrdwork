@@ -1,0 +1,80 @@
+{
+  "groupId": "integrations-page",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "devServerPort": 8080,
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "supabaseBackend": "lptryhnnhhvbblrrsaqa.supabase.co"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-INTEG-001",
+      "title": "Page renders 16 integration cards",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /integrations", "expected": "Integrations page loads with cards", "observed": "Page loaded with title 'Integrations' and subtitle 'Connect external services and APIs to your agent network.'" },
+        { "action": "Count integration cards", "expected": "16 cards present", "observed": "16 integration cards rendered: thirdweb, supabase, venice, openserv, uniswap, bankr, lido, agentcash, celo, superrare, ens, self, arkhai, metamask, fal, bond_credit" },
+        { "action": "Verify card structure", "expected": "Each card has name, status badge, and toggle", "observed": "Each card displays integration name, subtitle description, 'Disconnected' status badge with dot indicator, toggle switch, and Configure button" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "onboarding-polish/integrations-page/VAL-INTEG-001-page-load.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-001-scrolled.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-001-full-page.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Page loaded without errors; React Router v7 future flag warnings are expected noise"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INTEG-002",
+      "title": "Toggle enable/disable persists",
+      "status": "pass",
+      "steps": [
+        { "action": "Check initial toggle state for thirdweb", "expected": "Toggle is OFF", "observed": "is_checked returned false — toggle is OFF" },
+        { "action": "Click thirdweb toggle to enable", "expected": "Toggle turns ON, UI reflects enabled state", "observed": "Toggle turned ON (checked). Snapshot shows switch [ref=e3] [checked]" },
+        { "action": "Reload page to verify persistence", "expected": "Toggle remains ON after reload", "observed": "After page reload, thirdweb toggle still shows [checked] state — confirmed Supabase persistence" },
+        { "action": "Toggle back OFF", "expected": "Toggle turns OFF", "observed": "is_checked returned false — toggle successfully toggled back OFF" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "onboarding-polish/integrations-page/VAL-INTEG-002-before-toggle.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-002-after-toggle.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-002-after-reload-persisted.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Toggle mutation persisted to Supabase integrations.enabled column — confirmed by page reload"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INTEG-003",
+      "title": "Config dialog saves API keys",
+      "status": "pass",
+      "steps": [
+        { "action": "Click Configure on thirdweb card", "expected": "Config dialog opens with API key input", "observed": "Dialog opened with title 'Configure thirdweb', description 'Enter credentials and settings for the thirdweb integration.', API Key input field, Cancel and Save Configuration buttons" },
+        { "action": "Fill API key field with test value", "expected": "Field populated with test-api-key-12345", "observed": "API Key field filled with 'test-api-key-12345'" },
+        { "action": "Click Save Configuration", "expected": "Dialog closes, config saved to Supabase", "observed": "Dialog closed. Toast notification 'Configuration saved' appeared. Thirdweb card status changed from 'Disconnected' to 'Connected' (green dot)" },
+        { "action": "Re-open config dialog to verify persistence", "expected": "API key field pre-populated with saved value", "observed": "Dialog re-opened with API Key field showing masked value (dots). get_value returned 'test-api-key-12345' — confirmed Supabase persistence to integrations.config JSONB" },
+        { "action": "Clean up: clear API key and save empty config", "expected": "Test data removed", "observed": "API key cleared and empty config saved successfully" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "onboarding-polish/integrations-page/VAL-INTEG-003-config-dialog-open.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-003-config-filled.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-003-after-save.png",
+          "onboarding-polish/integrations-page/VAL-INTEG-003-config-reopened.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST to Supabase integrations table for config JSONB update — confirmed by toast and re-opened dialog"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed, 0 failed. All 16 integration cards render correctly with names, status badges, and toggles. Toggle enable/disable persists to Supabase across page reloads. Config dialog opens with API key input, saves to Supabase integrations.config JSONB, and re-populates on re-open."
+}

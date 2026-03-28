@@ -1,0 +1,36 @@
+{
+  "featureId": "m5-settings-controls-and-system-status",
+  "milestone": "integrations-settings-polish",
+  "reviewedBy": "direct-review-fallback",
+  "status": "pass",
+  "summary": "Feature completes the Settings page with company profile editing (name+brief), defaults display (company_type, brand_color, slug), onboarding replay/reset, backend status, and a danger zone with wallet disconnect confirmation. The useCompanySettings hook was extended with an update mutation and additional fields. Tests cover 12 settings scenarios.",
+  "filesReviewed": [
+    "src/features/cockpit/pages/SectionPage.tsx",
+    "src/hooks/useCompanySettings.ts",
+    "src/test/settings-page.test.tsx"
+  ],
+  "codeQuality": {
+    "strengths": [
+      "Company profile editing uses a proper mutation with optimistic invalidation of both company-settings and active-company queries",
+      "Danger zone disconnect has a two-step confirmation pattern preventing accidental actions",
+      "Settings sections are well-organized into logical cards: Company Info, Backend Status, Tour, Onboarding, Defaults, Danger Zone",
+      "Extended CompanySettings interface with optional fields maintains backward compatibility"
+    ],
+    "concerns": [
+      {
+        "severity": "non_blocking",
+        "description": "The disconnect wallet confirm handler mutates with { name: company?.name ?? '' } which updates the name to itself but doesn't actually clear wallet_address. The actual wallet disconnect would require a different mutation payload. This appears to be a placeholder that shows a success toast without truly disconnecting.",
+        "location": "src/features/cockpit/pages/SectionPage.tsx:SettingsSection:danger-zone"
+      }
+    ]
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "severity": "non_blocking",
+      "description": "The wallet disconnect button in the danger zone performs a no-op mutation (updates name to itself) rather than actually clearing the wallet_address field. This is acceptable as wallet disconnection should happen through the auth provider, but the UX could be misleading.",
+      "location": "src/features/cockpit/pages/SectionPage.tsx:danger-zone"
+    }
+  ],
+  "sharedStateObservations": []
+}

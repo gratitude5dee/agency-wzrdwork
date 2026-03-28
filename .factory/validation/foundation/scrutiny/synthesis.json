@@ -1,0 +1,154 @@
+{
+  "milestone": "foundation",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": { "passed": true, "command": "npm test", "exitCode": 0, "detail": "9 test files, 140 tests passed" },
+    "typecheck": { "passed": true, "command": "npx tsc -p tsconfig.app.json --noEmit", "exitCode": 0 },
+    "lint": { "passed": false, "command": "npm run lint", "exitCode": 1, "detail": "48 errors, 10 warnings. Pre-existing baseline was 47 errors, 8 warnings (documented in AGENTS.md). Foundation work added 1 new error (no-useless-escape in adapters/cursor/parse-stdout.ts) and 2 new warnings (react-refresh/only-export-components in ActivityCharts.tsx, ThirdwebProvider.tsx). All new errors are non-blocking." }
+  },
+  "reviewsSummary": {
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "adapter-system-port",
+      "severity": "non_blocking",
+      "description": "Helper functions (parseCommaArgs, parseEnvVars, parseEnvBindings) duplicated across 6 adapter build-config files. Should be extracted to src/adapters/utils.ts."
+    },
+    {
+      "featureId": "adapter-system-port",
+      "severity": "non_blocking",
+      "description": "openclaw-gateway config-fields uses raw HTML <select> instead of Shadcn Select component."
+    },
+    {
+      "featureId": "adapter-system-port",
+      "severity": "non_blocking",
+      "description": "pi-local build-config assigns extraArgs/args as raw strings instead of parsing through parseCommaArgs() like other adapters."
+    },
+    {
+      "featureId": "adapter-system-port",
+      "severity": "non_blocking",
+      "description": "Lint error: no-useless-escape in src/adapters/cursor/parse-stdout.ts line 9."
+    },
+    {
+      "featureId": "kanban-board-port",
+      "severity": "non_blocking",
+      "description": "Manual IssueRow type defined instead of reusing Database types or domain.ts IssueRecord type."
+    },
+    {
+      "featureId": "kanban-board-port",
+      "severity": "non_blocking",
+      "description": "No loading/error UI states shown when Supabase query is pending or fails."
+    },
+    {
+      "featureId": "org-chart-port",
+      "severity": "non_blocking",
+      "description": "roleLabels and adapterLabels maps hardcoded locally. Should be extracted to shared constants if reused by other features."
+    },
+    {
+      "featureId": "dashboard-components-port",
+      "severity": "non_blocking",
+      "description": "Potential crash: getCreatedAt() returns empty string for missing dates; new Date('').toISOString() throws RangeError."
+    },
+    {
+      "featureId": "agent-management-pages",
+      "severity": "non_blocking",
+      "description": "reports_to 'none' sentinel: string 'none' sent to Supabase instead of null when user selects 'None (root agent)'. Would fail at runtime if FK constraint exists."
+    },
+    {
+      "featureId": "agent-management-pages",
+      "severity": "non_blocking",
+      "description": "STATUS_COLORS duplicated in Agents.tsx and AgentDetail.tsx."
+    },
+    {
+      "featureId": "agent-management-pages",
+      "severity": "non_blocking",
+      "description": "AgentDetailPage tests only assert document.body exists — effectively no-op assertions."
+    },
+    {
+      "featureId": "thirdweb-wallet-auth",
+      "severity": "non_blocking",
+      "description": "Supabase error response not checked in useWalletAddressSync — errors silently lost."
+    },
+    {
+      "featureId": "thirdweb-wallet-auth",
+      "severity": "non_blocking",
+      "description": "Non-deterministic company row selection (no ORDER BY) when syncing wallet address."
+    },
+    {
+      "featureId": "navigation-data-wiring",
+      "severity": "non_blocking",
+      "description": "Orphan routes (/org-chart, /design-guide) remain in App.tsx but removed from sidebar navigation."
+    },
+    {
+      "featureId": "navigation-data-wiring",
+      "severity": "non_blocking",
+      "description": "Dual data sources (useAgencyData at 30s + new hooks at 15s) for badge counts vs footer, can momentarily be out of sync."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Updated architecture.md to document ThirdwebProvider/AuthGate auth wrapping pattern and src/providers/ directory convention.",
+      "sourceFeature": "thirdweb-wallet-auth"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention: 'Use Database types from src/integrations/supabase/types.ts for all Supabase queries. Do not define local TypeScript interfaces that duplicate generated table row types. For domain-specific aliases, reference src/features/cockpit/lib/domain.ts.'",
+      "evidence": "Features kanban-board-port, agent-management-pages, and dashboard-components-port all defined local interface types (IssueRow, AgentRow, AgentDetailRow) instead of using the Database types. Same pattern repeated across 3 independent workers.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention: 'Place shared display constants (STATUS_COLORS, roleLabels, adapterLabels) in src/lib/constants.ts. Do not duplicate constants across page files.'",
+      "evidence": "STATUS_COLORS duplicated in Agents.tsx and AgentDetail.tsx. roleLabels duplicated in OrgChart.tsx and would likely be needed by agent list pages. Multiple workers independently created the same constants.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention: 'Place shared React hooks in src/hooks/. Place feature-specific hooks (used by only one feature) in src/features/{feature}/lib/ or src/features/{feature}/hooks/.'",
+      "evidence": "Navigation hooks (useLiveRunCount, usePendingApprovalCount, useSidebarAgents) placed in src/hooks/ while useAgencyData lives in src/features/cockpit/lib/. No documented guidance on which location to use.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update synthesis-worker skill TDD requirement (step 2) to clarify: 'TDD applies to features with testable behavior (components, hooks, utilities). For config/setup features (dependency installs, .env creation, SQL migrations, type definitions), skip TDD and document why in skillFeedback.'",
+      "evidence": "foundation-setup worker correctly skipped TDD for a setup task and noted it in skillFeedback. Multiple reviewers flagged the TDD deviation as a skill gap.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update synthesis-worker skill verification step (step 5) to acknowledge AGENTS.md's 'Known Pre-Existing Issues' for lint: 'Run npm run lint. The command will exit non-zero due to pre-existing errors. Verify that YOUR new files have no lint errors by checking the output. Do not skip the lint step.'",
+      "evidence": "4 of 8 workers skipped npm run lint entirely. AGENTS.md says lint will fail with 47 pre-existing errors, but the skill doesn't acknowledge this — workers saw the conflict and skipped lint rather than parsing the output.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Clarify when agent-browser interactive verification is required vs optional in synthesis-worker skill step 5. Currently says 'manually verify with agent-browser' but multiple workers skipped it with no issues.",
+      "evidence": "At least 4 of 8 workers skipped interactive browser verification. All features still passed review. The step may be better framed as 'recommended for UI features' rather than required.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Git repo root at home directory documentation gap",
+      "reason": "already-documented — AGENTS.md 'Known Pre-Existing Issues' section already documents this."
+    },
+    {
+      "observation": "openclaw-gateway uses raw <select> instead of Shadcn Select",
+      "reason": "Too specific and isolated to one file. Non-blocking code issue already captured. Not a systemic pattern requiring guidance update."
+    },
+    {
+      "observation": "SectionPage scope exceeded feature contract by implementing all sections",
+      "reason": "One-off occurrence due to file needing to be created fresh. Not a systemic issue — the worker correctly created the required file that was missing."
+    }
+  ],
+  "previousRound": null
+}

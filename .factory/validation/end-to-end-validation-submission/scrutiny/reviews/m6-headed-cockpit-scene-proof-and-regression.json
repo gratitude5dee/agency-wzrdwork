@@ -1,0 +1,35 @@
+{
+  "featureId": "m6-headed-cockpit-scene-proof-and-regression",
+  "milestone": "end-to-end-validation-submission",
+  "reviewer": "scrutiny-validator-direct-review",
+  "reviewedAt": "2026-03-18T20:42:00.000Z",
+  "fallbackReason": "Task subagent bun-eval parsing error; direct review per AGENTS.md guidance",
+
+  "summary": "Feature adds CockpitSceneProofPanel as a validation affordance for headed/manual cockpit scene proof. The component exposes all significant scene state values as DOM-queryable data-proof-* attributes, enabling headed browser validators to prove live NPC population and backend-to-scene propagation for VAL-THREE-002 and VAL-THREE-003. Includes a collapsible UI, 16 comprehensive tests, and a reusable proof procedure document in .factory/library/headed-cockpit-proof.md.",
+
+  "codeQuality": {
+    "rating": "good",
+    "observations": [
+      "data-proof-* attributes are well-chosen for machine-queryable DOM validation",
+      "Panel correctly uses pointer-events-auto to remain interactive within a pointer-events-none scene container",
+      "Expand/collapse toggle preserves attributes on the root regardless of expansion state",
+      "NPC names use a join(',') for the data attribute and render individual li elements in expanded view",
+      "Component follows the project's design system patterns (zinc-500 labels, dark card styling)",
+      "The SceneProofSnapshot interface cleanly separates validation data from rendering concerns"
+    ]
+  },
+
+  "issues": [],
+
+  "blockingIssues": [],
+
+  "sharedStateObservations": [
+    {
+      "observation": "The headed-cockpit-proof.md library doc provides a step-by-step browser validation procedure that could be useful for future validators",
+      "target": "library",
+      "recommendation": "Already applied by the worker — no action needed"
+    }
+  ],
+
+  "verdict": "pass"
+}

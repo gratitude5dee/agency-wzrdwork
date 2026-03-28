@@ -1,0 +1,57 @@
+{
+  "featureId": "agent-management-pages",
+  "reviewedAt": "2026-03-16T12:10:00.000Z",
+  "commitId": "c07d50f",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Agent management pages (list, detail, new-agent form) are well-implemented. Routes wired in App.tsx, sidebar nav updated in AppShell with 'All Agents' link and individual agent links. Supabase queries use React Query correctly. New Agent form integrates adapter registry ConfigFields. 10 tests added. One non-trivial bug with the reports_to 'none' sentinel value and a few minor code-quality observations, but nothing blocking overall functionality.",
+    "issues": [
+      {
+        "file": "src/pages/NewAgent.tsx",
+        "line": 142,
+        "severity": "non_blocking",
+        "description": "reports_to 'none' sentinel value bug: When the user selects 'None (root agent)' from the reports_to picker, the state is set to the string \"none\". The insert logic `reportsTo || null` evaluates \"none\" as truthy, so the literal string \"none\" is sent to Supabase's reports_to column instead of null. If reports_to has a foreign key constraint to agents.id, this will fail at runtime. Fix: change to `reportsTo && reportsTo !== \"none\" ? reportsTo : null`. Marked non-blocking because the empty-string default means the field is null when untouched, and a foreign key violation would surface as a clear error toast rather than silent corruption."
+      },
+      {
+        "file": "src/pages/Agents.tsx",
+        "line": 22,
+        "severity": "non_blocking",
+        "description": "STATUS_COLORS is duplicated verbatim in both Agents.tsx (line 22) and AgentDetail.tsx (line 15). Should be extracted to a shared constants file (e.g. src/lib/constants.ts or src/features/cockpit/lib/statusColors.ts) to avoid drift."
+      },
+      {
+        "file": "src/test/agent-management.test.tsx",
+        "line": 78,
+        "severity": "non_blocking",
+        "description": "AgentDetailPage tests are effectively no-ops — both test cases only assert `expect(document.body).toBeTruthy()` which always passes regardless of what the component does. They don't verify the loading skeleton, the 'Agent not found' state, or any rendered content. Should at minimum assert on a loading skeleton element or wait for the not-found state."
+      },
+      {
+        "file": "src/pages/AgentDetail.tsx",
+        "line": 87,
+        "severity": "non_blocking",
+        "description": "Runs and issues queries fetch all rows from Supabase but only render the first 10 via .slice(0, 10). For agents with many runs/issues this is wasteful. Adding .limit(10) to the Supabase queries would be more efficient."
+      },
+      {
+        "file": "src/pages/AgentDetail.tsx",
+        "line": 113,
+        "severity": "non_blocking",
+        "description": "useMemo for adapterLabel has dependency array [agent] which tracks the object reference. While this works correctly with React Query (new reference on new data), adding agent?.adapter_type as the dependency would be more precise and avoid unnecessary recomputations on unrelated agent field changes."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker defined local TypeScript interfaces (AgentRow, AgentDetailRow, RunRow, IssueRow, AgentPickerRow) instead of using the Database types from src/integrations/supabase/types.ts. AGENTS.md says 'Use Database types from src/integrations/supabase/types.ts where possible' — this convention was not followed. The generated types already have the agents table Row type available.",
+      "evidence": "src/pages/Agents.tsx:12-19 defines AgentRow; src/pages/AgentDetail.tsx:27-42 defines AgentDetailRow; src/pages/NewAgent.tsx:48-52 defines AgentPickerRow. Compare with AGENTS.md 'Coding Conventions' section."
+    },
+    {
+      "area": "conventions",
+      "observation": "STATUS_COLORS constant is duplicated across two files. No convention in AGENTS.md about where shared UI constants should live. Adding a note like 'Place shared constants in src/lib/ or a feature-specific lib/ folder' could prevent future duplication.",
+      "evidence": "src/pages/Agents.tsx:22-30 and src/pages/AgentDetail.tsx:15-23 — identical STATUS_COLORS objects."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The agent-management-pages feature is well-implemented and covers all expected behaviors: agent list with status/role/adapter display, agent detail with properties and associated runs/issues, and a new-agent form with all required fields including adapter ConfigFields wiring. Routes and sidebar navigation are properly connected. One bug exists where selecting 'None (root agent)' for reports_to sends the string \"none\" instead of null — this would cause a runtime error if a foreign key constraint exists, but is non-blocking since untouched fields default correctly and the error is surfaced via toast. Tests are present but AgentDetailPage tests lack meaningful assertions. Overall: PASS with non-blocking issues to address."
+}

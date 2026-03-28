@@ -1,0 +1,58 @@
+{
+  "milestone": "onboarding-polish",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 19,
+    "passed": 12,
+    "failed": 0,
+    "blocked": 7
+  },
+  "passedAssertions": [
+    "VAL-ONBOARD-005",
+    "VAL-ONBOARD-006",
+    "VAL-INTEG-001",
+    "VAL-INTEG-002",
+    "VAL-INTEG-003",
+    "VAL-SET-001",
+    "VAL-SET-002",
+    "VAL-AGENT-004",
+    "VAL-AGENT-005",
+    "VAL-AGENT-006",
+    "VAL-CROSS-004",
+    "VAL-CROSS-005"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-ONBOARD-001",
+      "blockedBy": "VITE_DEV_SKIP_AUTH=true causes OnboardingGate to bypass the onboarding flow entirely."
+    },
+    {
+      "id": "VAL-ONBOARD-002",
+      "blockedBy": "OnboardingGate bypasses when VITE_DEV_SKIP_AUTH=true — CompanySetup component never renders."
+    },
+    {
+      "id": "VAL-ONBOARD-003",
+      "blockedBy": "OnboardingGate bypasses when VITE_DEV_SKIP_AUTH=true — CeoAgentCreation component never renders."
+    },
+    {
+      "id": "VAL-ONBOARD-004",
+      "blockedBy": "OnboardingGate bypasses when VITE_DEV_SKIP_AUTH=true — AgentHarnessSelector component never renders."
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "blockedBy": "Cannot complete full onboarding flow through UI because OnboardingGate bypasses when VITE_DEV_SKIP_AUTH=true."
+    },
+    {
+      "id": "VAL-AUTH-003",
+      "blockedBy": "No real wallet connected in test environment — auth bypass active."
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "blockedBy": "No real wallet connected — wallet display hidden when useActiveAccount() returns undefined."
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null
+}

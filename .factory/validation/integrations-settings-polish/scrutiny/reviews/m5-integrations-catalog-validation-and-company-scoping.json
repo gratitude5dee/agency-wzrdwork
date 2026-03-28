@@ -1,0 +1,29 @@
+{
+  "featureId": "m5-integrations-catalog-validation-and-company-scoping",
+  "milestone": "integrations-settings-polish",
+  "reviewedBy": "direct-review-fallback",
+  "status": "pass",
+  "summary": "Feature adds core/stretch tier labeling, input validation, stable rowMap via useMemo, and misconfigured status for enabled-but-incomplete integrations. Tests cover all new behaviors including VAL-INTEGRATIONS-001 and VAL-INTEGRATIONS-003.",
+  "filesReviewed": [
+    "src/pages/Integrations.tsx",
+    "src/test/integrations-page.test.tsx"
+  ],
+  "codeQuality": {
+    "strengths": [
+      "Clean separation of deriveStatus logic with JSDoc explaining the validation rationale",
+      "useMemo stabilizes rowMap to prevent unnecessary re-renders and callback instability",
+      "Validation errors are shown both in-card (Misconfigured badge + helper text) and in-dialog (pre-save validation)",
+      "Good test coverage: tier badges, misconfigured states, blank api_key, composio consumer_key, and save-without-key validation"
+    ],
+    "concerns": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "severity": "non_blocking",
+      "description": "The validateConfig function only checks for api_key or consumer_key, but integrations with hasChainSelector could benefit from chain validation too. Currently a chain is optional, which is acceptable but could lead to incomplete configs for chain-specific integrations.",
+      "location": "src/pages/Integrations.tsx:validateConfig"
+    }
+  ],
+  "sharedStateObservations": []
+}

@@ -1,0 +1,50 @@
+{
+  "group": "module-exports",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "assertions": {
+    "VAL-VENICE-002": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/venice/client.ts + tsc --noEmit exit 0",
+      "notes": "VeniceClient class exports chatCompletion() method. Constructor sources API key from import.meta.env.VITE_VENICE_API_KEY. Endpoint is OpenAI-compatible: https://api.venice.ai/api/v1/chat/completions. Venice-specific header 'Venice-Data-Retention: false' is included via VENICE_HEADERS from config.ts. Types (ChatMessage, VeniceChatCompletionRequest, VeniceChatCompletionResponse, VeniceClientConfig) are imported from types.ts. TypeScript compiles without errors."
+    },
+    "VAL-UNI-001": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/uniswap/client.ts + tsc --noEmit exit 0",
+      "notes": "UniswapClient class exports checkApproval(), getQuote(), executeSwap(), and createOrder() methods corresponding to /check_approval, /quote, /swap, and /order endpoints. All requests go to UNISWAP_TRADE_API_BASE_URL (https://trade-api.gateway.uniswap.org/v1). API key sent via x-api-key header. Full TypeScript types (CheckApprovalRequest/Response, QuoteRequest/Response, SwapRequest/Response, OrderRequest/Response, SupportedChainId, etc.) are defined in types.ts. TypeScript compiles without errors."
+    },
+    "VAL-UNI-002": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/uniswap/swap.ts and src/lib/uniswap/client.ts + tsc --noEmit exit 0",
+      "notes": "The swap() function in swap.ts accepts tokenIn, tokenOut, amount, chainId (SupportedChainId), and walletAddress parameters. It calls client.getQuote() which constructs a QuoteRequest body containing: type, amount, tokenInChainId, tokenOutChainId, tokenIn, tokenOut, swapper (recipient). The QuoteRequest type in types.ts matches the Uniswap Trade API schema including chainId, tokenIn, tokenOut, amount, and recipient (swapper). The swap function chains check_approval → quote → swap/order. TypeScript compiles without errors."
+    },
+    "VAL-DELEG-001": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/delegations/framework.ts + tsc --noEmit exit 0",
+      "notes": "Module exports: createDelegation(from, to, permissions, parentDelegationId?), revokeDelegation(delegationId), getDelegationStatus(delegationId), listDelegations(walletAddress), getDelegation(delegationId), clearDelegations(). TypeScript types (Delegation, Permission, DelegationStatus, SpendLimit, TimeWindow, SpendPeriod) are fully defined in types.ts. Permission type includes spendLimit, recipientWhitelist, timeWindow, and taskPermissions. TypeScript compiles without errors."
+    },
+    "VAL-DELEG-002": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/delegations/chains.ts + tsc --noEmit exit 0",
+      "notes": "Module exports buildDelegationChain(ceoWallet, departmentAgent, taskAgent, ceoPermissions, departmentPermissions) which creates a 3-level hierarchical delegation chain (CEO → department → task_agent). Also exports restrictPermissions(parent, child) which enforces least-privilege by: capping spendLimit.amount to parent's amount, intersecting recipientWhitelist entries, tightening timeWindow to overlap, and intersecting taskPermissions. Permission objects contain spendLimit (amount, currency, period), recipientWhitelist (string[]), timeWindow (start, end), and taskPermissions (string[]). Returns DelegationChain with ordered DelegationChainNode[]. TypeScript compiles without errors."
+    },
+    "VAL-BANKR-001": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/bankr/gateway.ts + tsc --noEmit exit 0",
+      "notes": "BankrGateway class exports routeInference(model, messages, options?) method that routes inference to specified model via POST to https://api.bankr.ai/v1/chat/completions. Constructor sources API key from import.meta.env.VITE_BANKR_API_KEY. TypeScript types (BankrGatewayConfig, BankrRequest, BankrResponse, ChatMessage, InferenceOptions, ModelInfo) are defined in types.ts. BankrRequest includes model, messages, temperature, max_tokens, stream, stop. BankrResponse includes id, model, choices, usage. TypeScript compiles without errors."
+    },
+    "VAL-CELO-001": {
+      "status": "pass",
+      "evidence": "Source review of src/providers/ThirdwebProvider.tsx and src/lib/celo/config.ts + tsc --noEmit exit 0",
+      "notes": "ThirdwebProvider.tsx imports both { arbitrum } and { celo } from 'thirdweb/chains' and defines supportedChains = [arbitrum, celo]. The celo chain object from thirdweb has chain ID 42220. Additionally, src/lib/celo/config.ts exports CELO_CHAIN_ID = 42220 and CELO_CHAIN_CONFIG with chainId: 42220, name: 'Celo', stablecoin addresses (cUSD, cEUR), RPC URL, and explorer URL. TypeScript compiles without errors."
+    },
+    "VAL-PAY-002": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/x402/payment.ts and src/lib/x402/constants.ts + tsc --noEmit exit 0",
+      "notes": "settleInvoicePayment() function in payment.ts imports { settlePayment, facilitator } from 'thirdweb/x402' and { arbitrum } from 'thirdweb/chains'. It calls settlePayment() with network: arbitrum and price.asset.address: USDC_TOKEN_ADDRESS. In constants.ts, USDC_TOKEN_ADDRESS is constructed as '0x' + 'af88d065e77c8cC2239327C5EDb3A432268e5831' = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' which matches the required Arbitrum USDC address. USDC_DECIMALS = 6. TypeScript compiles without errors."
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["source-review", "tsc"],
+  "summary": "Tested 8 assertions: all 8 passed. All modules export the required functions/classes with correct TypeScript types. API keys are sourced from the correct VITE_ environment variables. Endpoint URLs, chain IDs, and token addresses match specifications. TypeScript compilation (tsc --noEmit) exits cleanly with code 0."
+}

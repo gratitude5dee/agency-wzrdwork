@@ -1,0 +1,60 @@
+{
+  "milestone": "paperclip-data-cockpit-sync",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 16,
+    "passed": 14,
+    "failed": 0,
+    "blocked": 2
+  },
+  "passedAssertions": [
+    "VAL-DATA-001",
+    "VAL-DATA-002",
+    "VAL-DATA-003",
+    "VAL-DATA-004",
+    "VAL-DASH-001",
+    "VAL-DASH-002",
+    "VAL-DASH-003",
+    "VAL-KANBAN-001",
+    "VAL-KANBAN-002",
+    "VAL-KANBAN-003",
+    "VAL-KANBAN-004",
+    "VAL-ORG-001",
+    "VAL-ORG-002",
+    "VAL-THREE-001"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-THREE-002",
+      "blockedBy": "WebGPU/Three.js scene does not render in headless Chromium. Inspector data matches live agents but NPC scene population cannot be proven without headed browser."
+    },
+    {
+      "id": "VAL-THREE-003",
+      "blockedBy": "WebGPU/Three.js scene does not render in headless Chromium. Backend state propagation into the 3D scene cannot be verified without headed browser."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added Flow Validator Guidance: Browser section with dev bypass context, isolation boundaries, evidence requirements, and Three.js special handling",
+      "source": "setup"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Added Discovered Session Knowledge: cockpit logs breakpoint (1500px), Kanban drag-and-drop technique, subagent spawning limitation, issue schema fields, WebGPU limitations",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null,
+  "executionNotes": "Subagent spawning failed with bun-eval parsing errors. All 16 assertions tested directly in the validator session using agent-browser. A test issue was created for drag-and-drop validation and cleaned up naturally as part of the test company's data. Override applied: VAL-THREE-002 and VAL-THREE-003 were deferred to m6-headed-cockpit-scene-proof-and-regression for later headed/manual validation.",
+  "override": {
+    "deferredAssertions": [
+      "VAL-THREE-002",
+      "VAL-THREE-003"
+    ],
+    "deferredToFeatureId": "m6-headed-cockpit-scene-proof-and-regression",
+    "reason": "Deferred because the current validator environment is headless Chromium and the user accepted special cockpit handling for full WebGPU scene proof. These assertions will be revalidated in the end-to-end milestone with headed/manual evidence or equivalent proof affordances."
+  }
+}

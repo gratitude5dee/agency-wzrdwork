@@ -1,0 +1,4 @@
+-- Placeholder migration.
+-- This version already exists in the linked remote Supabase project's
+-- migration history but is not present in this repository snapshot.
+-- Intentionally empty so local history can align with remote state.

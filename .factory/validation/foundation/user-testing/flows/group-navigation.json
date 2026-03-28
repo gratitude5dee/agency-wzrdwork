@@ -1,0 +1,187 @@
+{
+  "groupId": "navigation",
+  "testedAt": "2026-03-16T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": true,
+    "envVar": "VITE_DEV_SKIP_AUTH=true",
+    "sessionId": "b9999ea2afc5__nav",
+    "supabaseAccess": "shared read-only"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-NAV-001",
+      "title": "Sidebar renders all navigation sections",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /cockpit", "expected": "Cockpit page loads with sidebar", "observed": "Cockpit page loaded, redirected from / to /cockpit" },
+        { "action": "Inspect sidebar top section", "expected": "Cockpit, Dashboard, Inbox with icons", "observed": "Cockpit, Dashboard, Inbox links with icons present" },
+        { "action": "Inspect sidebar Work section", "expected": "Issues, Goals, Approvals, Projects with icons", "observed": "Work section header, Issues, Goals, Approvals, Projects links with icons present" },
+        { "action": "Inspect sidebar Agents section", "expected": "Agents group with All Agents", "observed": "AGENTS section with expandable dropdown, All Agents link present" },
+        { "action": "Scroll to Company section", "expected": "Org, Costs, Activity, Integrations, Settings with icons", "observed": "Company section header, Org, Costs, Activity, Integrations, Settings links with icons present" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/navigation/VAL-NAV-001-initial-load.png",
+          "foundation/navigation/VAL-NAV-001-sidebar-full.png",
+          "foundation/navigation/VAL-NAV-001-sidebar-company.png"
+        ],
+        "consoleErrors": "none (WebGL error from THREE.js is expected/cosmetic)",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-NAV-002",
+      "title": "All sidebar routes navigate correctly",
+      "status": "pass",
+      "steps": [
+        { "action": "Click Dashboard", "expected": "Navigate to /dashboard with content", "observed": "/dashboard loaded with MetricCards, ActiveAgents, charts" },
+        { "action": "Click Inbox", "expected": "Navigate to /inbox with content", "observed": "/inbox loaded with pending approvals content" },
+        { "action": "Click Issues", "expected": "Navigate to /issues with content", "observed": "/issues loaded with ACM-1 and ACM-2 issues" },
+        { "action": "Click Goals", "expected": "Navigate to /goals with content", "observed": "/goals loaded with 'Launch the merged cockpit' goal" },
+        { "action": "Click Approvals", "expected": "Navigate to /approvals with content", "observed": "/approvals loaded with 1 pending approval" },
+        { "action": "Click Projects", "expected": "Navigate to /projects with content", "observed": "/projects loaded with Agency Cockpit project" },
+        { "action": "Click All Agents", "expected": "Navigate to /agents with content", "observed": "/agents loaded with agent management page" },
+        { "action": "Click Org", "expected": "Navigate to /org with content", "observed": "/org loaded with CEO and Founding Engineer cards" },
+        { "action": "Click Costs", "expected": "Navigate to /costs with content", "observed": "/costs loaded with $0.66 total runtime cost, 2 runs" },
+        { "action": "Click Activity", "expected": "Navigate to /activity with content", "observed": "/activity loaded with activity events (approval requested, run started)" },
+        { "action": "Click Integrations", "expected": "Navigate to /integrations with content", "observed": "/integrations loaded with integration cards" },
+        { "action": "Click Settings", "expected": "Navigate to /settings with content", "observed": "/settings loaded with company settings content" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/navigation/VAL-NAV-002-dashboard.png",
+          "foundation/navigation/VAL-NAV-002-inbox.png",
+          "foundation/navigation/VAL-NAV-002-issues.png",
+          "foundation/navigation/VAL-NAV-002-goals.png",
+          "foundation/navigation/VAL-NAV-002-approvals.png",
+          "foundation/navigation/VAL-NAV-002-projects.png",
+          "foundation/navigation/VAL-NAV-002-agents.png",
+          "foundation/navigation/VAL-NAV-002-org.png",
+          "foundation/navigation/VAL-NAV-002-costs.png",
+          "foundation/navigation/VAL-NAV-002-activity.png",
+          "foundation/navigation/VAL-NAV-002-integrations.png",
+          "foundation/navigation/VAL-NAV-002-settings.png"
+        ],
+        "consoleErrors": "Only WebGL getSupportedExtensions error (expected THREE.js cosmetic error in headless Chromium)",
+        "network": "All page navigations completed successfully"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-NAV-003",
+      "title": "Active route highlighted in sidebar",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /issues and check sidebar", "expected": "Issues item visually highlighted", "observed": "Issues item has highlighted/selected background state (blue/lighter background)" },
+        { "action": "Navigate to /goals and check sidebar", "expected": "Goals item visually highlighted", "observed": "Goals item has highlighted/selected background (visible in screenshot)" },
+        { "action": "Navigate to /approvals and check sidebar", "expected": "Approvals item visually highlighted", "observed": "Approvals item has highlighted/selected background" },
+        { "action": "Navigate to /org and check sidebar", "expected": "Org item visually highlighted", "observed": "Org item has highlighted/selected background" },
+        { "action": "Navigate to /costs and check sidebar", "expected": "Costs item visually highlighted", "observed": "Costs item has highlighted/selected background" },
+        { "action": "Navigate to /activity and check sidebar", "expected": "Activity item visually highlighted", "observed": "Activity item has highlighted/selected background" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/navigation/VAL-NAV-003-active-route-issues.png",
+          "foundation/navigation/VAL-NAV-002-goals.png",
+          "foundation/navigation/VAL-NAV-002-approvals.png",
+          "foundation/navigation/VAL-NAV-002-org.png",
+          "foundation/navigation/VAL-NAV-002-costs.png",
+          "foundation/navigation/VAL-NAV-002-activity.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-NAV-004",
+      "title": "Badge counts display real data",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to /cockpit and inspect sidebar badges", "expected": "Badges with run count on Cockpit and approval count on Inbox/Approvals", "observed": "Sidebar badges use useLiveRunCount() and usePendingApprovalCount() hooks querying Supabase. Currently both return 0 from Supabase (no running/queued runs, no pending approvals). Sidebar badges conditionally hide when count is 0 (code: liveRunCount > 0 ? liveRunCount : null)." },
+        { "action": "Check header badge area", "expected": "Counts visible in header", "observed": "Header badges persistently show '0 live runs' and '0 approvals' from real Supabase queries" },
+        { "action": "Verify hooks query Supabase", "expected": "Hooks use supabase.from() queries", "observed": "useLiveRunCount queries runs table for status in [running, queued]. usePendingApprovalCount queries approvals table for status=pending. Both use refetchInterval: 15000ms." }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/navigation/VAL-NAV-004-badges.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Supabase queries for runs and approvals tables"
+      },
+      "issues": "Sidebar nav item badges are conditionally hidden when count is 0. Header badges always show counts. Both data sources are real Supabase queries, not hardcoded. If Supabase had non-zero data, sidebar badges would appear."
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Full navigation flow without errors",
+      "status": "pass",
+      "steps": [
+        { "action": "Clear console errors, start at /cockpit", "expected": "Cockpit loads", "observed": "Cockpit loaded with company info, 3D scene area, issue list" },
+        { "action": "Navigate via sidebar: Dashboard", "expected": "/dashboard renders content", "observed": "Dashboard with MetricCards (2 Agents, 2 Open Issues, 1 Live Runs, 1 Pending Approvals), charts, active agents" },
+        { "action": "Navigate via sidebar: Inbox", "expected": "/inbox renders content", "observed": "Inbox loaded with pending items" },
+        { "action": "Navigate via sidebar: Issues", "expected": "/issues renders content", "observed": "Issues page with 2 issues (ACM-1, ACM-2)" },
+        { "action": "Navigate via sidebar: Goals", "expected": "/goals renders content", "observed": "Goals page with active goal" },
+        { "action": "Navigate via sidebar: Approvals", "expected": "/approvals renders content", "observed": "Approvals page with 1 pending approval" },
+        { "action": "Navigate via sidebar: Projects", "expected": "/projects renders content", "observed": "Projects page with Agency Cockpit project" },
+        { "action": "Navigate via sidebar: Agents", "expected": "/agents renders content", "observed": "Agents page loaded (shows 'No agents yet' from Supabase)" },
+        { "action": "Navigate via sidebar: Org", "expected": "/org renders content", "observed": "Org page with CEO and Founding Engineer" },
+        { "action": "Navigate via sidebar: Costs", "expected": "/costs renders content", "observed": "Costs page with $0.66 total" },
+        { "action": "Navigate via sidebar: Activity", "expected": "/activity renders content", "observed": "Activity page with events" },
+        { "action": "Navigate via sidebar: Integrations", "expected": "/integrations renders content", "observed": "Integrations page with integration cards" },
+        { "action": "Navigate via sidebar: Settings", "expected": "/settings renders content", "observed": "Settings page loaded" },
+        { "action": "Check console errors after full flow", "expected": "No functional errors", "observed": "Only WebGL getSupportedExtensions error (expected THREE.js cosmetic error in headless Chromium)" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/navigation/VAL-CROSS-001-cockpit.png",
+          "foundation/navigation/VAL-CROSS-001-dashboard.png",
+          "foundation/navigation/VAL-CROSS-001-agents.png",
+          "foundation/navigation/VAL-CROSS-001-integrations.png"
+        ],
+        "consoleErrors": "Only: Cannot read properties of null (reading 'getSupportedExtensions') — expected WebGL error from THREE.js in headless Chromium",
+        "network": "All navigations completed without network errors"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "title": "Data consistency across views",
+      "status": "fail",
+      "steps": [
+        { "action": "Navigate to /dashboard and note agent count", "expected": "Dashboard shows agent count", "observed": "Dashboard MetricCard shows '2 Agents' (from demo snapshot data)" },
+        { "action": "Navigate to /agents and count agents", "expected": "Agent count matches dashboard", "observed": "Agents page shows 'No agents yet' — 0 agents from Supabase query" },
+        { "action": "Navigate to /dashboard and note issue count", "expected": "Dashboard shows open issue count", "observed": "Dashboard MetricCard shows '2 Open Issues'" },
+        { "action": "Navigate to /issues and count issues", "expected": "Issue count matches dashboard", "observed": "Issues page shows 2 issues (ACM-1, ACM-2) — matches dashboard" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/navigation/VAL-CROSS-006-dashboard.png",
+          "foundation/navigation/VAL-CROSS-006-agents.png",
+          "foundation/navigation/VAL-CROSS-006-issues.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": "Agent count inconsistency: Dashboard MetricCard shows 2 agents (sourced from demo fallback data via useAgencyData/DEMO_SNAPSHOT), but the Agents list page (/agents) queries Supabase directly and shows 0 agents ('No agents yet'). Issue count is consistent (2 on both views). Root cause: Dashboard uses demo fallback data when Supabase agents table is empty, while the Agents list page only queries Supabase without fallback."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Agents page shows skeleton loading states that eventually resolve to 'No agents yet' — initial appearance may confuse testers into thinking data is loading",
+      "resolved": true,
+      "resolution": "Waited additional seconds for skeleton states to resolve to empty state message",
+      "affectedAssertions": ["VAL-CROSS-006"]
+    },
+    {
+      "description": "Dashboard uses demo fallback data (DEMO_SNAPSHOT) when Supabase returns empty, while individual pages (agents, etc.) query Supabase directly without fallback — creates data source split",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-CROSS-006"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 6 assertions: 5 passed, 1 failed. VAL-NAV-001 through VAL-NAV-004 and VAL-CROSS-001 all pass — sidebar renders all navigation sections with icons, all routes navigate correctly, active routes are highlighted, badge counts are wired to Supabase queries, and the full navigation flow completes without functional console errors. VAL-CROSS-006 fails because the dashboard agent count (2, from demo data) does not match the agents list page count (0, from Supabase). Issue counts are consistent across views."
+}

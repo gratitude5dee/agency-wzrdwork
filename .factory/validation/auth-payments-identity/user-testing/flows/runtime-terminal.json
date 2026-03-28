@@ -1,0 +1,69 @@
+{
+  "flowId": "runtime-terminal",
+  "milestone": "auth-payments-identity",
+  "assertions": {
+    "VAL-ID-003": {
+      "status": "pass",
+      "evidence": [
+        "Vitest execution-log.test.ts — 22/22 tests pass",
+        "Test: 'exportRunLog returns run-scoped agent_log.json envelope with run metadata' — verifies run_id, agent_id, company_id, status, started_at, entries array",
+        "Test: 'exportRunLog includes summary and token usage in envelope' — verifies usage.total_input_tokens, total_output_tokens, total_cost_usd",
+        "Test: 'entries map back to persisted log rows via log_id' — each entry has log_id linking to agent_execution_logs row",
+        "Test: 'exportRunLog throws when run is not found' — error handling for missing runs",
+        "Code: exportRunLog in execution-log.ts fetches run metadata + execution logs, builds Protocol Labs agent_log.json envelope with RunLogExport type"
+      ],
+      "issues": []
+    },
+    "VAL-LOOP-001": {
+      "status": "pass",
+      "evidence": [
+        "Vitest autonomous-loop.test.ts — 43/43 tests pass",
+        "Test: 'implements 5-step cycle: discover, plan, execute, verify, submit' — verifies all 5 steps execute in order and succeed",
+        "Test: 'creates execution log entries with appropriate log_type for each step' — verifies decision, tool_call, output, safety_check log types",
+        "Test: 'returns structured LoopResult with runStatus' — verifies runId, agentId, task, steps, success, totalTokensUsed, totalCostUsd, runStatus fields"
+      ],
+      "issues": []
+    },
+    "VAL-LOOP-002": {
+      "status": "pass",
+      "evidence": [
+        "Vitest autonomous-loop.test.ts — 'runAutonomousLoop — activity events' suite: 3/3 tests pass",
+        "Vitest autonomous-loop.test.ts — 'runAutonomousLoop — shared ID coherence' suite: 1/1 test passes",
+        "Test: 'creates run_started and run_completed activity events on success' — verifies matching agent_id and company_id",
+        "Test: 'creates approval_required activity event when authority is approval' — verifies approval-required paths create approval evidence",
+        "Test: 'run, activity events, and execution logs all share the same company, agent, and issue IDs' — verifies coherent trail"
+      ],
+      "issues": []
+    },
+    "VAL-LOOP-003": {
+      "status": "pass",
+      "evidence": [
+        "Vitest autonomous-loop.test.ts — 'runAutonomousLoop — issue linkage' suite: 5/5 tests pass",
+        "Vitest autonomous-loop.test.ts — 'runAutonomousLoop — approval lifecycle' suite: 6/6 tests pass",
+        "Test: 'links the run to the issue via issue_id when provided' — verifies run insert includes issue_id",
+        "Test: 'updates issue status to in_progress at start and done on completion' — verifies explicit status transitions",
+        "Test: 'creates approval record when authority policy is approval' — verifies approval creation with issue_id",
+        "Test: 'sets issue status to in_review when approval is required' — verifies approval-required pauses",
+        "Test: 'sets run status to approval_pending with null finished_at' — verifies pause behavior"
+      ],
+      "issues": []
+    },
+    "VAL-BUDGET-001": {
+      "status": "pass",
+      "evidence": [
+        "Vitest budget-guardrails.test.ts — 21/21 tests pass",
+        "Test: 'rejects over-budget actions with human-readable reason and budget_exceeded ruleKind' — verifies pre-action rejection",
+        "Test: 'rejects unsafe operations with human-readable reason and unsafe_operation ruleKind' — verifies all 5 unsafe ops blocked",
+        "Test: 'rejects transactions to non-whitelisted recipients' — verifies recipient_blocked",
+        "Test: 'stops the loop with guardrail_rejected when budget is exceeded' — verifies loop integration stops before side effects",
+        "Test: 'does not execute any step side effects when guardrail rejects' — verifies no side effects occur",
+        "Test: 'records human-readable guardrail reason in the failed step error' — verifies structured logging",
+        "Test: 'logs guardrail check result to agent_execution_logs as safety_check' — verifies execution log entry"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["vitest"]
+}

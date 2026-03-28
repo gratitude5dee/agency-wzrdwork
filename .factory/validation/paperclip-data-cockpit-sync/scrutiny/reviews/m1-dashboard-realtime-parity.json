@@ -1,0 +1,16 @@
+{
+  "featureId": "m1-dashboard-realtime-parity",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [
+    {
+      "severity": "suggestion",
+      "description": "useDashboardRuns/useDashboardIssues limit(500) may become insufficient for high-volume companies. Consider pagination or aggregation for chart data.",
+      "file": "src/hooks/useDashboardData.ts",
+      "line": null
+    }
+  ],
+  "sharedStateObservations": [],
+  "summary": "Ported Paperclip-style dashboard with 4 dedicated Supabase-backed data hooks (runs, issues, agents, activity), all company-scoped with 15s polling. Added intentional empty states for every section (metric cards, charts, agent panel, activity panel). 7 new tests cover all dashboard integration scenarios. Clean separation of concerns between metric hooks and data hooks."
+}

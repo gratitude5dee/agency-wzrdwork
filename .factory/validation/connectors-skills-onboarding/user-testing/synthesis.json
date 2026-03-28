@@ -1,0 +1,38 @@
+{
+  "milestone": "connectors-skills-onboarding",
+  "round": 2,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-HERMES-001",
+    "VAL-HERMES-002",
+    "VAL-HERMES-003",
+    "VAL-HERMES-004",
+    "VAL-COMPOSIO-001",
+    "VAL-COMPOSIO-002",
+    "VAL-COMPOSIO-003",
+    "VAL-SKILLS-001",
+    "VAL-SKILLS-002",
+    "VAL-SKILLS-003",
+    "VAL-SKILLS-004",
+    "VAL-ONBOARD-001",
+    "VAL-ONBOARD-002",
+    "VAL-ONBOARD-003",
+    "VAL-ONBOARD-004"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "supabase-schema",
+      "description": "Added missing 'enabled' (boolean NOT NULL DEFAULT true) and 'prerequisite_integration' (text) columns to remote skills table. Original migration snippet defined them but the applied schema omitted them.",
+      "source": "setup"
+    }
+  ],
+  "previousRound": ".factory/validation/connectors-skills-onboarding/user-testing/synthesis.json (round 1)"
+}

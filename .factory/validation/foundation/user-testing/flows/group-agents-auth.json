@@ -1,0 +1,122 @@
+{
+  "groupId": "agents-auth",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": true,
+    "sessionId": "b9999ea2afc5__agents",
+    "supabaseShared": true
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-AGENT-001",
+      "title": "Agent list page renders all agents",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to /agents", "expected": "Agent list page with agents displayed", "observed": "Page rendered with correct layout: title 'Agents', description, '+ New Agent' button" },
+        { "action": "Check for agent cards with name, role, status, adapter type", "expected": "Agent cards with data from Supabase", "observed": "Empty state: 'No agents yet - Create your first agent to get started.'" },
+        { "action": "Verify Supabase agents table via REST API", "expected": "Table exists with agent rows", "observed": "PGRST205 error: 'Could not find the table public.agents in the schema cache' — agents table does not exist in Supabase" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/agents-auth/VAL-AGENT-001-agents-list.png", "foundation/agents-auth/VAL-AGENT-001-agents-empty-state.png"],
+        "consoleErrors": "none (expected errors ignored: WebGL, React Router v7, thirdweb)",
+        "network": "GET /rest/v1/agents -> PGRST205 (table not found)"
+      },
+      "issues": "The Supabase 'agents' table does not exist. The page structure is correct (title, description, New Agent button, empty state handling) and the code correctly renders name, role, status, adapter_type for each agent when data exists. But no agents can be fetched because the table hasn't been created. The app shows 'Demo fallback' mode."
+    },
+    {
+      "id": "VAL-AGENT-002",
+      "title": "Agent creation form functional",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to /agents/new", "expected": "Agent creation form with all required fields", "observed": "Form rendered correctly with all fields" },
+        { "action": "Check for name input", "expected": "Name text input present", "observed": "Name text input present (required, marked with *)" },
+        { "action": "Check for title input", "expected": "Title text input present", "observed": "Title text input present" },
+        { "action": "Check for role selector", "expected": "Role dropdown/selector present", "observed": "Role combobox with options: CEO, CTO, COO, Manager, Engineer, Founding Engineer, Analyst, Designer, Researcher, Operations, Support, Custom" },
+        { "action": "Check for reports_to agent picker", "expected": "Reports To dropdown present", "observed": "Reports To combobox present, defaulting to 'None (root agent)'" },
+        { "action": "Check for adapter type dropdown", "expected": "Adapter type dropdown present", "observed": "Adapter Type combobox with 9 options: Claude Code (local), Codex (local), Gemini CLI (local), OpenCode (local), Pi (local), Cursor CLI (local), OpenClaw Gateway, Shell Process, HTTP Webhook" },
+        { "action": "Fill form and click Create Agent", "expected": "Agent created in Supabase", "observed": "Toast error: 'No company found. Please complete onboarding first.' — submission blocked because no company row exists and agents table doesn't exist in Supabase" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/agents-auth/VAL-AGENT-002-new-agent-form.png", "foundation/agents-auth/VAL-AGENT-002-form-filled.png", "foundation/agents-auth/VAL-AGENT-002-submit-result.png"],
+        "consoleErrors": "none (expected errors ignored)",
+        "network": "POST /rest/v1/agents -> blocked by missing company/table"
+      },
+      "issues": "Form UI is fully functional with all 5 required fields (name, title, role selector, reports_to picker, adapter_type dropdown) plus adapter-specific configuration fields that render dynamically. However, submission fails with 'No company found. Please complete onboarding first.' because (1) no company exists in Supabase and (2) the agents table itself does not exist in the database."
+    },
+    {
+      "id": "VAL-AGENT-003",
+      "title": "Agent detail page shows properties",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to /agents (list page)", "expected": "Agent list with clickable agents", "observed": "Empty state: 'No agents yet' — no agents to click" },
+        { "action": "Navigate directly to /agents/:id with dummy UUID", "expected": "Agent detail page with properties", "observed": "Page shows 'Agent not found.' with 'Back to Agents' button after loading" },
+        { "action": "Review AgentDetail.tsx source code", "expected": "Code renders name, role, status, adapter type, configuration, associated data", "observed": "Code correctly renders: name, role, title, status (badge), adapter type, reports_to, capabilities, private cognition, venice model, created/updated times, adapter config JSON, recent runs, assigned issues" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/agents-auth/VAL-AGENT-003-detail-not-found.png", "foundation/agents-auth/VAL-AGENT-003-detail-resolved.png"],
+        "consoleErrors": "none (expected errors ignored)",
+        "network": "GET /rest/v1/agents?id=eq.00000000-... -> PGRST205 (table not found)"
+      },
+      "issues": "No agents exist in Supabase (table doesn't exist), so the detail page cannot be tested with real data. The page route works (/agents/:id), loading state renders, and 'Agent not found' empty state displays correctly. Source code review confirms all required fields are rendered when data exists: agent name, role, status, adapter type, configuration details (JSON), and associated data (runs, issues)."
+    },
+    {
+      "id": "VAL-AUTH-003",
+      "title": "Wallet address persisted to Supabase",
+      "status": "blocked",
+      "steps": [
+        { "action": "Check if wallet is connected", "expected": "Wallet address available from useActiveAccount()", "observed": "VITE_DEV_SKIP_AUTH=true is active — AuthGate bypasses wallet check, useActiveAccount() returns undefined" },
+        { "action": "Check Supabase companies table for wallet_address", "expected": "Wallet address stored in companies.wallet_address", "observed": "Cannot verify — no wallet connected, no companies table exists in Supabase (empty database)" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "N/A",
+        "network": "N/A"
+      },
+      "issues": "Dev bypass active (VITE_DEV_SKIP_AUTH=true) — no wallet connected to persist. This requires a real thirdweb client ID and wallet connection. Additionally, the Supabase database has no tables at all (no companies table exists)."
+    },
+    {
+      "id": "VAL-AUTH-004",
+      "title": "Connected wallet address displayed in header",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to /cockpit and inspect header area", "expected": "Truncated wallet address visible in header", "observed": "Header shows: Toggle Sidebar, 'Agency', 'Cockpit', '0 live runs', '0 approvals', 'Supabase' link — no wallet address badge visible" },
+        { "action": "Review AppShell.tsx source code for wallet display", "expected": "Wallet display component exists", "observed": "Lines 300-305: conditional Badge with Wallet icon renders walletAddress from useTruncatedAddress() hook — component exists but only renders when walletAddress is truthy" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/agents-auth/VAL-AUTH-004-header-area.png"],
+        "consoleErrors": "none (expected errors ignored)",
+        "network": "N/A"
+      },
+      "issues": "Dev bypass active (VITE_DEV_SKIP_AUTH=true) — no wallet connected, so useTruncatedAddress() returns undefined/empty. The wallet address Badge component exists in AppShell.tsx (line 300-305) with correct rendering logic (Wallet icon + truncated address), but is conditionally hidden when no wallet is connected. Header wallet display shows nothing."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The Supabase database has NO tables at all — the agents, companies, runs, issues, and all other tables are missing. The app shows 'Demo fallback' mode. This blocks all agent management and auth persistence testing.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-AGENT-001", "VAL-AGENT-002", "VAL-AGENT-003", "VAL-AUTH-003"]
+    },
+    {
+      "description": "Agent creation form submission fails with 'No company found. Please complete onboarding first.' even though form UI is fully functional. This is a cascading dependency — onboarding creates the company, which is required before agents can be created.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-AGENT-002"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Supabase database at lptryhnnhhvbblrrsaqa.supabase.co has no tables created. REST API returns PGRST205 for all table queries. The AGENTS.md notes 'New Supabase tables are created manually via SQL snippets' — it appears the migration SQL has not been run.",
+      "affectedAssertions": ["VAL-AGENT-001", "VAL-AGENT-002", "VAL-AGENT-003", "VAL-AUTH-003"],
+      "quickFixAttempted": "Verified Supabase connectivity via curl — connection succeeds but all table queries return PGRST205 (table not found). Cannot create tables per AGENTS.md boundary rules."
+    },
+    {
+      "description": "Dev bypass (VITE_DEV_SKIP_AUTH=true) prevents wallet connection testing. useActiveAccount() returns undefined, so wallet address cannot be persisted or displayed.",
+      "affectedAssertions": ["VAL-AUTH-003", "VAL-AUTH-004"],
+      "quickFixAttempted": "N/A — dev bypass is required for agent-browser testing since agent-browser cannot connect wallets. This is a known trade-off documented in user-testing.md."
+    }
+  ],
+  "summary": "Tested 5 assertions: 0 passed, 0 failed, 5 blocked. All agent management assertions (VAL-AGENT-001/002/003) are blocked because the Supabase agents table does not exist — the database has no tables at all. The agent creation form UI is fully functional with all required fields (name, title, role selector, reports_to picker, adapter_type dropdown with 9 adapter types) and dynamic adapter-specific configuration, but submission fails due to missing company/table. Auth assertions (VAL-AUTH-003/004) are blocked because dev bypass prevents wallet connection — the wallet display component exists in AppShell.tsx but doesn't render without a connected wallet."
+}

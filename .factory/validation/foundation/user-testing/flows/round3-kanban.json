@@ -1,0 +1,59 @@
+{
+  "groupId": "round3-kanban",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "authBypass": "VITE_DEV_SKIP_AUTH=true",
+    "supabaseShared": true,
+    "sessionName": "d992608fda6f__kanban"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-KANBAN-003",
+      "title": "Drag-drop moves issues between columns",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:8080/cockpit",
+          "expected": "Cockpit page loads with Kanban board visible",
+          "observed": "Cockpit page loaded, Kanban board visible with 7 columns and 2 issue cards"
+        },
+        {
+          "action": "Scroll to Kanban board and take before-drag screenshot",
+          "expected": "ACM-2 in IN PROGRESS column (count=1), TODO column empty (count=0)",
+          "observed": "ACM-2 card visible in IN PROGRESS column (count=1), TODO column shows count=0, ACM-1 in BLOCKED column (count=1)"
+        },
+        {
+          "action": "Mouse down on ACM-2 card center (644, 635), move incrementally to TODO column center (392, 644), exceeding 5px PointerSensor threshold",
+          "expected": "Drag overlay appears showing the card being dragged",
+          "observed": "Drag overlay of ACM-2 card appeared in the TODO column area, ghost of original card remained dimmed in IN PROGRESS column"
+        },
+        {
+          "action": "Mouse up to release card in TODO column",
+          "expected": "ACM-2 card moves to TODO column, UI updates immediately",
+          "observed": "ACM-2 card now in TODO column (count=1), IN PROGRESS column empty (count=0) — optimistic UI update confirmed"
+        },
+        {
+          "action": "Reload page to verify Supabase persistence",
+          "expected": "ACM-2 remains in TODO column after refresh",
+          "observed": "After full page reload, ACM-2 is still in TODO column (count=1), IN PROGRESS column still empty (count=0) — persistence to Supabase confirmed"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundation/round3-kanban/VAL-KANBAN-003-before-drag.png",
+          "foundation/round3-kanban/VAL-KANBAN-003-mid-drag.png",
+          "foundation/round3-kanban/VAL-KANBAN-003-after-drag.png",
+          "foundation/round3-kanban/VAL-KANBAN-003-after-refresh.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Supabase mutation persisted status change (optimistic update + server write confirmed via page refresh)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 1 assertion: 1 passed. VAL-KANBAN-003 drag-drop successfully moved ACM-2 from IN PROGRESS to TODO column. The @dnd-kit PointerSensor activated correctly with incremental mouse movement (>5px). Optimistic UI update was immediate and the status change persisted to Supabase (confirmed via page refresh)."
+}

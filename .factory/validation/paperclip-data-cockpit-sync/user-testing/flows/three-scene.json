@@ -1,0 +1,45 @@
+{
+  "flowId": "three-scene",
+  "milestone": "paperclip-data-cockpit-sync",
+  "assertions": {
+    "VAL-THREE-001": {
+      "status": "pass",
+      "evidence": [
+        "Cockpit scene shows 'Scene Error: Unable to initialize the WebGPU renderer.' in headless Chromium",
+        "Clear error overlay with guidance text: 'Keep the rest of the sandbox open for issue and approval context, then retry in a supported browser session.'",
+        "Surrounding cockpit UI fully functional: toolbar (Org Chart, Logs, Recenter), Kanban panel, Project Info panel",
+        "All cockpit controls (Org Chart link, Logs toggle, Kanban toggle, New Issue) remain usable despite scene error",
+        "This is expected graceful degradation in headless/unsupported environment"
+      ],
+      "issues": []
+    },
+    "VAL-THREE-002": {
+      "status": "blocked",
+      "evidence": [
+        "Inspector/Project Info panel shows live data: Company 'Test Agency Co', Agents 1, Open Issues 0-1, Live Runs 0",
+        "Inspector data matches Supabase backend state for the active company",
+        "However, NPC population and scene overlays cannot be verified in headless mode since WebGPU fails to initialize",
+        "The assertion requires 'scene population, visible overlays, and inspector state correspond to live active agents' - scene portion cannot be proven headless",
+        "Headless evidence can only prove inspector data matches live agents, not NPC state"
+      ],
+      "issues": ["WebGPU/Three.js scene does not render in headless Chromium - requires headed browser evidence for full NPC state verification"]
+    },
+    "VAL-THREE-003": {
+      "status": "blocked",
+      "evidence": [
+        "Cannot verify backend state propagation into the 3D scene because WebGPU scene does not initialize in headless Chromium",
+        "The assertion requires 'selected-agent overlay and/or inspector updates within the sync window' after backend mutation",
+        "Inspector panel does update with live data (confirmed via issue creation updating counts), but scene-specific overlays are not renderable in headless mode",
+        "Per user-testing guidance: 'true scene-state assertions should use headed/manual evidence when needed'"
+      ],
+      "issues": ["WebGPU/Three.js scene does not render in headless Chromium - requires headed browser for scene propagation verification"]
+    }
+  },
+  "frictions": [
+    "WebGPU is not available in headless Chromium, limiting Three.js scene verification to graceful degradation only"
+  ],
+  "blockers": [
+    "VAL-THREE-002 and VAL-THREE-003 require a headed browser with WebGPU support to verify 3D scene NPC state and backend propagation"
+  ],
+  "toolsUsed": ["agent-browser"]
+}

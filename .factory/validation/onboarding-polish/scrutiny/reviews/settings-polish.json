@@ -1,0 +1,39 @@
+{
+  "featureId": "settings-polish",
+  "reviewedAt": "2026-03-16T15:10:00.000Z",
+  "commitId": "1afbedcc4d4d635cfd64de65064b305b00568891",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Clean implementation across 4 files (456 lines added). Settings page has 4 well-structured cards (Company Info, Backend Status, Feature Tour, Onboarding Reset) using existing Shadcn components and Tailwind. Sidebar cache invalidation via queryClient.invalidateQueries({ queryKey: ['sidebar-agents'] }) correctly matches the sidebar query key in useSidebarAgents.ts. useCompanySettings hook handles Supabase errors gracefully including table-not-found. 7 new tests cover all settings features with proper async patterns. Two minor non-blocking observations noted below.",
+    "issues": [
+      {
+        "file": "src/hooks/useCompanySettings.ts",
+        "line": 10,
+        "severity": "non_blocking",
+        "description": "CompanySettings defines a custom interface instead of using Database['public']['Tables']['companies']['Row'] (or a Pick thereof) as recommended in AGENTS.md. Since only 3 fields are needed this is acceptable, but it creates a maintenance risk if the Supabase schema changes and the local type drifts."
+      },
+      {
+        "file": "src/features/cockpit/pages/SectionPage.tsx",
+        "line": 480,
+        "severity": "non_blocking",
+        "description": "useOnboardingState receives company?.wallet_address ?? null. When wallet_address is null (no company or no wallet connected), the 'Reset Onboarding' button is still rendered and clickable but the mutation silently no-ops (short-circuits on !walletAddress). Consider disabling the button when wallet_address is unavailable to avoid misleading UX."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker used a local CompanySettings interface in useCompanySettings.ts instead of using Database types from supabase/types.ts. AGENTS.md says to 'Prefer using Database types' but doesn't explicitly address the pick-a-subset pattern. Could add guidance that Pick<Database['public']['Tables']['X']['Row'], 'field1' | 'field2'> is the preferred approach for partial selects.",
+      "evidence": "src/hooks/useCompanySettings.ts:10-14 defines custom interface with { id, name, wallet_address } vs using Database types."
+    },
+    {
+      "area": "conventions",
+      "observation": "The sidebar cache invalidation query key 'sidebar-agents' is used across 3 files (NewAgent.tsx, CeoAgentCreation.tsx, useSidebarAgents.ts) as a plain string. All agent-related query keys (agents-list, agents-picker, agency-snapshot, sidebar-agents) are string literals scattered across files. A centralized query key registry would reduce risk of typo-based cache invalidation bugs.",
+      "evidence": "grep for 'sidebar-agents' shows 3 files; 'agents-list' appears in NewAgent.tsx and other pages. No shared constants file for query keys."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Settings polish feature passes review. All 4 required cards (Company Info, Backend Status, Replay Tour, Onboarding Reset) are implemented correctly using existing Shadcn/Tailwind patterns. Sidebar cache invalidation in NewAgent.tsx correctly targets the 'sidebar-agents' query key matching useSidebarAgents.ts. useCompanySettings and useSupabaseHealth hooks are well-structured with proper error handling. 7 tests provide adequate coverage of all settings features including the Replay Tour click interaction. Two non-blocking issues: custom type vs Database types, and Reset Onboarding button enabled even when wallet_address is null. Build, typecheck, and tests all pass per the handoff verification."
+}

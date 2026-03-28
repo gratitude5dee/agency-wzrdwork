@@ -1,0 +1,222 @@
+{
+  "groupId": "kanban-org-agent",
+  "testedAt": "2026-03-16T05:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8080",
+    "session": "fb2e1bf7dcf1__kanban",
+    "note": "Auth gate blocks all internal pages — thirdweb client ID is 'placeholder', wallet connection not possible"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-KANBAN-001",
+      "title": "Board renders with correct columns",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/cockpit", "expected": "Kanban board with 7 status columns", "observed": "Auth gate sign-in screen shown — WalletAuthScreen with 'Connect your wallet' message and Sign in button" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-cockpit.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings — expected noise)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /cockpit — thirdweb client ID is 'placeholder', wallet connection not possible. Cannot test Kanban board rendering."
+    },
+    {
+      "id": "VAL-KANBAN-002",
+      "title": "Issue cards display Supabase data",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/cockpit", "expected": "Kanban cards with identifier, title, priority from Supabase", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-cockpit.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /cockpit — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-KANBAN-003",
+      "title": "Drag-drop moves issues between columns",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/cockpit", "expected": "Kanban board with draggable cards", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-cockpit.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /cockpit — thirdweb client ID is 'placeholder', wallet connection not possible. Cannot test drag-drop."
+    },
+    {
+      "id": "VAL-KANBAN-004",
+      "title": "Kanban panel is collapsible",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/cockpit", "expected": "Collapsible Kanban panel", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-cockpit.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /cockpit — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-ORG-001",
+      "title": "OrgChart renders agent hierarchy",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/org-chart", "expected": "SVG tree with parent-child agents from Supabase", "observed": "Auth gate sign-in screen shown — WalletAuthScreen with 'Connect your wallet' message and Sign in button" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-orgchart.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /org-chart — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-ORG-002",
+      "title": "Pan and zoom controls work",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/org-chart", "expected": "Pan/zoom/fit controls on OrgChart", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-orgchart.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /org-chart — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-ORG-003",
+      "title": "Agent cards show status and metadata",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/org-chart", "expected": "Agent cards with name, role, status dot, adapter type", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-orgchart.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /org-chart — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-DASH-001",
+      "title": "Metric cards show real counts",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "MetricCards with counts from Supabase", "observed": "Auth gate sign-in screen shown — WalletAuthScreen with 'Connect your wallet' message and Sign in button" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-dashboard.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /dashboard — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-DASH-002",
+      "title": "Activity charts render",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "4 chart types with Supabase data", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-dashboard.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /dashboard — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-DASH-003",
+      "title": "Active agents panel shows running agents",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "Agents with active/running status", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-dashboard.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /dashboard — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-DASH-004",
+      "title": "Recent activity and urgent issues",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/dashboard", "expected": "Activity feed and blocked issues from Supabase", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-dashboard.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /dashboard — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-AGENT-001",
+      "title": "Agent list page renders all agents",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/agents", "expected": "All agents with name, role, status, adapter type", "observed": "Auth gate sign-in screen shown — WalletAuthScreen with 'Connect your wallet' message and Sign in button" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-agents.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /agents — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-AGENT-002",
+      "title": "Agent creation form functional",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/agents/new", "expected": "NewAgent form with all fields", "observed": "Auth gate sign-in screen shown — WalletAuthScreen with 'Connect your wallet' message and Sign in button" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-agents-new.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /agents/new — thirdweb client ID is 'placeholder', wallet connection not possible."
+    },
+    {
+      "id": "VAL-AGENT-003",
+      "title": "Agent detail page shows properties",
+      "status": "blocked",
+      "steps": [
+        { "action": "Navigate to http://localhost:8080/agents", "expected": "Agent detail page with properties", "observed": "Auth gate sign-in screen shown" }
+      ],
+      "evidence": {
+        "screenshots": ["foundation/kanban-org-agent/auth-gate-agents.png"],
+        "consoleErrors": "none (only React Router v7 future flag warnings)",
+        "network": "N/A — page blocked by auth gate"
+      },
+      "issues": "Auth gate blocks access to /agents — thirdweb client ID is 'placeholder', wallet connection not possible. Cannot navigate to any agent detail page."
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Auth gate (AuthGate.tsx) blocks all internal pages. The thirdweb client ID is set to 'placeholder', making real wallet connection impossible. Every route (/cockpit, /org-chart, /dashboard, /agents, /agents/new) shows the WalletAuthScreen instead of the actual page content. All 14 assigned assertions are untestable through the browser.",
+      "affectedAssertions": [
+        "VAL-KANBAN-001", "VAL-KANBAN-002", "VAL-KANBAN-003", "VAL-KANBAN-004",
+        "VAL-ORG-001", "VAL-ORG-002", "VAL-ORG-003",
+        "VAL-DASH-001", "VAL-DASH-002", "VAL-DASH-003", "VAL-DASH-004",
+        "VAL-AGENT-001", "VAL-AGENT-002", "VAL-AGENT-003"
+      ],
+      "quickFixAttempted": "Navigated directly to each internal URL (/cockpit, /org-chart, /dashboard, /agents, /agents/new) — all show auth gate sign-in screen. No workaround available without modifying production code (prohibited by testing rules)."
+    }
+  ],
+  "summary": "Tested 14 assertions: 0 passed, 0 failed, 14 blocked. All assertions are blocked by the auth gate — thirdweb client ID is 'placeholder' so wallet connection is not possible, and the WalletAuthScreen intercepts every route. Screenshots confirm the auth gate consistently blocks /cockpit, /org-chart, /dashboard, /agents, and /agents/new."
+}

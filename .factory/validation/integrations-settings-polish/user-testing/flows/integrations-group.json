@@ -1,0 +1,46 @@
+{
+  "flowId": "integrations-group",
+  "milestone": "integrations-settings-polish",
+  "assertions": {
+    "VAL-INTEGRATIONS-001": {
+      "status": "pass",
+      "evidence": [
+        "Screenshot shows 17 integration cards on /integrations page",
+        "Core integrations (11): thirdweb, supabase, venice, openserv, uniswap, bankr, lido, agentcash, celo, metamask, Composio",
+        "Stretch integrations (6): superrare, ens, self, arkhai, fal, bond_credit",
+        "Each card has: name, description, Core/Stretch badge, status (Connected/Disconnected), toggle switch, Configure button",
+        "Clear Core/Stretch tier distinction via labeled badges",
+        "No console errors beyond known React Router future flag warnings"
+      ],
+      "issues": []
+    },
+    "VAL-INTEGRATIONS-002": {
+      "status": "pass",
+      "evidence": [
+        "Clicked Configure on Venice, entered test API key 'test-venice-api-key-12345'",
+        "Clicked Save Configuration — toast 'Configuration saved' appeared",
+        "Venice card changed from Disconnected to Connected with green dot and orange toggle",
+        "After page reload, Venice still shows Connected with toggle enabled — config persisted",
+        "Screenshot evidence captured before save, after save, and after reload"
+      ],
+      "issues": []
+    },
+    "VAL-INTEGRATIONS-003": {
+      "status": "pass",
+      "evidence": [
+        "Clicked Configure on Uniswap (requires API Key + Chain)",
+        "Clicked Save Configuration with empty fields",
+        "Validation error 'API key is required' shown below the form fields",
+        "Dialog remained open, did not close or save",
+        "Uniswap card still shows 'Disconnected' after closing dialog — no silent connection",
+        "Screenshot captured showing validation feedback"
+      ],
+      "issues": []
+    }
+  },
+  "frictions": [
+    "Subagent spawning failed with bun-eval error — had to test directly in main session"
+  ],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}

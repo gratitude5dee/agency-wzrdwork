@@ -1,0 +1,23 @@
+{
+  "featureId": "m2-budget-guardrails-and-transaction-safety",
+  "milestone": "auth-payments-identity",
+  "reviewer": "scrutiny-validator-direct",
+  "reviewMethod": "direct-review-fallback",
+  "verdict": "pass",
+  "fulfills": ["VAL-BUDGET-001"],
+  "summary": "Unified pre-action guardrail checkpoint (runGuardrailCheck) that validates transaction safety and budget enforcement before any step side effects. Checks: unsafe operations, negative amounts, recipient whitelist, spend limits, and historical budget vs configured max. Results are structured with human-readable reasons, rule kinds, and budget snapshots. Integrated into the autonomous loop as a pre-step gate. 21 new tests.",
+  "codeQuality": {
+    "structure": "Clean separation: types in types.ts, budget tracking in budget.ts, guardrails in guardrails.ts. runGuardrailCheck evaluates transaction safety first, then budget, and short-circuits on first failure. deriveRuleKind provides machine-readable classification from human-readable reasons.",
+    "security": "All guardrail checks happen before side effects. Unsafe operations list (drain_wallet, transfer_all, approve_unlimited, self_destruct, delegate_all) covers known dangerous patterns. Budget enforcement reads from Supabase with proper error handling.",
+    "testCoverage": "21 tests covering: budget exceeded (3), unsafe operations (2), recipient whitelist (1), negative amounts (1), spend limits (1), safe transactions (1), logging (2), priority ordering (1), passthrough (1), loop integration (6), and exports (2).",
+    "patterns": "Uses existing logExecution for audit trail. checkBudgetRemaining reads max budget from agent identity manifest with DEFAULT_MAX_BUDGET_USD fallback. Follows existing code style and error handling patterns."
+  },
+  "issues": [],
+  "sharedStateObservations": [
+    {
+      "type": "library",
+      "description": "The budget module reads max_budget from agent_identities.manifest.compute_constraints.budget_usd. Workers building on the budget system need to know this manifest path.",
+      "target": "library/integration-proof.md or library/architecture.md"
+    }
+  ]
+}

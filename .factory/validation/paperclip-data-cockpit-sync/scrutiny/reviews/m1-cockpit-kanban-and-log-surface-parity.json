@@ -1,0 +1,21 @@
+{
+  "featureId": "m1-cockpit-kanban-and-log-surface-parity",
+  "milestone": "paperclip-data-cockpit-sync",
+  "reviewer": "scrutiny-validator",
+  "status": "pass",
+  "issues": [
+    {
+      "severity": "non_blocking",
+      "description": "KanbanPanel drag-drop status mutation inserts an activity_event but does not handle insertion failure gracefully - the UI update proceeds even if the activity event write fails.",
+      "file": "src/features/cockpit/delegation/components/KanbanPanel.tsx",
+      "line": null
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "observation": "Drag-drop status changes now persist to Supabase and create activity_event records. This pattern should be followed for any future status mutation surfaces.",
+      "suggestedTarget": "library"
+    }
+  ],
+  "summary": "Upgraded KanbanPanel with company-scoped queries, seven Paperclip workflow columns, explicit assignee/unassigned states, and drag-drop status persistence with activity event logging. ActionLogPanel Activity tab now shows live Supabase activity_events with agent filtering. 5 new tests cover company scoping, assignee display, and foreign-company exclusion. Browser verification confirmed all 7 columns render correctly."
+}

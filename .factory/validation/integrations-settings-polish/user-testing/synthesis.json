@@ -1,0 +1,24 @@
+{
+  "milestone": "integrations-settings-polish",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-INTEGRATIONS-001",
+    "VAL-INTEGRATIONS-002",
+    "VAL-INTEGRATIONS-003",
+    "VAL-SETTINGS-001",
+    "VAL-POLISH-001",
+    "VAL-POLISH-002",
+    "VAL-POLISH-003"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null
+}

@@ -1,0 +1,20 @@
+{
+  "group": "payment-data",
+  "testedAt": "2026-03-16T00:00:00.000Z",
+  "assertions": {
+    "VAL-PAY-001": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/x402/invoices.ts: createInvoice(companyId, agentId, sellerWallet, description, lineItems, amountUsdc) inserts into supabase.from('agent_invoices') with seller_wallet, description, line_items (LineItem[]), amount_usdc, plus company_id, agent_id, paid=false, tx_hash=null, chain_id. Types defined in src/lib/x402/types.ts: LineItem has description, quantity, price fields; AgentInvoiceRow derives from Database['public']['Tables']['agent_invoices']['Row'].",
+      "notes": "All four required parameters (seller_wallet, description, line_items array, amount_usdc) are accepted by createInvoice and correctly inserted into the agent_invoices Supabase table. The function also sets sensible defaults (paid=false, tx_hash=null) and returns the created row via .select().single()."
+    },
+    "VAL-PAY-003": {
+      "status": "pass",
+      "evidence": "Source review of src/lib/x402/invoices.ts: updateInvoicePayment(id, txHash) calls supabase.from('agent_invoices').update({ paid: true, tx_hash: txHash, paid_at: new Date().toISOString() }).eq('id', id).select().single(). Source review of src/lib/x402/payment.ts: settleInvoicePayment calls updateInvoicePayment(invoiceId, txHash) after successful x402 settlement (result.status === 200), extracting txHash from paymentReceipt.",
+      "notes": "The paid boolean and tx_hash string fields are both updated in agent_invoices when payment is processed. The update is triggered by settleInvoicePayment in payment.ts after successful thirdweb x402 settlement. A paid_at timestamp is also set. The function validates the invoice exists and is not already paid before attempting settlement."
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["source-review"],
+  "summary": "Tested 2 assertions: 2 passed. VAL-PAY-001 confirmed createInvoice accepts seller_wallet, description, line_items, and amount_usdc and inserts into agent_invoices. VAL-PAY-003 confirmed updateInvoicePayment sets paid=true and tx_hash in agent_invoices, called by settleInvoicePayment after successful x402 settlement."
+}

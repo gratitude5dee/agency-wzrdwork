@@ -1,0 +1,35 @@
+{
+  "featureId": "m6-submission-proof-pack-and-readme",
+  "milestone": "end-to-end-validation-submission",
+  "reviewer": "scrutiny-validator-direct-review",
+  "reviewedAt": "2026-03-18T20:42:00.000Z",
+  "fallbackReason": "Task subagent bun-eval parsing error; direct review per AGENTS.md guidance",
+
+  "summary": "Feature creates a self-contained /submission-proof route with proof-pack assembly utility, component, and README integration. The page allows operators to select a company, agent, and run; then assembles manifest (agent.json), run log (agent_log.json), payment evidence, and route matrix into a downloadable proof pack. Individual artifact and full-pack downloads are supported. 16 tests cover the utility's assembly logic, partial failure isolation, and component rendering states. Route matrix matches the AppShell sidebar.",
+
+  "codeQuality": {
+    "rating": "good",
+    "observations": [
+      "Proof pack assembly uses independent try-catch per artifact so partial failures don't block other artifacts",
+      "ROUTE_MATRIX is a compile-time constant that can be validated against actual AppShell routes",
+      "The page correctly uses useActiveCompany() hook for company context",
+      "Download triggers use triggerJsonDownload from the existing erc8004/download module — good reuse",
+      "Retrieval instructions match what README describes, satisfying VAL-CROSS-006's self-contained requirement",
+      "Context loading is intentionally deferred (Load agents and runs button) to avoid expensive queries on mount"
+    ]
+  },
+
+  "issues": [
+    {
+      "severity": "non_blocking",
+      "description": "The SubmissionProofPage test has a React act() warning for state update inside useCompanyProofContext. This is a test environment issue (async state update after render) and does not affect production behavior.",
+      "recommendation": "Could be silenced by wrapping the state update test with waitFor() or ignoring console.error for act() warnings in test setup."
+    }
+  ],
+
+  "blockingIssues": [],
+
+  "sharedStateObservations": [],
+
+  "verdict": "pass"
+}
