@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
-  "buildCommand": "cd /vercel/path0 && pnpm exec vite build",
-  "outputDirectory": "../dist",
+  "buildCommand": "pnpm exec vite build",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
   "functions": {
     "api/**/*.ts": {
