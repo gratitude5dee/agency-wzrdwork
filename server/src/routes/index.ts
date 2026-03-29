@@ -18,3 +18,5 @@ export { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 export { executionWorkspaceRoutes } from "./execution-workspaces.js";
 export { pluginUiStaticRoutes, resolvePluginUiDir } from "./plugin-ui-static.js";
 export { routineRoutes } from "./routines.js";
+export { companySkillRoutes } from "./company-skills.js";
+export { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, type OrgChartOverlay } from "./org-chart-svg.js";

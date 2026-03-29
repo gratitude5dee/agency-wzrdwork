@@ -27,3 +27,8 @@ export { notifyHireApproved, type NotifyHireApprovedInput } from "./hire-hook.js
 export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { reconcilePersistedRuntimeServicesOnStartup } from "./workspace-runtime.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
+export { companySkillService } from "./company-skills.js";
+export { agentInstructionsService, syncInstructionsBundleConfigFromFilePath } from "./agent-instructions.js";
+export { boardAuthService } from "./board-auth.js";
+export { generateReadme, generateOrgChartMermaid } from "./company-export-readme.js";
+export { queueIssueAssignmentWakeup } from "./issue-assignment-wakeup.js";

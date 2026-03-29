@@ -50,6 +50,7 @@ import { assetRoutes } from "./routes/assets.js";
 import { llmRoutes } from "./routes/llms.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { routineRoutes } from "./routes/routines.js";
+import { companySkillRoutes } from "./routes/company-skills.js";
 
 type UiMode = "none" | "static" | "vite-dev";
 
@@ -220,6 +221,7 @@ export async function createApp(
   api.use(assetRoutes(db, opts.storageService));
   api.use(llmRoutes(db));
   api.use(routineRoutes(db));
+  api.use(companySkillRoutes(db));
   api.use(pluginRoutes(
     db,
     loader,

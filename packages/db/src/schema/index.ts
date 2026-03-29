@@ -52,3 +52,8 @@ export { pluginJobs, pluginJobRuns } from "./plugin_jobs.js";
 export { pluginWebhookDeliveries } from "./plugin_webhooks.js";
 export { pluginLogs } from "./plugin_logs.js";
 export { routines, routineTriggers, routineRuns } from "./routines.js";
+export { boardApiKeys } from "./board_api_keys.js";
+export { cliAuthChallenges } from "./cli_auth_challenges.js";
+export { companySkills } from "./company_skills.js";
+export { issueInboxArchives } from "./issue_inbox_archives.js";
+export { chatSessions, chatMessages } from "./chat.js";
