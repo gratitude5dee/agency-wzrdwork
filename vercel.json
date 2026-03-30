@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
-  "buildCommand": "pnpm --filter @paperclipai/shared build && pnpm --filter @paperclipai/db build && pnpm --filter @paperclipai/adapter-utils build && pnpm --filter @paperclipai/plugin-sdk build && pnpm --filter server compile && pnpm exec vite build",
+  "buildCommand": "pnpm --filter @paperclipai/shared build && pnpm --filter @paperclipai/db build && pnpm --filter @paperclipai/adapter-utils build && pnpm --filter @paperclipai/plugin-sdk build && pnpm --filter @paperclipai/server compile && pnpm exec vite build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
   "functions": {
