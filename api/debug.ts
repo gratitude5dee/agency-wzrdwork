@@ -23,7 +23,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
   // Test 2: Can we import the server app?
   try {
-    await import("../server/src/app.js");
+    await import("../server/dist/app.js");
     results["server/app"] = "OK";
   } catch (e: any) {
     results["server/app"] = `FAIL: ${e.code || ""} ${e.message}`;
@@ -31,7 +31,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
   // Test 3: Can we import services index?
   try {
-    await import("../server/src/services/index.js");
+    await import("../server/dist/services/index.js");
     results["server/services"] = "OK";
   } catch (e: any) {
     results["server/services"] = `FAIL: ${e.code || ""} ${e.message}`;

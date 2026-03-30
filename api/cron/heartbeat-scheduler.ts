@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Import the heartbeat service and run the timer tick
     // This checks all agents with heartbeat configs and enqueues wakeups
-    const { heartbeatService } = await import("../../server/src/services/index.js");
+    const { heartbeatService } = await import("../../server/dist/services/index.js");
     const heartbeat = heartbeatService(db as any);
 
     const result = await heartbeat.tickTimers(new Date());

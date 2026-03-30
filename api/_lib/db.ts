@@ -10,7 +10,7 @@
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "../packages/db/src/schema/index.js";
+import * as schema from "../../packages/db/dist/schema/index.js";
 
 let cachedDb: ReturnType<typeof drizzle> | null = null;
 let cachedSql: ReturnType<typeof postgres> | null = null;

@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const db = getDb();
 
-    const { heartbeatService } = await import("../../server/src/services/index.js");
+    const { heartbeatService } = await import("../../server/dist/services/index.js");
     const heartbeat = heartbeatService(db as any);
 
     // Resume any queued runs that need processing

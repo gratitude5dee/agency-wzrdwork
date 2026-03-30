@@ -19,7 +19,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createApp } from "../server/src/app.js";
+import { createApp } from "../server/dist/app.js";
 import { getDb, getRawSql } from "./_lib/db.js";
 
 // Module-level cache for the Express app across warm invocations
@@ -53,8 +53,8 @@ async function getApp() {
 
   try {
     const { createBetterAuthInstance, createBetterAuthHandler, resolveBetterAuthSession } =
-      await import("../server/src/auth/better-auth.js");
-    const { loadConfig } = await import("../server/src/config.js");
+      await import("../server/dist/auth/better-auth.js");
+    const { loadConfig } = await import("../server/dist/config.js");
     const config = loadConfig();
     const auth = createBetterAuthInstance(db as any, config);
     betterAuthHandler = createBetterAuthHandler(auth);
