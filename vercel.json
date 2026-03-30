@@ -15,6 +15,7 @@
     { "source": "/api/cron/:path*", "destination": "/api/cron/$path*" },
     { "source": "/api/sandbox/spawn", "destination": "/api/sandbox/spawn" },
     { "source": "/api/sandbox/proxy/:path*", "destination": "/api/sandbox/proxy" },
+    { "source": "/api/debug", "destination": "/api/debug" },
     { "source": "/api/:path*", "destination": "/api/server" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
