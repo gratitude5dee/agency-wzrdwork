@@ -76,8 +76,8 @@ describe("Hermes Adapter Registration", () => {
     expect(typeof adapter.buildAdapterConfig).toBe("function");
   });
 
-  it("adapter registry now contains 10 adapters", () => {
-    expect(adapterRegistry.size).toBe(10);
+  it("adapter registry now contains 13 adapters", () => {
+    expect(adapterRegistry.size).toBe(13);
   });
 });
 

@@ -1,9 +1,79 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { executionWorkspaces } from "@paperclipai/db";
-import type { ExecutionWorkspace } from "@paperclipai/shared";
+import type {
+  ExecutionWorkspace,
+  ExecutionWorkspaceConfig,
+  WorkspaceRuntimeDesiredState,
+} from "@paperclipai/shared";
 
 type ExecutionWorkspaceRow = typeof executionWorkspaces.$inferSelect;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readNullableString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function cloneRecord(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) ? { ...value } : null;
+}
+
+function readDesiredState(value: unknown): WorkspaceRuntimeDesiredState | null {
+  return value === "running" || value === "stopped" || value === "manual" ? value : null;
+}
+
+function readServiceStates(value: unknown): ExecutionWorkspaceConfig["serviceStates"] {
+  if (!isRecord(value)) return null;
+  const entries = Object.entries(value).filter(([, state]) =>
+    state === "running" || state === "stopped" || state === "manual"
+  );
+  return entries.length > 0
+    ? Object.fromEntries(entries) as ExecutionWorkspaceConfig["serviceStates"]
+    : null;
+}
+
+export function readExecutionWorkspaceConfig(
+  metadata: Record<string, unknown> | null | undefined,
+): ExecutionWorkspaceConfig | null {
+  const raw = isRecord(metadata?.config) ? metadata.config : null;
+  if (!raw) return null;
+
+  const config: ExecutionWorkspaceConfig = {
+    environmentId: readNullableString(raw.environmentId),
+    provisionCommand: readNullableString(raw.provisionCommand),
+    teardownCommand: readNullableString(raw.teardownCommand),
+    cleanupCommand: readNullableString(raw.cleanupCommand),
+    workspaceRuntime: cloneRecord(raw.workspaceRuntime),
+    desiredState: readDesiredState(raw.desiredState),
+    serviceStates: readServiceStates(raw.serviceStates),
+  };
+
+  const hasConfig = Object.values(config).some((value) => {
+    if (value === null) return false;
+    if (typeof value === "object") return Object.keys(value).length > 0;
+    return true;
+  });
+
+  return hasConfig ? config : null;
+}
+
+export function mergeExecutionWorkspaceConfig(
+  metadata: Record<string, unknown> | null | undefined,
+  configPatch: Partial<ExecutionWorkspaceConfig>,
+): Record<string, unknown> {
+  return {
+    ...(metadata ?? {}),
+    config: {
+      ...(readExecutionWorkspaceConfig(metadata) ?? {}),
+      ...configPatch,
+    },
+  };
+}
 
 function toExecutionWorkspace(row: ExecutionWorkspaceRow): ExecutionWorkspace {
   return {
@@ -28,6 +98,7 @@ function toExecutionWorkspace(row: ExecutionWorkspaceRow): ExecutionWorkspace {
     closedAt: row.closedAt ?? null,
     cleanupEligibleAt: row.cleanupEligibleAt ?? null,
     cleanupReason: row.cleanupReason ?? null,
+    config: readExecutionWorkspaceConfig((row.metadata as Record<string, unknown> | null) ?? null),
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -73,6 +144,34 @@ export function executionWorkspaceService(db: Db) {
         .where(eq(executionWorkspaces.id, id))
         .then((rows) => rows[0] ?? null);
       return row ? toExecutionWorkspace(row) : null;
+    },
+
+    clearEnvironmentSelection: async (companyId: string, environmentId: string) => {
+      return db.transaction(async (tx) => {
+        const rows = await tx
+          .select({
+            id: executionWorkspaces.id,
+            metadata: executionWorkspaces.metadata,
+          })
+          .from(executionWorkspaces)
+          .where(eq(executionWorkspaces.companyId, companyId));
+
+        let cleared = 0;
+        for (const row of rows) {
+          const config = readExecutionWorkspaceConfig(row.metadata);
+          if (!config) continue;
+          if (config.environmentId !== environmentId) continue;
+          await tx
+            .update(executionWorkspaces)
+            .set({
+              metadata: mergeExecutionWorkspaceConfig(row.metadata, { environmentId: null }),
+              updatedAt: new Date(),
+            })
+            .where(eq(executionWorkspaces.id, row.id));
+          cleared += 1;
+        }
+        return cleared;
+      });
     },
 
     create: async (data: typeof executionWorkspaces.$inferInsert) => {

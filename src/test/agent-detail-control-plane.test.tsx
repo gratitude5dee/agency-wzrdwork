@@ -148,7 +148,7 @@ describe("AgentDetailPage control-plane run action", () => {
   it("disables the run action for config-only adapters", async () => {
     currentAgent = {
       ...currentAgent,
-      adapter_type: "claude_local",
+      adapter_type: "hermes_local",
     };
 
     const { AgentDetailPage } = await import("@/pages/AgentDetail");

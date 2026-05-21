@@ -9,6 +9,9 @@ import { openClawGatewayUIAdapter } from "./openclaw-gateway";
 import { processUIAdapter } from "./process";
 import { httpUIAdapter } from "./http";
 import { hermesUIAdapter } from "./hermes";
+import { grokLocalUIAdapter } from "./grok-local";
+import { cursorCloudUIAdapter } from "./cursor-cloud";
+import { acpxLocalUIAdapter } from "./acpx-local";
 
 /** Map of adapter type → UIAdapterModule for all registered adapters. */
 export const adapterRegistry = new Map<string, UIAdapterModule>(
@@ -23,6 +26,9 @@ export const adapterRegistry = new Map<string, UIAdapterModule>(
     processUIAdapter,
     httpUIAdapter,
     hermesUIAdapter,
+    grokLocalUIAdapter,
+    cursorCloudUIAdapter,
+    acpxLocalUIAdapter,
   ].map((a) => [a.type, a]),
 );
 

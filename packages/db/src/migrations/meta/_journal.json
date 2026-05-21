@@ -274,6 +274,34 @@
       "when": 1740000000000,
       "tag": "0038_agency_bridge",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1779197229434,
+      "tag": "0039_furry_carmella_unuscione",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1779201539723,
+      "tag": "0040_clammy_lady_deathstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1779202435562,
+      "tag": "0041_cute_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1779203268099,
+      "tag": "0042_silent_the_order",
+      "breakpoints": true
     }
   ]
 }

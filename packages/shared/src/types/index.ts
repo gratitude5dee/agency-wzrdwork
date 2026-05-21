@@ -1,5 +1,5 @@
 export type { Company } from "./company.js";
-export type { InstanceExperimentalSettings, InstanceSettings } from "./instance.js";
+export type { InstanceGeneralSettings, InstanceExperimentalSettings, InstanceSettings } from "./instance.js";
 export type {
   Agent,
   AgentPermissions,
@@ -13,6 +13,18 @@ export type {
 export type { AssetImage } from "./asset.js";
 export type { Project, ProjectCodebase, ProjectCodebaseOrigin, ProjectGoalRef, ProjectWorkspace } from "./project.js";
 export type {
+  Environment,
+  EnvironmentLease,
+  EnvironmentProbeResult,
+  FakeSandboxEnvironmentConfig,
+  LocalEnvironmentConfig,
+  PluginEnvironmentConfig,
+  PluginSandboxEnvironmentConfig,
+  SandboxEnvironmentConfig,
+  SandboxEnvironmentProvider,
+  SshEnvironmentConfig,
+} from "./environment.js";
+export type {
   ExecutionWorkspace,
   WorkspaceRuntimeService,
   ExecutionWorkspaceStrategyType,
@@ -20,9 +32,22 @@ export type {
   ExecutionWorkspaceProviderType,
   ExecutionWorkspaceStatus,
   ExecutionWorkspaceStrategy,
+  ExecutionWorkspaceConfig,
+  ExecutionWorkspaceSummary,
   ProjectExecutionWorkspacePolicy,
   ProjectExecutionWorkspaceDefaultMode,
+  ProjectWorkspaceRuntimeConfig,
   IssueExecutionWorkspaceSettings,
+  WorkspaceCommandDefinition,
+  WorkspaceCommandKind,
+  WorkspaceCommandSource,
+  WorkspaceRealizationRecord,
+  WorkspaceRealizationRequest,
+  WorkspaceRealizationSyncStrategy,
+  WorkspaceRealizationTransport,
+  WorkspaceRuntimeControlTarget,
+  WorkspaceRuntimeDesiredState,
+  WorkspaceRuntimeServiceStateMap,
 } from "./workspace-runtime.js";
 export type {
   WorkspaceOperation,
@@ -51,6 +76,17 @@ export type {
   IssueAttachment,
   IssueLabel,
 } from "./issue.js";
+export type {
+  IssueTreeControlPreview,
+  IssueTreeHold,
+  IssueTreeHoldMember,
+  IssueTreeHoldReleasePolicy,
+  IssueTreePreviewAgent,
+  IssueTreePreviewIssue,
+  IssueTreePreviewRun,
+  IssueTreePreviewTotals,
+  IssueTreePreviewWarning,
+} from "./issue-tree-control.js";
 export type { Goal } from "./goal.js";
 export type { Approval, ApprovalComment } from "./approval.js";
 export type {
@@ -83,7 +119,17 @@ export type {
 } from "./heartbeat.js";
 export type { LiveEvent } from "./live.js";
 export type { DashboardSummary } from "./dashboard.js";
+export type {
+  AgencySnapshotControlPlane,
+  SnapshotBudgetIncident,
+  SnapshotBudgetPolicy,
+  SnapshotCostBucket,
+  SnapshotDashboard,
+  SnapshotHeartbeatAgent,
+  SnapshotHeartbeatEvent,
+} from "./agency-snapshot.js";
 export type { ActivityEvent } from "./activity.js";
+export type { SidebarOrderPreference } from "./sidebar-preferences.js";
 export type { SidebarBadges } from "./sidebar-badges.js";
 export type {
   CompanyMembership,
@@ -111,6 +157,27 @@ export type {
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
+export type {
+  CompanySkill,
+  CompanySkillCompatibility,
+  CompanySkillCreateRequest,
+  CompanySkillDetail,
+  CompanySkillFileDetail,
+  CompanySkillFileInventoryEntry,
+  CompanySkillFileUpdateRequest,
+  CompanySkillImportRequest,
+  CompanySkillImportResult,
+  CompanySkillListItem,
+  CompanySkillProjectScanConflict,
+  CompanySkillProjectScanRequest,
+  CompanySkillProjectScanResult,
+  CompanySkillProjectScanSkipped,
+  CompanySkillSourceBadge,
+  CompanySkillSourceType,
+  CompanySkillTrustLevel,
+  CompanySkillUpdateStatus,
+  CompanySkillUsageAgent,
+} from "./company-skill.js";
 export type {
   JsonSchema,
   PluginJobDeclaration,

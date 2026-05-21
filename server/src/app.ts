@@ -32,11 +32,13 @@ import { walletAuthRoutes } from "./routes/auth.js";
 
 import { healthRoutes } from "./routes/health.js";
 import { accessRoutes } from "./routes/access.js";
+import { adapterRoutes } from "./routes/adapters.js";
 import { agentRoutes } from "./routes/agents.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { activityRoutes } from "./routes/activity.js";
 import { companyRoutes } from "./routes/companies.js";
 import { issueRoutes } from "./routes/issues.js";
+import { issueTreeControlRoutes } from "./routes/issue-tree-control.js";
 import { goalRoutes } from "./routes/goals.js";
 import { projectRoutes } from "./routes/projects.js";
 import { costRoutes } from "./routes/costs.js";
@@ -44,6 +46,8 @@ import { dashboardRoutes } from "./routes/dashboard.js";
 import { instanceSettingsRoutes } from "./routes/instance-settings.js";
 import { secretRoutes } from "./routes/secrets.js";
 import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
+import { sidebarPreferenceRoutes } from "./routes/sidebar-preferences.js";
+import { environmentRoutes } from "./routes/environments.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { executionWorkspaceRoutes } from "./routes/execution-workspaces.js";
 import { assetRoutes } from "./routes/assets.js";
@@ -207,9 +211,11 @@ export async function createApp(
     }),
   );
   api.use(agentRoutes(db));
+  api.use(adapterRoutes());
   api.use(approvalRoutes(db));
   api.use(activityRoutes(db));
   api.use(issueRoutes(db, opts.storageService));
+  api.use(issueTreeControlRoutes(db));
   api.use(goalRoutes(db));
   api.use(projectRoutes(db));
   api.use(costRoutes(db));
@@ -217,6 +223,8 @@ export async function createApp(
   api.use(instanceSettingsRoutes(db));
   api.use(secretRoutes(db));
   api.use(sidebarBadgeRoutes(db));
+  api.use(sidebarPreferenceRoutes(db));
+  api.use(environmentRoutes(db));
   api.use(executionWorkspaceRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
   api.use(llmRoutes(db));

@@ -3,7 +3,8 @@ import React from 'react';
 import { useStore } from '../store/useStore';
 import { getAgentSet } from '../data/agents';
 import { useAgencyStore, Task } from '../store/agencyStore';
-import { Siren, MessageSquareWarning, PartyPopper } from 'lucide-react';
+import { Activity, CircleX, Clock3, MessageSquareWarning, PackageCheck, PartyPopper, PauseCircle, Siren } from 'lucide-react';
+import type { AgentVisualState } from '../store/agencyStore';
 
 const ORCHESTRATOR_INDEX = 1;
 
@@ -50,18 +51,42 @@ function getAgentPhaseLabel(
   tasks: Task[],
   phase: string,
   fallback: string,
+  visualState: AgentVisualState = 'idle',
 ): PhaseLabel {
   if (agentIndex === ORCHESTRATOR_INDEX && phase === 'done') {
     return { text: 'Project Ready!', className: 'text-yellow-400' };
   }
+  switch (visualState) {
+    case 'over_budget':
+      return { text: 'Over Budget', className: 'text-red-400' };
+    case 'failed':
+      return { text: 'Failed', className: 'text-red-400' };
+    case 'paused':
+      return { text: 'Paused', className: 'text-zinc-400' };
+    case 'awaiting_approval':
+    case 'needs_input':
+      return { text: 'Approval Needed', className: 'text-orange-400' };
+    case 'blocked':
+      return { text: 'Blocked', className: 'text-orange-400' };
+    case 'heartbeat_tick':
+      return { text: 'Heartbeat', className: 'text-sky-300' };
+    case 'working':
+      return { text: 'Working', className: 'text-emerald-400' };
+    case 'queued':
+      return { text: 'Queued', className: 'text-blue-300' };
+    case 'producing_work_product':
+      return { text: 'Output Ready', className: 'text-emerald-300' };
+    case 'completed':
+      return { text: 'Complete', className: 'text-yellow-400' };
+  }
   const holdTask = tasks.find(
-    t => t.assignedAgentIds.includes(agentIndex) && t.status === 'on_hold',
+    t => t.assignedAgentIds.includes(agentIndex) && (t.requiresClientApproval || t.status === 'blocked'),
   );
   if (holdTask && phase !== 'done') {
     return { text: 'Approval Needed', className: 'text-orange-400' };
   }
   const activeTask = tasks.find(
-    t => t.assignedAgentIds.includes(agentIndex) && t.status === 'in_progress',
+    t => t.assignedAgentIds.includes(agentIndex) && (t.status === 'in_progress' || t.status === 'in_review'),
   );
   if (activeTask) {
     return { text: 'Working', className: 'text-emerald-400' };
@@ -82,6 +107,7 @@ const UIOverlay: React.FC = () => {
   const {
     tasks,
     phase,
+    agentVisualStates,
     selectedAgentSetId,
   } = useAgencyStore();
   const agents = getAgentSet(selectedAgentSetId).agents;
@@ -102,6 +128,7 @@ const UIOverlay: React.FC = () => {
 
         let alertIcon: React.ReactNode = null;
         let alertColor = '#facc15'; // Default yellow
+        const visualState = agentVisualStates[agent.index] ?? 'idle';
 
         // Check specific conditions
         // - Orchestrator (index 1) idle: siren
@@ -114,10 +141,29 @@ const UIOverlay: React.FC = () => {
           alertIcon = <PartyPopper size={18} />;
           alertColor = '#facc15'; // Yellow
         }
-        // - Any agent waiting for approval: message-square-warning
+        else if (visualState === 'over_budget' || visualState === 'failed') {
+          alertIcon = <CircleX size={18} />;
+          alertColor = '#f87171';
+        }
+        else if (visualState === 'paused') {
+          alertIcon = <PauseCircle size={18} />;
+          alertColor = '#a1a1aa';
+        }
+        else if (visualState === 'queued') {
+          alertIcon = <Clock3 size={18} />;
+          alertColor = '#93c5fd';
+        }
+        else if (visualState === 'working' || visualState === 'heartbeat_tick') {
+          alertIcon = <Activity size={18} />;
+          alertColor = '#67e8f9';
+        }
+        else if (visualState === 'producing_work_product') {
+          alertIcon = <PackageCheck size={18} />;
+          alertColor = '#86efac';
+        }
         else {
           const hasTaskOnHold = tasks.some(
-            t => t.assignedAgentIds.includes(agent.index) && t.status === 'on_hold'
+            t => t.assignedAgentIds.includes(agent.index) && (t.requiresClientApproval || t.status === 'blocked')
           );
           if (hasTaskOnHold) {
             alertIcon = <MessageSquareWarning size={18} />;
@@ -144,7 +190,7 @@ const UIOverlay: React.FC = () => {
         // Priority 1: Selected Agent
         if (selectedAgent && selectedPosition) {
           const isOrchestratorProjectReady = selectedAgent.index === ORCHESTRATOR_INDEX && phase === 'done';
-          const label = getAgentPhaseLabel(selectedAgent.index, tasks, phase, selectedAgent.department);
+          const label = getAgentPhaseLabel(selectedAgent.index, tasks, phase, selectedAgent.department, agentVisualStates[selectedAgent.index]);
 
           return (
             <div
@@ -187,7 +233,7 @@ const UIOverlay: React.FC = () => {
         // Priority 2: Hovered Agent with dynamic phase label (only if not selected)
         if (hoveredAgent && hoverPosition && hoveredNpcIndex !== selectedNpcIndex) {
           const isOrchestratorProjectReady = hoveredAgent.index === ORCHESTRATOR_INDEX && phase === 'done';
-          const label = getAgentPhaseLabel(hoveredAgent.index, tasks, phase, hoveredAgent.department);
+          const label = getAgentPhaseLabel(hoveredAgent.index, tasks, phase, hoveredAgent.department, agentVisualStates[hoveredAgent.index]);
 
           return (
             <div

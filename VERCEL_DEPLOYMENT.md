@@ -52,12 +52,12 @@
 
 ```bash
 cd agency-wzrdwork-main
-vercel link --project agency-wzrdwork --team 5dee-studios
+vercel link --yes --project agency-wzrdwork --scope 5dee-studios
 ```
 
 ### 2. Set environment variables
 
-Copy values from `.env.vercel` to Vercel project settings:
+Copy values from `.env.example` / your secret manager to Vercel project settings. Do not commit real secret values.
 
 ```bash
 # Or set them via CLI:
@@ -66,12 +66,32 @@ vercel env add VITE_SUPABASE_URL production
 vercel env add VITE_SUPABASE_ANON_KEY production
 vercel env add SUPABASE_SERVICE_ROLE_KEY production
 vercel env add BETTER_AUTH_SECRET production
+vercel env add PAPERCLIP_PUBLIC_URL production
+vercel env add CRON_SECRET production
 vercel env add CONTROL_PLANE_ENCRYPTION_KEY production
-vercel env add DEPLOYMENT_MODE production
-vercel env add DEPLOYMENT_EXPOSURE production
+vercel env add PAPERCLIP_SECRETS_MASTER_KEY production
+vercel env add PAPERCLIP_DEPLOYMENT_MODE production
+vercel env add PAPERCLIP_DEPLOYMENT_EXPOSURE production
+vercel env add PAPERCLIP_ALLOWED_HOSTNAMES production
+vercel env add PAPERCLIP_STORAGE_PROVIDER production
+vercel env add PAPERCLIP_STORAGE_S3_BUCKET production
+vercel env add PAPERCLIP_STORAGE_S3_REGION production
+vercel env add PAPERCLIP_STORAGE_S3_ENDPOINT production
+vercel env add PAPERCLIP_STORAGE_S3_PREFIX production
+vercel env add PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE production
+vercel env add AWS_ACCESS_KEY_ID production
+vercel env add AWS_SECRET_ACCESS_KEY production
 ```
 
 **CRITICAL**: Use the Supabase **Connection Pooler** URL (port 6543), NOT the direct connection (port 5432). Serverless functions open/close connections rapidly and will exhaust direct connections.
+
+Current linked project status (2026-05-20):
+
+- Vercel project: `5dee-studios/agency-wzrdwork`
+- Production env currently present: `DATABASE_URL`
+- Production env still required before deploy/smoke: all other values listed above
+- `CRON_SECRET` is not auto-created by Vercel; set it manually.
+- Thirdweb remains enabled. Set `VITE_THIRDWEB_CLIENT_ID` as a Supabase Edge Function secret for `thirdweb-config`, not as a public browser secret.
 
 ### 3. Run database migrations
 
@@ -125,7 +145,7 @@ Three cron jobs replicate the control plane's background work:
 | `heartbeat-worker` | Every minute | Claims and processes pending wakeups |
 | `reap-orphans` | Every 5 minutes | Cleans up stale runs from timed-out functions |
 
-Cron jobs are secured with `CRON_SECRET` (auto-set by Vercel).
+Cron jobs are secured with `CRON_SECRET`. Vercel sends `Authorization: Bearer <CRON_SECRET>` only when the variable exists, so this must be manually configured in the Production environment.
 
 ## Frontend Changes
 
@@ -162,3 +182,6 @@ function MyComponent({ companyId }) {
 
 **Plugin workers failing**
 → Plugins that spawn child processes won't work in serverless. They need to be adapted to run inline or moved to Supabase Edge Functions.
+
+**Document or asset routes fail with "Storage not configured for serverless"**
+→ Set `PAPERCLIP_STORAGE_PROVIDER=s3` plus the S3-compatible storage variables above. Supabase Storage can be used through its S3-compatible endpoint if the bucket and credentials are configured.

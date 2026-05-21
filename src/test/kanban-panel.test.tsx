@@ -4,6 +4,89 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { KanbanPanel } from "@/features/cockpit/delegation/components/KanbanPanel";
 
+const mockSnapshot = vi.hoisted(() => ({
+  company: {
+    id: "c1",
+    slug: "test-co",
+    name: "Test Co",
+    companyType: "Agency",
+    description: "",
+    brief: "",
+    brandColor: "#3b82f6",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  agents: [],
+  projects: [],
+  goals: [],
+  issues: [
+    {
+      id: "issue-1",
+      identifier: "ACM-1",
+      title: "Create heartbeat",
+      status: "backlog",
+      priority: "high",
+      companyId: "c1",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      description: null,
+      assigneeAgentId: null,
+      projectId: null,
+    },
+    {
+      id: "issue-2",
+      identifier: "ACM-2",
+      title: "Wire dark shell",
+      status: "in_progress",
+      priority: "medium",
+      companyId: "c1",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      description: null,
+      assigneeAgentId: null,
+      projectId: null,
+    },
+    {
+      id: "issue-3",
+      identifier: "ACM-3",
+      title: "Fix blocked bug",
+      status: "blocked",
+      priority: "critical",
+      companyId: "c1",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      description: null,
+      assigneeAgentId: null,
+      projectId: null,
+    },
+  ],
+  approvals: [],
+  runs: [],
+  activity: [],
+  dashboard: { agentsOnline: 0, runsActive: 0, openIssues: 3, pendingApprovals: 0, monthSpendUsd: 0, monthBudgetUsd: 0, budgetUtilization: 0 },
+  costs: { byAgent: {}, byProject: {}, total: { tokensIn: 0, tokensOut: 0, cached: 0, usd: 0 } },
+  budgets: { company: null, perAgent: {}, incidents: [] },
+  heartbeats: { byAgent: {}, recentEvents: [] },
+  runtimeState: { byAgent: {} },
+  documents: [],
+  workProducts: [],
+  attachments: [],
+  executionWorkspaces: [],
+  runtimeServices: [],
+  plugins: { installed: [], activeJobs: 0, failingJobs: 0 },
+  routines: { upcoming: [], recentRuns: [] },
+  secrets: { count: 0, providers: [], lastRotatedAt: null },
+  source: "server" as const,
+}));
+
+vi.mock("@/features/cockpit/lib/useAgencyData", () => ({
+  useAgencyData: () => ({ snapshot: mockSnapshot }),
+}));
+
+vi.mock("@/lib/server-api/issues", () => ({
+  updateIssueStatusRecord: vi.fn(),
+}));
+
 /* ── Chain-style Supabase mock ── */
 
 const MOCK_ISSUES = [

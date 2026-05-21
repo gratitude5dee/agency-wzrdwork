@@ -21,9 +21,65 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createApp } from "../server/dist/app.js";
 import { getDb, getRawSql } from "./_lib/db.js";
+import type { StorageService } from "../server/dist/storage/index.js";
 
 // Module-level cache for the Express app across warm invocations
 let cachedApp: Awaited<ReturnType<typeof createApp>> | null = null;
+
+function readEnv(primary: string, fallback?: string): string | undefined {
+  const value = process.env[primary]?.trim();
+  if (value) return value;
+  if (!fallback) return undefined;
+  const fallbackValue = process.env[fallback]?.trim();
+  return fallbackValue || undefined;
+}
+
+function readCsvEnv(primary: string, fallback?: string): string[] {
+  return (readEnv(primary, fallback) ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function isProduction() {
+  return process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+}
+
+function createUnavailableStorageService(message: string): StorageService {
+  async function fail(): Promise<never> {
+    throw new Error(message);
+  }
+
+  return {
+    provider: "s3",
+    putFile: fail,
+    getObject: fail,
+    headObject: fail,
+    deleteObject: fail,
+  };
+}
+
+async function getServerlessStorageService(): Promise<StorageService> {
+  const storageProvider = readEnv("PAPERCLIP_STORAGE_PROVIDER");
+
+  if (storageProvider === "s3") {
+    const { loadConfig } = await import("../server/dist/config.js");
+    const { createStorageServiceFromConfig } = await import("../server/dist/storage/index.js");
+    return createStorageServiceFromConfig(loadConfig());
+  }
+
+  return createUnavailableStorageService(
+    "Storage not configured for serverless. Set PAPERCLIP_STORAGE_PROVIDER=s3 with S3-compatible storage credentials.",
+  );
+}
+
+function assertProductionAuthConfig() {
+  if (!isProduction()) return;
+  const authSecret = readEnv("BETTER_AUTH_SECRET", "PAPERCLIP_AGENT_JWT_SECRET");
+  if (!authSecret) {
+    throw new Error("BETTER_AUTH_SECRET is required in production.");
+  }
+}
 
 function getWalletAuthConfig() {
   return {
@@ -46,6 +102,7 @@ async function getApp() {
 
   const db = getDb();
   const rawSql = getRawSql();
+  assertProductionAuthConfig();
 
   // Better Auth session resolution (compatibility layer)
   let betterAuthHandler: import("express").RequestHandler | undefined;
@@ -67,27 +124,13 @@ async function getApp() {
   cachedApp = await createApp(db as any, {
     uiMode: "none",
     serverPort: 443,
-    storageService: {
-      // Storage stub — configure via S3/Supabase Storage env vars for production
-      async store(_key: string, _data: Buffer) {
-        throw new Error("Storage not configured for serverless. Set PAPERCLIP_STORAGE_PROVIDER=s3 with S3 credentials.");
-      },
-      async retrieve(_key: string) {
-        throw new Error("Storage not configured for serverless. Set PAPERCLIP_STORAGE_PROVIDER=s3 with S3 credentials.");
-      },
-      async remove(_key: string) {
-        throw new Error("Storage not configured for serverless. Set PAPERCLIP_STORAGE_PROVIDER=s3 with S3 credentials.");
-      },
-      getPublicUrl(_key: string) {
-        return null;
-      },
-    },
-    deploymentMode: (process.env.DEPLOYMENT_MODE as any) ?? "authenticated",
-    deploymentExposure: (process.env.DEPLOYMENT_EXPOSURE as any) ?? "public",
-    allowedHostnames: (process.env.ALLOWED_HOSTNAMES ?? "").split(",").filter(Boolean),
+    storageService: await getServerlessStorageService(),
+    deploymentMode: (readEnv("PAPERCLIP_DEPLOYMENT_MODE", "DEPLOYMENT_MODE") as any) ?? "authenticated",
+    deploymentExposure: (readEnv("PAPERCLIP_DEPLOYMENT_EXPOSURE", "DEPLOYMENT_EXPOSURE") as any) ?? "public",
+    allowedHostnames: readCsvEnv("PAPERCLIP_ALLOWED_HOSTNAMES", "ALLOWED_HOSTNAMES"),
     bindHost: "0.0.0.0",
     authReady: true,
-    companyDeletionEnabled: process.env.COMPANY_DELETION_ENABLED === "true",
+    companyDeletionEnabled: readEnv("PAPERCLIP_ENABLE_COMPANY_DELETION", "COMPANY_DELETION_ENABLED") === "true",
     instanceId: process.env.INSTANCE_ID ?? "vercel-serverless",
     hostVersion: process.env.npm_package_version ?? "0.0.0",
     betterAuthHandler,

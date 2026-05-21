@@ -13,6 +13,9 @@ const EXPECTED_ADAPTER_TYPES = [
   "process",
   "http",
   "hermes",
+  "grok_local",
+  "cursor_cloud",
+  "acpx_local",
 ] as const;
 
 const EXPECTED_LABELS: Record<string, string> = {
@@ -26,6 +29,9 @@ const EXPECTED_LABELS: Record<string, string> = {
   process: "Shell Process",
   http: "HTTP Webhook",
   hermes: "Hermes Agent",
+  grok_local: "Grok Build (local)",
+  cursor_cloud: "Cursor Cloud",
+  acpx_local: "ACPX (local)",
 };
 
 function makeDefaultValues(adapterType: string): CreateConfigValues {
@@ -44,6 +50,7 @@ function makeDefaultValues(adapterType: string): CreateConfigValues {
     extraArgs: "",
     envVars: "",
     envBindings: {},
+    adapterSchemaValues: {},
     url: "https://example.com",
     bootstrapPrompt: "",
     maxTurnsPerRun: 300,
@@ -53,8 +60,8 @@ function makeDefaultValues(adapterType: string): CreateConfigValues {
 }
 
 describe("Adapter Registry", () => {
-  it("contains exactly 10 adapters", () => {
-    expect(adapterRegistry.size).toBe(10);
+  it("contains exactly 13 adapters", () => {
+    expect(adapterRegistry.size).toBe(13);
   });
 
   it("contains all expected adapter types", () => {

@@ -3,8 +3,24 @@ import { create } from "zustand";
 import type { AgentSet } from "../data/agents";
 import { DEFAULT_AGENT_SET_ID, getAgentSet } from "../data/agents";
 import type { AgentInspectorModel, ProjectInspectorModel } from "./inspector";
+import type { IssueStatus } from "../../lib/domain";
 
-export type TaskStatus = "scheduled" | "on_hold" | "in_progress" | "done";
+export type TaskStatus = IssueStatus;
+
+export type AgentVisualState =
+  | "idle"
+  | "queued"
+  | "working"
+  | "heartbeat_tick"
+  | "awaiting_approval"
+  | "blocked"
+  | "over_budget"
+  | "paused"
+  | "failed"
+  | "completed"
+  | "needs_input"
+  | "producing_work_product"
+  | "terminated";
 
 export interface Task {
   id: string;
@@ -46,7 +62,14 @@ export interface DebugLogEntry {
   taskId?: string;
 }
 
-export type ProjectPhase = "idle" | "briefing" | "working" | "awaiting_approval" | "done";
+export type ProjectPhase =
+  | "idle"
+  | "briefing"
+  | "working"
+  | "awaiting_approval"
+  | "over_budget"
+  | "failed"
+  | "done";
 
 interface RuntimePayload {
   clientBrief: string;
@@ -56,6 +79,7 @@ interface RuntimePayload {
   debugLog: DebugLogEntry[];
   projectInspector: ProjectInspectorModel | null;
   agentInspectors: Record<number, AgentInspectorModel>;
+  agentVisualStates: Record<number, AgentVisualState>;
   selectedAgentSetId?: string;
 }
 
@@ -71,6 +95,7 @@ interface AgencyState {
   boardroomHistories: Record<string, DebugMessage[]>;
   projectInspector: ProjectInspectorModel | null;
   agentInspectors: Record<number, AgentInspectorModel>;
+  agentVisualStates: Record<number, AgentVisualState>;
   selectedAgentSetId: string;
   isKanbanOpen: boolean;
   isLogOpen: boolean;
@@ -106,6 +131,7 @@ const INITIAL_STATE = {
   boardroomHistories: {} as Record<string, DebugMessage[]>,
   projectInspector: null as ProjectInspectorModel | null,
   agentInspectors: {} as Record<number, AgentInspectorModel>,
+  agentVisualStates: {} as Record<number, AgentVisualState>,
   selectedAgentSetId: DEFAULT_AGENT_SET_ID,
   isKanbanOpen: true,
   isLogOpen: true,
@@ -128,9 +154,10 @@ export const useAgencyStore = create<AgencyState>()((set) => ({
       debugLog: payload.debugLog,
       projectInspector: payload.projectInspector,
       agentInspectors: payload.agentInspectors,
+      agentVisualStates: payload.agentVisualStates,
       selectedAgentSetId: payload.selectedAgentSetId ?? state.selectedAgentSetId,
       pendingApprovalTaskId:
-        payload.tasks.find((task) => task.status === "on_hold")?.id ?? null,
+        payload.tasks.find((task) => task.requiresClientApproval || task.status === "blocked")?.id ?? null,
       isLogOpen: payload.actionLog.length > 0 || payload.debugLog.length > 0,
     })),
   setPhase: (phase) => set({ phase }),

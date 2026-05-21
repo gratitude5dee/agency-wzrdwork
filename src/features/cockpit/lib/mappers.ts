@@ -5,6 +5,7 @@ import {
   type AgentSet,
 } from "../delegation/data/agents";
 import {
+  type AgentVisualState,
   type ActionLogEntry,
   type DebugLogEntry,
   type ProjectPhase,
@@ -133,18 +134,97 @@ function humanizeAction(event: ActivityRecord, issuesById: Map<string, IssueReco
   }
 }
 
-function mapIssueStatus(issue: IssueRecord, approval: ApprovalRecord | undefined): Task["status"] {
-  if (issue.status === "done" || issue.status === "cancelled") return "done";
-  if (issue.status === "blocked" || approval?.status === "pending") return "on_hold";
-  if (issue.status === "in_progress" || issue.status === "in_review") return "in_progress";
-  return "scheduled";
+function mapIssueStatus(
+  issue: IssueRecord,
+  approval: ApprovalRecord | undefined,
+  blockedIssueIds: Set<string>,
+): Task["status"] {
+  if (approval?.status === "pending" && issue.status !== "done" && issue.status !== "cancelled") {
+    return "blocked";
+  }
+  if (blockedIssueIds.has(issue.id) && issue.status !== "done" && issue.status !== "cancelled") {
+    return "blocked";
+  }
+  return issue.status;
 }
 
-function derivePhase(tasks: Task[]): ProjectPhase {
+function derivePhase(tasks: Task[], visualStates: AgentVisualState[]): ProjectPhase {
+  if (visualStates.includes("over_budget")) return "over_budget";
   if (tasks.length === 0) return "idle";
-  if (tasks.every((task) => task.status === "done")) return "done";
-  if (tasks.some((task) => task.status === "on_hold")) return "awaiting_approval";
+  if (tasks.every((task) => isDoneStatus(task.status))) return "done";
+  if (tasks.some((task) => task.requiresClientApproval || task.status === "blocked")) return "awaiting_approval";
+  if (
+    visualStates.some((state) =>
+      state === "working" ||
+      state === "heartbeat_tick" ||
+      state === "queued" ||
+      state === "producing_work_product"
+    )
+  ) {
+    return "working";
+  }
+  if (visualStates.includes("failed")) return "failed";
   return "working";
+}
+
+function isDoneStatus(status: Task["status"]): boolean {
+  return status === "done" || status === "cancelled";
+}
+
+function isRecent(value: string | null | undefined, windowMs: number): boolean {
+  const timestamp = toTimestamp(value);
+  return timestamp > 0 && Date.now() - timestamp <= windowMs;
+}
+
+function agentBudgetIsOver(policy: AgencySnapshot["budgets"]["perAgent"][string] | undefined): boolean {
+  return Boolean(policy?.hardStopEnabled && policy.utilization >= 100);
+}
+
+function computeAgentVisualState(input: {
+  agent: AgentRecord;
+  activeIssue: IssueRecord | null;
+  latestRun: RunRecord | null;
+  pendingApproval: ApprovalRecord | null;
+  runtimeState?: AgencySnapshot["runtimeState"]["byAgent"][string];
+  heartbeat?: AgencySnapshot["heartbeats"]["byAgent"][string];
+  budget?: AgencySnapshot["budgets"]["perAgent"][string];
+  recentWorkProduct?: boolean;
+}): AgentVisualState {
+  const runtimeStatus = input.runtimeState?.lastRunStatus ?? input.heartbeat?.lastStatus ?? null;
+  const latestStatus = input.latestRun?.status ?? runtimeStatus;
+
+  if (input.agent.status === "terminated") return "terminated";
+  if (agentBudgetIsOver(input.budget)) return "over_budget";
+  if (input.agent.status === "paused") return "paused";
+  if (input.pendingApproval) return "awaiting_approval";
+  if (
+    input.agent.status === "error" ||
+    input.runtimeState?.lastError ||
+    latestStatus === "failed" ||
+    latestStatus === "timed_out"
+  ) {
+    return "failed";
+  }
+  if (input.activeIssue?.status === "blocked") return "blocked";
+  if (input.recentWorkProduct) return "producing_work_product";
+  if (runtimeStatus && isRecent(input.heartbeat?.lastTickAt, 30_000)) return "heartbeat_tick";
+  if (
+    input.agent.status === "running" ||
+    latestStatus === "running" ||
+    latestStatus === "in_progress" ||
+    input.activeIssue?.status === "in_progress" ||
+    input.activeIssue?.status === "in_review"
+  ) {
+    return "working";
+  }
+  if (latestStatus === "queued" || input.activeIssue?.status === "todo" || input.activeIssue?.status === "backlog") {
+    return "queued";
+  }
+  if (latestStatus === "succeeded" || latestStatus === "completed" || input.activeIssue?.status === "done") {
+    return "completed";
+  }
+  if (input.agent.status === "pending_approval") return "needs_input";
+  return "idle";
 }
 
 export interface CockpitRuntime {
@@ -155,6 +235,7 @@ export interface CockpitRuntime {
   phase: ProjectPhase;
   projectInspector: ReturnType<typeof buildProjectInspectorModel>;
   agentInspectors: Record<number, ReturnType<typeof buildAgentInspectorModel>>;
+  agentVisualStates: Record<number, AgentVisualState>;
 }
 
 export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
@@ -174,6 +255,16 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
   const runtimeIndexByAgentId = new Map<string, number>();
   const issuesById = new Map(snapshot.issues.map((issue) => [issue.id, issue]));
   const agentNameById = new Map(snapshot.agents.map((agent) => [agent.id, agent.name]));
+  const terminalIssueIds = new Set(
+    snapshot.issues
+      .filter((issue) => issue.status === "done" || issue.status === "cancelled")
+      .map((issue) => issue.id),
+  );
+  const blockedIssueIds = new Set(
+    snapshot.issueRelations
+      .filter((relation) => relation.type === "blocks" && !terminalIssueIds.has(relation.issueId))
+      .map((relation) => relation.relatedIssueId),
+  );
   const pendingApprovalsByAgentId = new Map(
     snapshot.approvals
       .filter((approval) => approval.status === "pending" && approval.requestedByAgentId)
@@ -229,9 +320,9 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
         title: issue.identifier ? `${issue.identifier} · ${issue.title}` : issue.title,
         description: issue.description ?? issue.title,
         assignedAgentIds: [runtimeIndex],
-        status: mapIssueStatus(issue, approval),
+        status: mapIssueStatus(issue, approval, blockedIssueIds),
         requiresClientApproval: approval?.status === "pending",
-        output: issue.status === "done" ? issue.description ?? issue.title : undefined,
+        output: isDoneStatus(issue.status) ? issue.description ?? issue.title : undefined,
         createdAt: toTimestamp(issue.createdAt),
         updatedAt: toTimestamp(issue.updatedAt),
       } satisfies Task;
@@ -255,7 +346,7 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
     .sort((a, b) => b!.timestamp - a!.timestamp)
     .slice(0, 80) as ActionLogEntry[];
 
-  const debugLog = snapshot.runs
+  const runDebugLog = snapshot.runs
     .map((run) => {
       const runtimeIndex = runtimeIndexByAgentId.get(run.agentId);
       if (!runtimeIndex) return null;
@@ -292,9 +383,118 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
         taskId: run.issueId ?? undefined,
       } satisfies DebugLogEntry;
     })
-    .filter(Boolean)
-    .sort((a, b) => b!.timestamp - a!.timestamp)
-    .slice(0, 40) as DebugLogEntry[];
+    .filter(Boolean) as DebugLogEntry[];
+
+  const heartbeatDebugLog = snapshot.heartbeats.recentEvents
+    .map((event) => {
+      const runtimeIndex = runtimeIndexByAgentId.get(event.agentId);
+      if (!runtimeIndex) return null;
+      const agentName = agentNameById.get(event.agentId) ?? "Agent";
+
+      return {
+        id: `heartbeat-event-${event.id}`,
+        timestamp: toTimestamp(event.createdAt),
+        agentIndex: runtimeIndex,
+        agentName,
+        phase: "response" as const,
+        systemPrompt: "Heartbeat event stream",
+        dynamicContext: [event.stream, event.level, event.eventType].filter(Boolean).join(" / "),
+        messages: [
+          { role: "system", content: "Paperclip heartbeat runtime event" },
+          { role: "assistant", content: event.message ?? event.eventType },
+        ],
+        rawContent: JSON.stringify(
+          {
+            eventType: event.eventType,
+            stream: event.stream,
+            level: event.level,
+            message: event.message,
+            runId: event.runId,
+          },
+          null,
+          2,
+        ),
+        status: event.level === "error" ? "error" : "completed",
+        taskId: undefined,
+      } satisfies DebugLogEntry;
+    })
+    .filter(Boolean) as DebugLogEntry[];
+
+  const threadDebugLog = snapshot.issueThreadInteractions
+    .map((interaction) => {
+      const issue = issuesById.get(interaction.issueId);
+      const agentId = interaction.createdByAgentId ?? issue?.assigneeAgentId ?? null;
+      const runtimeIndex = agentId ? runtimeIndexByAgentId.get(agentId) : undefined;
+      if (!runtimeIndex) return null;
+      const agentName = agentNameById.get(agentId!) ?? "Agent";
+
+      return {
+        id: `thread-interaction-${interaction.id}`,
+        timestamp: toTimestamp(interaction.updatedAt),
+        agentIndex: runtimeIndex,
+        agentName,
+        phase: "response" as const,
+        systemPrompt: "Issue thread interaction",
+        dynamicContext: issue?.title ?? snapshot.company.brief,
+        messages: [
+          { role: "system", content: "Paperclip issue thread interaction" },
+          { role: "assistant", content: interaction.summary ?? interaction.title ?? interaction.kind },
+        ],
+        rawContent: JSON.stringify(
+          {
+            issueId: interaction.issueId,
+            kind: interaction.kind,
+            status: interaction.status,
+            continuationPolicy: interaction.continuationPolicy,
+          },
+          null,
+          2,
+        ),
+        status: interaction.status === "failed" ? "error" : interaction.status === "pending" ? "pending" : "completed",
+        taskId: interaction.issueId,
+      } satisfies DebugLogEntry;
+    })
+    .filter(Boolean) as DebugLogEntry[];
+
+  const decisionDebugLog = snapshot.issueExecutionDecisions
+    .map((decision) => {
+      const issue = issuesById.get(decision.issueId);
+      const agentId = decision.actorAgentId ?? issue?.assigneeAgentId ?? null;
+      const runtimeIndex = agentId ? runtimeIndexByAgentId.get(agentId) : undefined;
+      if (!runtimeIndex) return null;
+      const agentName = agentNameById.get(agentId!) ?? "Agent";
+
+      return {
+        id: `execution-decision-${decision.id}`,
+        timestamp: toTimestamp(decision.createdAt),
+        agentIndex: runtimeIndex,
+        agentName,
+        phase: "response" as const,
+        systemPrompt: "Issue execution decision",
+        dynamicContext: `${decision.stageType} · ${issue?.title ?? "issue"}`,
+        messages: [
+          { role: "system", content: "Paperclip issue execution decision" },
+          { role: "assistant", content: decision.body },
+        ],
+        rawContent: JSON.stringify(
+          {
+            issueId: decision.issueId,
+            stageId: decision.stageId,
+            stageType: decision.stageType,
+            outcome: decision.outcome,
+          },
+          null,
+          2,
+        ),
+        status: decision.outcome.includes("fail") || decision.outcome.includes("reject") ? "error" : "completed",
+        taskId: decision.issueId,
+      } satisfies DebugLogEntry;
+    })
+    .filter(Boolean) as DebugLogEntry[];
+
+  const debugLog = [...runDebugLog, ...heartbeatDebugLog, ...threadDebugLog, ...decisionDebugLog]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 80);
 
   const liveRunCount = snapshot.runs.filter(
     (run) => run.status === "queued" || run.status === "running",
@@ -307,9 +507,16 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
     approvals: snapshot.approvals,
     issues: snapshot.issues,
     agentNameById,
+    monthSpendUsd: snapshot.dashboard.monthSpendUsd,
+    monthBudgetUsd: snapshot.dashboard.monthBudgetUsd,
+    budgetUtilization: snapshot.dashboard.budgetUtilization,
+    failingPlugins: snapshot.plugins.failingJobs,
+    routineFailures: snapshot.routines.recentRuns.filter((run) => run.status === "failed").length,
+    secretCount: snapshot.secrets.count,
   });
 
   const agentInspectors: Record<number, ReturnType<typeof buildAgentInspectorModel>> = {};
+  const agentVisualStates: Record<number, AgentVisualState> = {};
   renderedAgents.forEach((agent) => {
     const runtimeIndex = runtimeIndexByAgentId.get(agent.id)!;
     const activeIssue = findActiveIssue(agent.id, snapshot.issues);
@@ -320,18 +527,117 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
       [...snapshot.runs]
         .filter((run) => run.agentId === agent.id)
         .sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt))[0] ?? null;
+    const agentWorkProducts = snapshot.workProducts
+      .filter((product) => product.createdByRunId === latestRun?.id || recentIssues.some((issue) => issue.id === product.issueId))
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentDocuments = snapshot.documents
+      .filter((document) => document.createdByAgentId === agent.id || document.updatedByAgentId === agent.id || recentIssues.some((issue) => issue.id === document.issueId))
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentWorkspaces = snapshot.executionWorkspaces
+      .filter((workspace) => recentIssues.some((issue) => issue.id === workspace.sourceIssueId || issue.projectId === workspace.projectId))
+      .sort((a, b) => toTimestamp(b.lastUsedAt) - toTimestamp(a.lastUsedAt));
+    const agentWorkspaceIds = new Set(agentWorkspaces.map((workspace) => workspace.id));
+    const agentRuntimeServices = snapshot.runtimeServices
+      .filter((service) => service.ownerAgentId === agent.id || recentIssues.some((issue) => issue.id === service.issueId || issue.projectId === service.projectId))
+      .sort((a, b) => toTimestamp(b.lastUsedAt) - toTimestamp(a.lastUsedAt));
+    const agentRoutines = snapshot.routines.upcoming
+      .filter((routine) => routine.assigneeAgentId === agent.id)
+      .sort((a, b) => toTimestamp(a.nextRunAt) - toTimestamp(b.nextRunAt));
+    const agentRoutineIds = new Set(agentRoutines.map((routine) => routine.id));
+    const agentIssueIds = new Set(recentIssues.map((issue) => issue.id));
+    const agentEnvironmentLeases = snapshot.environmentLeases
+      .filter((lease) =>
+        (lease.issueId && agentIssueIds.has(lease.issueId)) ||
+        (lease.executionWorkspaceId && agentWorkspaceIds.has(lease.executionWorkspaceId)) ||
+        (latestRun?.id && lease.heartbeatRunId === latestRun.id)
+      )
+      .sort((a, b) => toTimestamp(b.lastUsedAt) - toTimestamp(a.lastUsedAt));
+    const agentEnvironmentIds = new Set(agentEnvironmentLeases.map((lease) => lease.environmentId));
+    const agentEnvironments = snapshot.environments
+      .filter((environment) => agentEnvironmentIds.has(environment.id))
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentIssueRelations = snapshot.issueRelations
+      .filter((relation) => agentIssueIds.has(relation.issueId) || agentIssueIds.has(relation.relatedIssueId))
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentThreadInteractions = snapshot.issueThreadInteractions
+      .filter((interaction) =>
+        agentIssueIds.has(interaction.issueId) ||
+        interaction.createdByAgentId === agent.id ||
+        interaction.resolvedByAgentId === agent.id
+      )
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentExecutionDecisions = snapshot.issueExecutionDecisions
+      .filter((decision) => agentIssueIds.has(decision.issueId) || decision.actorAgentId === agent.id)
+      .sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt));
+    const agentPluginResources = snapshot.pluginManagedResources
+      .filter((resource) =>
+        resource.resourceId === agent.id ||
+        agentIssueIds.has(resource.resourceId) ||
+        agentRoutineIds.has(resource.resourceId)
+      )
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentSecretBindings = snapshot.secretBindings
+      .filter((binding) =>
+        (binding.targetType === "agent" && binding.targetId === agent.id) ||
+        (binding.targetType === "issue" && agentIssueIds.has(binding.targetId)) ||
+        (binding.targetType === "routine" && agentRoutineIds.has(binding.targetId))
+      )
+      .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+    const agentSecretAccessEvents = snapshot.secretAccessEvents
+      .filter((event) =>
+        (event.consumerType === "agent" && event.consumerId === agent.id) ||
+        (event.issueId !== null && agentIssueIds.has(event.issueId)) ||
+        (event.actorType === "agent" && event.actorId === agent.id)
+      )
+      .sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt));
+    const runtimeState = snapshot.runtimeState.byAgent[agent.id];
+    const heartbeat = snapshot.heartbeats.byAgent[agent.id];
+    const heartbeatEvents = snapshot.heartbeats.recentEvents.filter((event) => event.agentId === agent.id);
+    const budget = snapshot.budgets.perAgent[agent.id];
+    const pendingApproval = pendingApprovalsByAgentId.get(agent.id) ?? null;
+    const visualState = computeAgentVisualState({
+      agent,
+      activeIssue,
+      latestRun,
+      pendingApproval,
+      runtimeState,
+      heartbeat,
+      budget,
+      recentWorkProduct: agentWorkProducts.some((product) => isRecent(product.createdAt, 60_000)),
+    });
+
+    agentVisualStates[runtimeIndex] = visualState;
 
     agentInspectors[runtimeIndex] = buildAgentInspectorModel({
       agent,
       manager: manager && manager.id !== agent.id ? manager : null,
       activeIssue,
       recentIssues,
-      approval: pendingApprovalsByAgentId.get(agent.id) ?? null,
+      approval: pendingApproval,
       latestRun,
+      visualState,
+      runtimeState,
+      heartbeat,
+      heartbeatEvents,
+      budget,
+      documents: agentDocuments,
+      workProducts: agentWorkProducts,
+      workspaces: agentWorkspaces,
+      environments: agentEnvironments,
+      environmentLeases: agentEnvironmentLeases,
+      runtimeServices: agentRuntimeServices,
+      routines: agentRoutines,
+      issueRelations: agentIssueRelations,
+      threadInteractions: agentThreadInteractions,
+      executionDecisions: agentExecutionDecisions,
+      pluginResources: agentPluginResources,
+      secretBindings: agentSecretBindings,
+      secretAccessEvents: agentSecretAccessEvents,
+      secrets: snapshot.secrets,
     });
   });
 
-  const phase = derivePhase(tasks);
+  const phase = derivePhase(tasks, Object.values(agentVisualStates));
   const agentSet: AgentSet = {
     id: RUNTIME_AGENT_SET_ID,
     companyName: snapshot.company.name,
@@ -349,5 +655,6 @@ export function buildCockpitRuntime(snapshot: AgencySnapshot): CockpitRuntime {
     phase,
     projectInspector,
     agentInspectors,
+    agentVisualStates,
   };
 }

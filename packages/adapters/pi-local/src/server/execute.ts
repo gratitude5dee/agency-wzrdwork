@@ -55,6 +55,10 @@ function resolvePiBiller(env: Record<string, string>, provider: string | null): 
   return inferOpenAiCompatibleBiller(env, null) ?? provider ?? "unknown";
 }
 
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
 async function ensurePiSkillsInjected(onLog: AdapterExecutionContext["onLog"]) {
   const skillsEntries = await listPaperclipSkillEntries(__moduleDir);
 
@@ -102,7 +106,7 @@ function buildSessionPath(agentId: string, timestamp: string): string {
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, executionTarget } = ctx;
 
   const promptTemplate = asString(
     config.promptTemplate,
@@ -132,13 +136,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const executionTargetIsRemote = executionTarget?.kind === "remote";
+  const executionCwd = executionTargetIsRemote ? executionTarget.remoteCwd : cwd;
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   
-  // Ensure sessions directory exists
-  await ensureSessionsDir();
+  if (!executionTargetIsRemote) {
+    await ensureSessionsDir();
+  }
   
-  // Inject skills
-  await ensurePiSkillsInjected(onLog);
+  if (!executionTargetIsRemote) {
+    await ensurePiSkillsInjected(onLog);
+  }
 
   // Build environment
   const envConfig = parseObject(config.env);
@@ -177,7 +185,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (approvalId) env.PAPERCLIP_APPROVAL_ID = approvalId;
   if (approvalStatus) env.PAPERCLIP_APPROVAL_STATUS = approvalStatus;
   if (linkedIssueIds.length > 0) env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
-  if (workspaceCwd) env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
+  const paperclipWorkspaceCwd = executionTargetIsRemote ? executionCwd : workspaceCwd;
+  if (paperclipWorkspaceCwd) env.PAPERCLIP_WORKSPACE_CWD = paperclipWorkspaceCwd;
   if (workspaceSource) env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
   if (workspaceId) env.PAPERCLIP_WORKSPACE_ID = workspaceId;
   if (workspaceRepoUrl) env.PAPERCLIP_WORKSPACE_REPO_URL = workspaceRepoUrl;
@@ -197,15 +206,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   );
-  await ensureCommandResolvable(command, cwd, runtimeEnv);
+  if (!executionTargetIsRemote) {
+    await ensureCommandResolvable(command, cwd, runtimeEnv);
+  }
 
-  // Validate model is available before execution
-  await ensurePiModelConfiguredAndAvailable({
-    model,
-    command,
-    cwd,
-    env: runtimeEnv,
-  });
+  if (!executionTargetIsRemote) {
+    await ensurePiModelConfiguredAndAvailable({
+      model,
+      command,
+      cwd,
+      env: runtimeEnv,
+    });
+  }
 
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
@@ -219,26 +231,45 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const runtimeSessionParams = parseObject(runtime.sessionParams);
   const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
   const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
+  const sessionCwd = executionTargetIsRemote ? executionCwd : cwd;
   const canResumeSession =
     runtimeSessionId.length > 0 &&
-    (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
-  const sessionPath = canResumeSession ? runtimeSessionId : buildSessionPath(agent.id, new Date().toISOString());
+    (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(sessionCwd));
+  const sessionPath = canResumeSession
+    ? runtimeSessionId
+    : executionTargetIsRemote
+      ? `${executionCwd}/.paperclip-runtime/pi/sessions/${new Date().toISOString().replace(/[:.]/g, "-")}-${agent.id}.jsonl`
+      : buildSessionPath(agent.id, new Date().toISOString());
   
   if (runtimeSessionId && !canResumeSession) {
     await onLog(
       "stderr",
-      `[paperclip] Pi session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
+      `[paperclip] Pi session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${sessionCwd}".\n`,
     );
   }
 
   // Ensure session file exists (Pi requires this on first run)
   if (!canResumeSession) {
-    try {
-      await fs.writeFile(sessionPath, "", { flag: "wx" });
-    } catch (err) {
-      // File may already exist, that's ok
-      if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
-        throw err;
+    if (executionTargetIsRemote) {
+      await runChildProcess(`${runId}:pi-session-prepare`, "sh", [
+        "-lc",
+        `mkdir -p ${shellQuote(path.posix.dirname(sessionPath))} && : > ${shellQuote(sessionPath)}`,
+      ], {
+        cwd,
+        env: runtimeEnv,
+        timeoutSec: 30,
+        graceSec: 5,
+        executionTarget,
+        onLog,
+      });
+    } else {
+      try {
+        await fs.writeFile(sessionPath, "", { flag: "wx" });
+      } catch (err) {
+        // File may already exist, that's ok
+        if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+          throw err;
+        }
       }
     }
   }
@@ -338,7 +369,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     args.push("--session", sessionFile);
     
     // Add Paperclip skills directory so Pi can load the paperclip skill
-    args.push("--skill", PI_AGENT_SKILLS_DIR);
+    if (!executionTargetIsRemote) args.push("--skill", PI_AGENT_SKILLS_DIR);
     
     if (extraArgs.length > 0) args.push(...extraArgs);
     
@@ -360,7 +391,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       await onMeta({
         adapterType: "pi_local",
         command,
-        cwd,
+        cwd: sessionCwd,
         commandNotes,
         commandArgs: args,
         env: redactEnvForLogs(env),
@@ -400,6 +431,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       graceSec,
       onLog: bufferedOnLog,
       stdin: buildRpcStdin(),
+      executionTarget,
     });
     
     // Flush any remaining buffer content
@@ -434,7 +466,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     const resolvedSessionId = clearSessionOnMissingSession ? null : sessionPath;
     const resolvedSessionParams = resolvedSessionId
-      ? { sessionId: resolvedSessionId, cwd }
+      ? { sessionId: resolvedSessionId, cwd: sessionCwd }
       : null;
 
     const stderrLine = firstNonEmptyLine(attempt.proc.stderr);

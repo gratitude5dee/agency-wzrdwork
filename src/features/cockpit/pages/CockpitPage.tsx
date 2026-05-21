@@ -73,6 +73,7 @@ export function CockpitPage() {
       debugLog: runtime.debugLog,
       projectInspector: runtime.projectInspector,
       agentInspectors: runtime.agentInspectors,
+      agentVisualStates: runtime.agentVisualStates,
       selectedAgentSetId: runtime.agentSet.id,
     });
     // Keep scene instance count in sync with live agent population.
@@ -119,13 +120,9 @@ export function CockpitPage() {
     sceneManagerRef.current.resetScene();
   }, [runtime.agentSet.agents.length, runtime.phase]);
 
-  const liveRunCount = snapshot.runs.filter(
-    (run) => run.status === "running" || run.status === "queued",
-  ).length;
-  const pendingApprovals = snapshot.approvals.filter((approval) => approval.status === "pending").length;
-  const openIssues = snapshot.issues.filter(
-    (issue) => issue.status !== "done" && issue.status !== "cancelled",
-  ).length;
+  const liveRunCount = snapshot.dashboard.runsActive;
+  const pendingApprovals = snapshot.dashboard.pendingApprovals;
+  const openIssues = snapshot.dashboard.openIssues;
 
   return (
     <SceneContext.Provider value={sceneManagerRef.current}>

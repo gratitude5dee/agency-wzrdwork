@@ -1,27 +1,113 @@
 export interface CompanyPortabilityInclude {
   company: boolean;
   agents: boolean;
+  projects?: boolean;
+  issues?: boolean;
+  skills?: boolean;
+}
+
+export interface CompanyPortabilityEnvInput {
+  key: string;
+  description: string | null;
+  agentSlug: string | null;
+  projectSlug: string | null;
+  kind: "secret" | "plain";
+  requirement: "required" | "optional";
+  defaultValue: string | null;
+  portability: "portable" | "system_dependent";
 }
 
 export interface CompanyPortabilitySecretRequirement {
   key: string;
   description: string | null;
   agentSlug: string | null;
-  providerHint: string | null;
+  projectSlug?: string | null;
+  kind?: "secret" | "plain";
+  requirement?: "required" | "optional";
+  defaultValue?: string | null;
+  portability?: "portable" | "system_dependent";
+  providerHint?: string | null;
 }
+
+export type CompanyPortabilityFileEntry =
+  | string
+  | {
+      encoding: "base64";
+      data: string;
+      contentType?: string | null;
+    };
 
 export interface CompanyPortabilityCompanyManifestEntry {
   path: string;
   name: string;
   description: string | null;
   brandColor: string | null;
+  logoPath?: string | null;
+  attachmentMaxBytes?: number | null;
   requireBoardApprovalForNewAgents: boolean;
+}
+
+export interface CompanyPortabilitySidebarOrder {
+  agents: string[];
+  projects: string[];
+}
+
+export interface CompanyPortabilityProjectWorkspaceManifestEntry {
+  key: string;
+  name: string;
+  sourceType: string | null;
+  repoUrl: string | null;
+  repoRef: string | null;
+  defaultRef: string | null;
+  visibility: string | null;
+  setupCommand: string | null;
+  cleanupCommand: string | null;
+  metadata: Record<string, unknown> | null;
+  isPrimary: boolean;
+}
+
+export interface CompanyPortabilityProjectManifestEntry {
+  slug: string;
+  name: string;
+  path: string;
+  description: string | null;
+  ownerAgentSlug: string | null;
+  leadAgentSlug: string | null;
+  targetDate: string | null;
+  color: string | null;
+  status: string | null;
+  env?: Record<string, unknown> | null;
+  executionWorkspacePolicy: Record<string, unknown> | null;
+  workspaces: CompanyPortabilityProjectWorkspaceManifestEntry[];
+  metadata: Record<string, unknown> | null;
+}
+
+export interface CompanyPortabilityIssueManifestEntry {
+  slug: string;
+  identifier: string | null;
+  title: string;
+  path: string;
+  projectSlug: string | null;
+  projectWorkspaceKey?: string | null;
+  assigneeAgentSlug: string | null;
+  description: string | null;
+  recurring?: boolean;
+  routine?: Record<string, unknown> | null;
+  status: string | null;
+  priority: string | null;
+  labelIds?: string[];
+  billingCode?: string | null;
+  executionWorkspaceSettings?: Record<string, unknown> | null;
+  assigneeAdapterOverrides?: Record<string, unknown> | null;
+  comments?: Array<Record<string, unknown>>;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface CompanyPortabilityAgentManifestEntry {
   slug: string;
   name: string;
   path: string;
+  skills?: string[];
   role: string;
   title: string | null;
   icon: string | null;
@@ -35,6 +121,24 @@ export interface CompanyPortabilityAgentManifestEntry {
   metadata: Record<string, unknown> | null;
 }
 
+export interface CompanyPortabilitySkillManifestEntry {
+  key: string;
+  slug: string;
+  name: string;
+  path: string;
+  description: string | null;
+  sourceType: string;
+  sourceLocator: string | null;
+  sourceRef: string | null;
+  trustLevel: string | null;
+  compatibility: string | null;
+  metadata: Record<string, unknown> | null;
+  fileInventory: Array<{
+    path: string;
+    kind: string;
+  }>;
+}
+
 export interface CompanyPortabilityManifest {
   schemaVersion: number;
   generatedAt: string;
@@ -44,7 +148,12 @@ export interface CompanyPortabilityManifest {
   } | null;
   includes: CompanyPortabilityInclude;
   company: CompanyPortabilityCompanyManifestEntry | null;
+  sidebar?: CompanyPortabilitySidebarOrder | null;
   agents: CompanyPortabilityAgentManifestEntry[];
+  skills?: CompanyPortabilitySkillManifestEntry[];
+  projects?: CompanyPortabilityProjectManifestEntry[];
+  issues?: CompanyPortabilityIssueManifestEntry[];
+  envInputs?: CompanyPortabilityEnvInput[];
   requiredSecrets: CompanyPortabilitySecretRequirement[];
 }
 

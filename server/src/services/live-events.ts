@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { IncomingMessage, Server } from "node:http";
 import type { Sql } from "postgres";
-import type { LiveEvent, LiveEventHub, LiveSocketSession, ServerConfig } from "../types.js";
+import type { JsonObject, LiveEvent, LiveEventHub, LiveSocketSession, ServerConfig } from "../types.js";
 import { resolveActor, requireCompanyAccess } from "./access.js";
 import { authenticateSessionToken } from "./auth.js";
 
@@ -18,14 +18,14 @@ function toLiveEvent(input: {
   companyId: string;
   type: LiveEvent["type"];
   payload?: Record<string, unknown>;
-}): LiveEvent {
+}): LiveEvent & { id: number } {
   nextEventId += 1;
   return {
     id: nextEventId,
     companyId: input.companyId,
     type: input.type,
     createdAt: new Date().toISOString(),
-    payload: input.payload ?? {},
+    payload: (input.payload ?? {}) as JsonObject,
   };
 }
 

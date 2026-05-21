@@ -1,5 +1,6 @@
 import type {
   ExecutionWorkspaceMode,
+  ExecutionWorkspaceConfig,
   ExecutionWorkspaceStrategy,
   IssueExecutionWorkspaceSettings,
   ProjectExecutionWorkspaceDefaultMode,
@@ -38,6 +39,12 @@ export function parseProjectExecutionWorkspacePolicy(raw: unknown): ProjectExecu
   const defaultMode = asString(parsed.defaultMode, "");
   const defaultProjectWorkspaceId =
     typeof parsed.defaultProjectWorkspaceId === "string" ? parsed.defaultProjectWorkspaceId : undefined;
+  const environmentId =
+    typeof parsed.environmentId === "string"
+      ? parsed.environmentId
+      : parsed.environmentId === null
+        ? null
+        : undefined;
   const allowIssueOverride =
     typeof parsed.allowIssueOverride === "boolean" ? parsed.allowIssueOverride : undefined;
   const normalizedDefaultMode = (() => {
@@ -58,6 +65,7 @@ export function parseProjectExecutionWorkspacePolicy(raw: unknown): ProjectExecu
     ...(normalizedDefaultMode ? { defaultMode: normalizedDefaultMode } : {}),
     ...(allowIssueOverride !== undefined ? { allowIssueOverride } : {}),
     ...(defaultProjectWorkspaceId ? { defaultProjectWorkspaceId } : {}),
+    ...(environmentId !== undefined ? { environmentId } : {}),
     ...(workspaceStrategy ? { workspaceStrategy } : {}),
     ...(parsed.workspaceRuntime && typeof parsed.workspaceRuntime === "object" && !Array.isArray(parsed.workspaceRuntime)
       ? { workspaceRuntime: { ...(parsed.workspaceRuntime as Record<string, unknown>) } }
@@ -109,6 +117,11 @@ export function parseIssueExecutionWorkspaceSettings(raw: unknown): IssueExecuti
     ...(normalizedMode
       ? { mode: normalizedMode as IssueExecutionWorkspaceSettings["mode"] }
       : {}),
+    ...(typeof parsed.environmentId === "string"
+      ? { environmentId: parsed.environmentId }
+      : parsed.environmentId === null
+        ? { environmentId: null }
+        : {}),
     ...(workspaceStrategy ? { workspaceStrategy } : {}),
     ...(parsed.workspaceRuntime && typeof parsed.workspaceRuntime === "object" && !Array.isArray(parsed.workspaceRuntime)
       ? { workspaceRuntime: { ...(parsed.workspaceRuntime as Record<string, unknown>) } }
@@ -116,11 +129,32 @@ export function parseIssueExecutionWorkspaceSettings(raw: unknown): IssueExecuti
   };
 }
 
+export function resolveExecutionWorkspaceEnvironmentId(input: {
+  projectPolicy: ProjectExecutionWorkspacePolicy | null;
+  issueSettings: IssueExecutionWorkspaceSettings | null;
+  workspaceConfig: { environmentId?: string | null } | null;
+  defaultEnvironmentId: string;
+}) {
+  if (input.workspaceConfig?.environmentId !== undefined) {
+    return input.workspaceConfig.environmentId ?? input.defaultEnvironmentId;
+  }
+  if (input.issueSettings?.environmentId !== undefined) {
+    return input.issueSettings.environmentId ?? input.defaultEnvironmentId;
+  }
+  if (input.projectPolicy?.environmentId !== undefined) {
+    return input.projectPolicy.environmentId ?? input.defaultEnvironmentId;
+  }
+  return input.defaultEnvironmentId;
+}
+
 export function defaultIssueExecutionWorkspaceSettingsForProject(
   projectPolicy: ProjectExecutionWorkspacePolicy | null,
 ): IssueExecutionWorkspaceSettings | null {
   if (!projectPolicy?.enabled) return null;
   return {
+    ...(projectPolicy.environmentId !== undefined
+      ? { environmentId: projectPolicy.environmentId }
+      : {}),
     mode:
       projectPolicy.defaultMode === "isolated_workspace"
         ? "isolated_workspace"
@@ -151,6 +185,55 @@ export function resolveExecutionWorkspaceMode(input: {
     return "agent_default";
   }
   return "shared_workspace";
+}
+
+export function buildExecutionWorkspaceConfigSnapshot(
+  config: Record<string, unknown>,
+  environmentId?: string | null,
+): Partial<ExecutionWorkspaceConfig> | null {
+  const strategy = parseObject(config.workspaceStrategy);
+  const snapshot: Partial<ExecutionWorkspaceConfig> = {};
+  const hasExplicitEnvironmentSelection = environmentId !== undefined;
+
+  if (hasExplicitEnvironmentSelection) {
+    snapshot.environmentId = environmentId ?? null;
+  }
+
+  if ("workspaceStrategy" in config) {
+    snapshot.provisionCommand = typeof strategy.provisionCommand === "string" ? strategy.provisionCommand : null;
+    snapshot.teardownCommand = typeof strategy.teardownCommand === "string" ? strategy.teardownCommand : null;
+  }
+
+  if ("workspaceRuntime" in config) {
+    const workspaceRuntime = parseObject(config.workspaceRuntime);
+    snapshot.workspaceRuntime = Object.keys(workspaceRuntime).length > 0 ? workspaceRuntime : null;
+  }
+
+  if ("desiredState" in config) {
+    snapshot.desiredState =
+      config.desiredState === "running" || config.desiredState === "stopped" || config.desiredState === "manual"
+        ? config.desiredState
+        : null;
+  }
+
+  if ("serviceStates" in config) {
+    const serviceStates = parseObject(config.serviceStates);
+    snapshot.serviceStates = Object.keys(serviceStates).length > 0
+      ? Object.fromEntries(
+          Object.entries(serviceStates).filter(([, state]) =>
+            state === "running" || state === "stopped" || state === "manual"
+          ),
+        ) as ExecutionWorkspaceConfig["serviceStates"]
+      : null;
+  }
+
+  const hasSnapshot = Object.values(snapshot).some((value) => {
+    if (value === null) return false;
+    if (typeof value === "object") return Object.keys(value).length > 0;
+    return true;
+  }) || hasExplicitEnvironmentSelection;
+
+  return hasSnapshot ? snapshot : null;
 }
 
 export function buildExecutionWorkspaceAdapterConfig(input: {

@@ -39,6 +39,16 @@ export {
   type CompanyPortabilityPreview,
   type CompanyPortabilityImport,
 } from "./company-portability.js";
+export {
+  companySkillCreateSchema,
+  companySkillFileUpdateSchema,
+  companySkillImportSchema,
+  companySkillProjectScanRequestSchema,
+  type CompanySkillCreate,
+  type CompanySkillFileUpdate,
+  type CompanySkillImport,
+  type CompanySkillProjectScan,
+} from "./company-skill.js";
 
 export {
   createAgentSchema,
@@ -68,12 +78,26 @@ export {
   createProjectWorkspaceSchema,
   updateProjectWorkspaceSchema,
   projectExecutionWorkspacePolicySchema,
+  projectWorkspaceRuntimeConfigSchema,
   type CreateProject,
   type UpdateProject,
   type CreateProjectWorkspace,
   type UpdateProjectWorkspace,
   type ProjectExecutionWorkspacePolicy,
 } from "./project.js";
+
+export {
+  createEnvironmentSchema,
+  environmentDriverSchema,
+  environmentLeaseCleanupStatusSchema,
+  environmentLeaseStatusSchema,
+  environmentStatusSchema,
+  probeEnvironmentConfigSchema,
+  updateEnvironmentSchema,
+  type CreateEnvironment,
+  type ProbeEnvironmentConfig,
+  type UpdateEnvironment,
+} from "./environment.js";
 
 export {
   createIssueSchema,
@@ -100,6 +124,17 @@ export {
 } from "./issue.js";
 
 export {
+  createIssueTreeHoldSchema,
+  issueTreeControlModeSchema,
+  issueTreeHoldReleasePolicySchema,
+  previewIssueTreeControlSchema,
+  releaseIssueTreeHoldSchema,
+  type CreateIssueTreeHold,
+  type PreviewIssueTreeControl,
+  type ReleaseIssueTreeHold,
+} from "./issue-tree-control.js";
+
+export {
   createIssueWorkProductSchema,
   updateIssueWorkProductSchema,
   issueWorkProductTypeSchema,
@@ -110,8 +145,10 @@ export {
 } from "./work-product.js";
 
 export {
+  executionWorkspaceConfigSchema,
   updateExecutionWorkspaceSchema,
   executionWorkspaceStatusSchema,
+  workspaceRuntimeControlTargetSchema,
   type UpdateExecutionWorkspace,
 } from "./execution-workspace.js";
 
@@ -159,6 +196,12 @@ export {
   createFinanceEventSchema,
   type CreateFinanceEvent,
 } from "./finance.js";
+
+export {
+  sidebarOrderPreferenceSchema,
+  upsertSidebarOrderPreferenceSchema,
+  type UpsertSidebarOrderPreference,
+} from "./sidebar-preferences.js";
 
 export {
   createAssetImageMetadataSchema,
@@ -232,3 +275,15 @@ export {
   type RunRoutine,
   type RotateRoutineTriggerSecret,
 } from "./routine.js";
+
+export {
+  agencySnapshotControlPlaneSchema,
+  snapshotBudgetIncidentSchema,
+  snapshotBudgetPolicySchema,
+  snapshotCostBucketSchema,
+  snapshotDashboardSchema,
+  snapshotHeartbeatAgentSchema,
+  snapshotHeartbeatEventSchema,
+  snapshotRuntimeStateSchema,
+  type AgencySnapshotControlPlaneInput,
+} from "./agency-snapshot.js";

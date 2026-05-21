@@ -9,14 +9,14 @@
     "api/**/*.ts": {
       "maxDuration": 60,
       "memory": 1024,
-      "includeFiles": "server/dist/**,packages/shared/dist/**,packages/db/dist/**,packages/adapter-utils/dist/**,packages/plugins/sdk/dist/**"
+      "includeFiles": "{server/dist/**,packages/shared/dist/**,packages/db/dist/**,packages/adapter-utils/dist/**,packages/plugins/sdk/dist/**}",
+      "excludeFiles": "{.vercel/**,.tmp-paperclip-adapter-loader-*/**,data/**,dist/**,ui/**,docs/**,**/*.test.ts,**/*.spec.ts,**/*.agency-backup.ts}"
     }
   },
   "rewrites": [
     { "source": "/api/cron/:path*", "destination": "/api/cron/$path*" },
     { "source": "/api/sandbox/spawn", "destination": "/api/sandbox/spawn" },
     { "source": "/api/sandbox/proxy/:path*", "destination": "/api/sandbox/proxy" },
-    { "source": "/api/debug", "destination": "/api/debug" },
     { "source": "/api/:path*", "destination": "/api/server" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

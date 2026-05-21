@@ -26,6 +26,7 @@ export function buildDefaultConfigValues(
     extraArgs: "",
     envVars: "",
     envBindings: {},
+    adapterSchemaValues: {},
     url: "",
     bootstrapPrompt: "",
     maxTurnsPerRun: 90,

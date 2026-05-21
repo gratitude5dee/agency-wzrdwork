@@ -32,6 +32,7 @@ export const ROUTE_MATRIX: RouteEntry[] = [
   { path: "/cockpit", label: "Sandbox", section: "Top" },
   { path: "/dashboard", label: "Dashboard", section: "Top" },
   { path: "/inbox", label: "Inbox", section: "Top" },
+  { path: "/chat", label: "Chat", section: "Top" },
   { path: "/issues", label: "Issues", section: "Work" },
   { path: "/goals", label: "Goals", section: "Work" },
   { path: "/approvals", label: "Approvals", section: "Work" },
@@ -42,9 +43,14 @@ export const ROUTE_MATRIX: RouteEntry[] = [
   { path: "/skills", label: "Skills", section: "Company" },
   { path: "/delegations", label: "Delegations", section: "Company" },
   { path: "/costs", label: "Costs", section: "Company" },
+  { path: "/budgets", label: "Budgets & Quotas", section: "Company" },
   { path: "/activity", label: "Activity", section: "Company" },
   { path: "/integrations", label: "Integrations", section: "Company" },
+  { path: "/plugins", label: "Plugins", section: "Company" },
+  { path: "/documents", label: "Documents", section: "Company" },
+  { path: "/workspaces", label: "Workspaces", section: "Company" },
   { path: "/submission-proof", label: "Submission Proof", section: "Company" },
+  { path: "/invites", label: "Invites & Settings", section: "Company" },
   { path: "/settings", label: "Settings", section: "Company" },
 ];
 

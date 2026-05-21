@@ -86,6 +86,8 @@ const ProjectView: React.FC = () => {
             <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 ${
               phase === 'working' ? 'bg-blue-500 text-white' :
               phase === 'done' ? 'bg-green-500 text-white' :
+              phase === 'over_budget' || phase === 'failed' ? 'bg-red-500 text-white' :
+              phase === 'awaiting_approval' ? 'bg-orange-500 text-white' :
               phase === 'briefing' ? 'bg-amber-500 text-white' :
               'bg-white/10 text-zinc-400'
             }`}>

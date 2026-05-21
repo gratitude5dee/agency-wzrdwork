@@ -1,6 +1,7 @@
 // DEPRECATED: Remove after M4 verification. Use canonical API via compat-client.
 // This file contains mock data that should not be used in production.
 import type { AgencySnapshot } from "./domain";
+import { createEmptyPaperclipSnapshotSections } from "./domain";
 
 const now = new Date();
 const minutesAgo = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toISOString();
@@ -169,6 +170,69 @@ export const DEMO_SNAPSHOT: AgencySnapshot = {
       createdAt: minutesAgo(10),
     },
   ],
+  ...createEmptyPaperclipSnapshotSections(),
+  dashboard: {
+    agentsOnline: 2,
+    runsActive: 1,
+    openIssues: 2,
+    pendingApprovals: 1,
+    monthSpendUsd: 0.66,
+    monthBudgetUsd: 25,
+    budgetUtilization: 2.6,
+  },
+  costs: {
+    byAgent: {
+      "agent-ceo": { tokensIn: 7600, tokensOut: 1800, cached: 900, usd: 0.19 },
+      "agent-founding-engineer": { tokensIn: 12800, tokensOut: 4200, cached: 3100, usd: 0.47 },
+    },
+    byProject: {
+      "project-cockpit": { tokensIn: 20400, tokensOut: 6000, cached: 4000, usd: 0.66 },
+    },
+    total: { tokensIn: 20400, tokensOut: 6000, cached: 4000, usd: 0.66 },
+  },
+  heartbeats: {
+    byAgent: {
+      "agent-ceo": {
+        lastTickAt: minutesAgo(29),
+        lastStatus: "failed",
+        runIds: ["run-ceo-1"],
+      },
+      "agent-founding-engineer": {
+        lastTickAt: minutesAgo(1),
+        lastStatus: "running",
+        runIds: ["run-engineer-1"],
+      },
+    },
+    recentEvents: [
+      {
+        id: 1,
+        runId: "run-engineer-1",
+        agentId: "agent-founding-engineer",
+        eventType: "heartbeat.stdout",
+        stream: "stdout",
+        level: "info",
+        message: "Applying cockpit shell and scene integration.",
+        createdAt: minutesAgo(1),
+      },
+    ],
+  },
+  runtimeState: {
+    byAgent: {
+      "agent-founding-engineer": {
+        agentId: "agent-founding-engineer",
+        phase: "running",
+        sessionId: "demo-session-engineer",
+        lastRunId: "run-engineer-1",
+        lastRunStatus: "running",
+        lastError: null,
+        lastHeartbeatAt: minutesAgo(1),
+        totalInputTokens: 12800,
+        totalOutputTokens: 4200,
+        totalCachedInputTokens: 3100,
+        totalCostUsd: 0.47,
+      },
+    },
+  },
   source: "demo",
   sourceMessage:
     "Showing demo data until the schema is applied or the project is populated.",

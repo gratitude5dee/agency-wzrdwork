@@ -17,10 +17,20 @@ import { MemoryRouter } from "react-router-dom";
 // ---- Supabase mock ----
 
 const mockFrom = vi.fn();
+const mockGetAccessMe = vi.fn();
+const mockListAgentRecords = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
   },
+}));
+
+vi.mock("@/lib/server-api/auth", () => ({
+  getAccessMe: (...args: unknown[]) => mockGetAccessMe(...args),
+}));
+
+vi.mock("@/lib/server-api/agents", () => ({
+  listAgentRecords: (...args: unknown[]) => mockListAgentRecords(...args),
 }));
 
 // ---- thirdweb/react mock ----
@@ -84,50 +94,31 @@ describe("AgentsPage company scoping (VAL-CROSS-002, VAL-CROSS-007)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseActiveAccount.mockReturnValue({ address: "0xTestWallet1234567890abcdef1234567890" });
+    mockGetAccessMe.mockResolvedValue({
+      activeCompany: {
+        id: "my-company-id",
+        name: "Test Co",
+        slug: "test-co",
+        wallet_address: "0xTestWallet1234567890abcdef1234567890",
+      },
+      accessibleCompanies: [],
+      actor: {
+        id: "user-1",
+        wallet_address: "0xTestWallet1234567890abcdef1234567890",
+        display_name: null,
+      },
+      memberships: [],
+      instanceRoles: [],
+    });
+    mockListAgentRecords.mockResolvedValue([]);
   });
 
   it("scopes agents list query to the active company", async () => {
-    const agentsCalls: Array<{ table: string; method: string; args: unknown[] }> = [];
-
-    mockFrom.mockImplementation((table: string) => {
-      const chain = {
-        select: vi.fn((...args: unknown[]) => {
-          agentsCalls.push({ table, method: "select", args });
-          return chain;
-        }),
-        eq: vi.fn((...args: unknown[]) => {
-          agentsCalls.push({ table, method: "eq", args });
-          return chain;
-        }),
-        not: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({ data: [], error: null }),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: table === "user_onboarding"
-            ? { company_id: "my-company-id" }
-            : table === "companies"
-              ? { id: "my-company-id", name: "Test Co", slug: "test-co", wallet_address: "0xTestWallet1234567890abcdef1234567890" }
-              : null,
-          error: null,
-        }),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-      };
-      return chain;
-    });
-
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
 
-    // Wait for data loading to finish
     await waitFor(() => {
-      // The agents query should include an eq("company_id", ...) call
-      const agentsEqCalls = agentsCalls.filter(
-        (c) => c.table === "agents" && c.method === "eq" && c.args[0] === "company_id",
-      );
-      expect(agentsEqCalls.length).toBeGreaterThanOrEqual(1);
+      expect(mockListAgentRecords).toHaveBeenCalledWith({ companyId: "my-company-id" });
     });
   });
 
@@ -138,31 +129,30 @@ describe("AgentsPage company scoping (VAL-CROSS-002, VAL-CROSS-007)", () => {
       { id: "agent-2", name: "Engineer", role: "engineer", title: "Lead Engineer", status: "active", adapter_type: "codex_local" },
     ];
 
-    mockFrom.mockImplementation((table: string) => {
-      const chain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        not: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({
-          data: table === "agents" ? COMPANY_AGENTS : [],
-          error: null,
-        }),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: table === "user_onboarding"
-            ? { company_id: COMPANY_ID }
-            : table === "companies"
-              ? { id: COMPANY_ID, name: "Test Co", slug: "test-co", wallet_address: "0xTestWallet1234567890abcdef1234567890" }
-              : null,
-          error: null,
-        }),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-      };
-      return chain;
+    mockGetAccessMe.mockResolvedValue({
+      activeCompany: {
+        id: COMPANY_ID,
+        name: "Test Co",
+        slug: "test-co",
+        wallet_address: "0xTestWallet1234567890abcdef1234567890",
+      },
+      accessibleCompanies: [],
+      actor: {
+        id: "user-1",
+        wallet_address: "0xTestWallet1234567890abcdef1234567890",
+        display_name: null,
+      },
+      memberships: [],
+      instanceRoles: [],
     });
+    mockListAgentRecords.mockResolvedValue(
+      COMPANY_AGENTS.map((agent) => ({
+        ...agent,
+        company_id: COMPANY_ID,
+        reports_to: null,
+        created_at: "2026-05-19T00:00:00.000Z",
+      })),
+    );
 
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
@@ -325,30 +315,23 @@ describe("Wallet persistence display (VAL-AUTH-003, VAL-AUTH-004)", () => {
   it("useStoredWalletAddress reads from active company record", async () => {
     const STORED_ADDR = "0xStoredWallet1234567890abcdef12345678";
 
-    mockFrom.mockImplementation((table: string) => {
-      const chain = chainMock();
-      if (table === "user_onboarding") {
-        chain.maybeSingle = vi.fn().mockResolvedValue({
-          data: { company_id: "co-stored" },
-          error: null,
-        });
-      }
-      if (table === "companies") {
-        chain.maybeSingle = vi.fn().mockResolvedValue({
-          data: {
-            id: "co-stored",
-            name: "Stored Co",
-            slug: "stored-co",
-            wallet_address: STORED_ADDR,
-          },
-          error: null,
-        });
-      }
-      return chain;
+    mockGetAccessMe.mockResolvedValue({
+      activeCompany: {
+        id: "co-stored",
+        name: "Stored Co",
+        slug: "stored-co",
+        wallet_address: STORED_ADDR,
+      },
+      accessibleCompanies: [],
+      actor: {
+        id: "user-1",
+        wallet_address: "0xWalletPersist1234567890abcdef12345",
+        display_name: null,
+      },
+      memberships: [],
+      instanceRoles: [],
     });
 
-    // The useStoredWalletAddress hook reads from the active company
-    // We can verify the hook's source is useActiveCompany which reads wallet_address
     const { resolveActiveCompany } = await import("@/hooks/useActiveCompany");
     const company = await resolveActiveCompany("0xWalletPersist1234567890abcdef12345");
     expect(company?.wallet_address).toBe(STORED_ADDR);

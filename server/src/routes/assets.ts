@@ -54,11 +54,11 @@ function sanitizeSvgBuffer(input: Buffer): Buffer | null {
     const root = document.documentElement;
     if (!root || root.tagName.toLowerCase() !== "svg") return null;
 
-    for (const el of Array.from(root.querySelectorAll("script, foreignObject"))) {
+    for (const el of Array.from(root.querySelectorAll("script, foreignObject")) as Element[]) {
       el.remove();
     }
-    for (const el of Array.from(root.querySelectorAll("*"))) {
-      for (const attr of Array.from(el.attributes)) {
+    for (const el of Array.from(root.querySelectorAll("*")) as Element[]) {
+      for (const attr of Array.from(el.attributes) as Attr[]) {
         const attrName = attr.name.toLowerCase();
         const attrValue = attr.value.trim();
         if (attrName.startsWith("on")) {

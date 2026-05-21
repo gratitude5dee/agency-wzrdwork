@@ -56,7 +56,7 @@ function mermaidEscape(s: string): string {
 }
 
 /** Build a display label for a skill's source, linking to GitHub when available. */
-function skillSourceLabel(skill: CompanyPortabilityManifest["skills"][number]): string {
+function skillSourceLabel(skill: NonNullable<CompanyPortabilityManifest["skills"]>[number]): string {
   if (skill.sourceLocator) {
     // For GitHub or URL sources, render as a markdown link
     if (skill.sourceType === "github" || skill.sourceType === "skills_sh" || skill.sourceType === "url") {
@@ -79,6 +79,10 @@ export function generateReadme(
   },
 ): string {
   const lines: string[] = [];
+  const agents = manifest.agents ?? [];
+  const projects = manifest.projects ?? [];
+  const skills = manifest.skills ?? [];
+  const issues = manifest.issues ?? [];
 
   lines.push(`# ${options.companyName}`);
   lines.push("");
@@ -88,7 +92,7 @@ export function generateReadme(
   }
 
   // Org chart image (generated during export as images/org-chart.png)
-  if (manifest.agents.length > 0) {
+  if (agents.length > 0) {
     lines.push("![Org Chart](images/org-chart.png)");
     lines.push("");
   }
@@ -100,10 +104,10 @@ export function generateReadme(
   lines.push("");
 
   const counts: Array<[string, number]> = [];
-  if (manifest.agents.length > 0) counts.push(["Agents", manifest.agents.length]);
-  if (manifest.projects.length > 0) counts.push(["Projects", manifest.projects.length]);
-  if (manifest.skills.length > 0) counts.push(["Skills", manifest.skills.length]);
-  if (manifest.issues.length > 0) counts.push(["Tasks", manifest.issues.length]);
+  if (agents.length > 0) counts.push(["Agents", agents.length]);
+  if (projects.length > 0) counts.push(["Projects", projects.length]);
+  if (skills.length > 0) counts.push(["Skills", skills.length]);
+  if (issues.length > 0) counts.push(["Tasks", issues.length]);
 
   if (counts.length > 0) {
     lines.push("| Content | Count |");
@@ -115,12 +119,12 @@ export function generateReadme(
   }
 
   // Agents table
-  if (manifest.agents.length > 0) {
+  if (agents.length > 0) {
     lines.push("### Agents");
     lines.push("");
     lines.push("| Agent | Role | Reports To |");
     lines.push("|-------|------|------------|");
-    for (const agent of manifest.agents) {
+    for (const agent of agents) {
       const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
       const reportsTo = agent.reportsToSlug ?? "\u2014";
       lines.push(`| ${agent.name} | ${roleLabel} | ${reportsTo} |`);
@@ -129,10 +133,10 @@ export function generateReadme(
   }
 
   // Projects list
-  if (manifest.projects.length > 0) {
+  if (projects.length > 0) {
     lines.push("### Projects");
     lines.push("");
-    for (const project of manifest.projects) {
+    for (const project of projects) {
       const desc = project.description ? ` \u2014 ${project.description}` : "";
       lines.push(`- **${project.name}**${desc}`);
     }
@@ -140,12 +144,12 @@ export function generateReadme(
   }
 
   // Skills list
-  if (manifest.skills.length > 0) {
+  if (skills.length > 0) {
     lines.push("### Skills");
     lines.push("");
     lines.push("| Skill | Description | Source |");
     lines.push("|-------|-------------|--------|");
-    for (const skill of manifest.skills) {
+    for (const skill of skills) {
       const desc = skill.description ?? "\u2014";
       const source = skillSourceLabel(skill);
       lines.push(`| ${skill.name} | ${desc} | ${source} |`);

@@ -19,6 +19,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  environmentService,
   executionWorkspaceService,
   goalService,
   heartbeatService,
@@ -34,6 +35,11 @@ import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
 import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
+import {
+  assertNoAgentHostWorkspaceCommandMutation,
+  collectIssueWorkspaceCommandPaths,
+} from "./workspace-command-authz.js";
+import { assertEnvironmentSelectionForCompany } from "./environment-selection.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
 
@@ -45,6 +51,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   const agentsSvc = agentService(db);
   const projectsSvc = projectService(db);
   const goalsSvc = goalService(db);
+  const environmentsSvc = environmentService(db);
   const issueApprovalsSvc = issueApprovalService(db);
   const executionWorkspacesSvc = executionWorkspaceService(db);
   const workProductsSvc = workProductService(db);
@@ -59,6 +66,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       ...attachment,
       contentPath: `/api/attachments/${attachment.id}/content`,
     };
+  }
+
+  function readIssueEnvironmentId(value: unknown): string | null | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const environmentId = (value as Record<string, unknown>).environmentId;
+    if (typeof environmentId === "string") return environmentId;
+    if (environmentId === null) return null;
+    return undefined;
   }
 
   async function runSingleFileUpload(req: Request, res: Response) {
@@ -752,6 +767,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
   router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    assertNoAgentHostWorkspaceCommandMutation(req, collectIssueWorkspaceCommandPaths(req.body));
+    await assertEnvironmentSelectionForCompany(
+      environmentsSvc,
+      companyId,
+      readIssueEnvironmentId(req.body.executionWorkspaceSettings),
+    );
     if (req.body.assigneeAgentId || req.body.assigneeUserId) {
       await assertCanAssignTasks(req, companyId);
     }
@@ -821,6 +842,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
 
     const { comment: commentBody, hiddenAt: hiddenAtRaw, ...updateFields } = req.body;
+    assertNoAgentHostWorkspaceCommandMutation(req, collectIssueWorkspaceCommandPaths(updateFields));
+    await assertEnvironmentSelectionForCompany(
+      environmentsSvc,
+      existing.companyId,
+      readIssueEnvironmentId(updateFields.executionWorkspaceSettings),
+    );
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
     }

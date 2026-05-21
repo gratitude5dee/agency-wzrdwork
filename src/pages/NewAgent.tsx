@@ -68,12 +68,25 @@ const DEFAULT_CONFIG_VALUES: CreateConfigValues = {
   extraArgs: "",
   envVars: "",
   envBindings: {},
+  adapterSchemaValues: {},
   url: "",
   bootstrapPrompt: "",
   maxTurnsPerRun: 25,
   heartbeatEnabled: false,
   intervalSec: 30,
 };
+
+const LOCAL_WORKDIR_ADAPTERS = new Set([
+  "process",
+  "claude_local",
+  "codex_local",
+  "cursor",
+  "gemini_local",
+  "grok_local",
+  "opencode_local",
+  "pi_local",
+  "acpx_local",
+]);
 
 export function NewAgentPage() {
   const navigate = useNavigate();
@@ -377,7 +390,7 @@ export function NewAgentPage() {
                     models={[]}
                   />
 
-                  {(adapterType === "process" || adapterType === "codex_local") && (
+                  {LOCAL_WORKDIR_ADAPTERS.has(adapterType) && (
                     <div className="space-y-2">
                       <Label htmlFor="agent-cwd" className="text-zinc-300">
                         Working Directory

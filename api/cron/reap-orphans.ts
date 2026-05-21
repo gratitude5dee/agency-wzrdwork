@@ -6,7 +6,7 @@
  * (e.g., due to function timeout or cold start failure).
  *
  * Original: server/src/index.ts → periodic reapOrphanedRuns()
- * Schedule: */5 * * * * (every 5 minutes)
+ * Schedule: every 5 minutes
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const db = getDb();
 
-    const { heartbeatService } = await import("../../server/dist/services/index.js");
+    const { heartbeatService } = await import("../../server/dist/services/heartbeat.js");
     const heartbeat = heartbeatService(db as any);
 
     // Reap runs stale for 5+ minutes (likely from timed-out serverless functions)

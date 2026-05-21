@@ -5,9 +5,12 @@ const EXECUTABLE_ADAPTERS = new Set([
   "codex_local",
   "cursor",
   "gemini_local",
+  "grok_local",
   "openclaw_gateway",
   "opencode_local",
   "pi_local",
+  "acpx_local",
+  "cursor_cloud",
 ]);
 
 export function isExecutableAdapter(adapterType: string): boolean {

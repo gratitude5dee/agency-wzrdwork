@@ -10,7 +10,7 @@ import {
 } from "../utils.js";
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, config, onLog, onMeta } = ctx;
+  const { runId, agent, config, executionTarget, onLog, onMeta } = ctx;
   const command = asString(config.command, "");
   if (!command) throw new Error("Process adapter missing command");
 
@@ -40,6 +40,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     env,
     timeoutSec,
     graceSec,
+    executionTarget,
     onLog,
   });
 

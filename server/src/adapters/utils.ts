@@ -27,6 +27,7 @@ export {
 // Re-export runChildProcess with the server's pino logger wired in.
 import { runChildProcess as _runChildProcess } from "@paperclipai/adapter-utils/server-utils";
 import type { RunProcessResult } from "@paperclipai/adapter-utils/server-utils";
+import type { AdapterExecutionTarget } from "@paperclipai/adapter-utils/execution-target";
 
 export async function runChildProcess(
   runId: string,
@@ -38,6 +39,8 @@ export async function runChildProcess(
     timeoutSec: number;
     graceSec: number;
     onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
+    executionTarget?: AdapterExecutionTarget | null;
+    stdin?: string;
   },
 ): Promise<RunProcessResult> {
   return _runChildProcess(runId, command, args, {

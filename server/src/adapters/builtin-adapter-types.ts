@@ -1,0 +1,15 @@
+export const BUILTIN_ADAPTER_TYPES = new Set<string>([
+  "acpx_local",
+  "claude_local",
+  "codex_local",
+  "cursor",
+  "cursor_cloud",
+  "gemini_local",
+  "grok_local",
+  "hermes_local",
+  "http",
+  "openclaw_gateway",
+  "opencode_local",
+  "pi_local",
+  "process",
+]);

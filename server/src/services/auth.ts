@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Sql } from "postgres";
-import { verifyEOASignature } from "thirdweb/auth";
 import type { AccessibleCompany, Actor, ServerConfig } from "../types.js";
 import { HttpError } from "../http.js";
 import {
@@ -18,6 +17,26 @@ interface AuthSessionRow {
   wallet_address: string;
   expires_at: string;
   revoked_at: string | null;
+}
+
+type ThirdwebAuthModule = {
+  verifyEOASignature(input: {
+    address: string;
+    message: string;
+    signature: string;
+  }): Promise<boolean>;
+};
+
+const runtimeImport = Function("specifier", "return import(specifier)") as <T>(specifier: string) => Promise<T>;
+const THIRDWEB_AUTH_MODULE = ["thirdweb", "auth"].join("/");
+
+async function verifyWalletSignature(input: {
+  address: string;
+  message: string;
+  signature: string;
+}) {
+  const { verifyEOASignature } = await runtimeImport<ThirdwebAuthModule>(THIRDWEB_AUTH_MODULE);
+  return verifyEOASignature(input);
 }
 
 function normalizeWalletAddress(value: string | null | undefined): string | null {
@@ -157,7 +176,7 @@ export async function verifyAuthChallenge(
     throw new HttpError(401, "Auth challenge message mismatch");
   }
 
-  const verified = await verifyEOASignature({
+  const verified = await verifyWalletSignature({
     address: normalized,
     message: input.message,
     signature: input.signature,

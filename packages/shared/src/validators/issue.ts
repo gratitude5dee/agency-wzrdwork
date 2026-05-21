@@ -15,6 +15,7 @@ const executionWorkspaceStrategySchema = z
 export const issueExecutionWorkspaceSettingsSchema = z
   .object({
     mode: z.enum(["inherit", "shared_workspace", "isolated_workspace", "operator_branch", "reuse_existing", "agent_default"]).optional(),
+    environmentId: z.string().uuid().optional().nullable(),
     workspaceStrategy: executionWorkspaceStrategySchema.optional().nullable(),
     workspaceRuntime: z.record(z.unknown()).optional().nullable(),
   })

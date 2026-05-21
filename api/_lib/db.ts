@@ -30,6 +30,7 @@ function shouldDisablePreparedStatements(connectionString: string): boolean {
   const hostname = new URL(connectionString).hostname;
   return (
     process.env.AGENCY_DB_DISABLE_PREPARED_STATEMENTS === "true" ||
+    process.env.PAPERCLIP_DB_DISABLE_PREPARED_STATEMENTS === "true" ||
     hostname.includes("pooler.supabase.com") ||
     hostname.includes("supavisor")
   );

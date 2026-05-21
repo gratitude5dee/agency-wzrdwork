@@ -3,6 +3,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
+const mockListAgentRecords = vi.fn();
+
 // Mock Supabase client
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -16,6 +18,16 @@ vi.mock("@/integrations/supabase/client", () => ({
     })),
   },
 }));
+
+vi.mock("@/lib/server-api/agents", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/server-api/agents")>(
+    "@/lib/server-api/agents",
+  );
+  return {
+    ...actual,
+    listAgentRecords: (...args: unknown[]) => mockListAgentRecords(...args),
+  };
+});
 
 // Mock active company for NewAgent and other pages that use it
 vi.mock("@/hooks/useActiveCompany", () => ({
@@ -48,6 +60,10 @@ function renderWithProviders(ui: React.ReactElement, { initialEntries = ["/"] } 
     </QueryClientProvider>,
   );
 }
+
+beforeEach(() => {
+  mockListAgentRecords.mockResolvedValue([]);
+});
 
 /* ---- Agents List Page ---- */
 

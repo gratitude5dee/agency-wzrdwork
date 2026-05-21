@@ -24,6 +24,24 @@ const adapterConfigSchema = z.record(z.unknown()).superRefine((value, ctx) => {
   }
 });
 
+const nullableTrimmedStringSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim().length === 0 ? null : value),
+  z.string().trim().optional().nullable(),
+);
+
+const budgetUsdSchema = z.preprocess(
+  (value) => {
+    if (value === "" || value === null || value === undefined) return value;
+    if (typeof value === "number") return value.toFixed(2);
+    return value;
+  },
+  z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, "budgetUsd must be a positive decimal string")
+    .optional()
+    .nullable(),
+);
+
 export const createAgentSchema = z.object({
   name: z.string().min(1),
   role: z.enum(AGENT_ROLES).optional().default("general"),
@@ -34,6 +52,9 @@ export const createAgentSchema = z.object({
   adapterType: z.enum(AGENT_ADAPTER_TYPES).optional().default("process"),
   adapterConfig: adapterConfigSchema.optional().default({}),
   runtimeConfig: z.record(z.unknown()).optional().default({}),
+  walletAddress: nullableTrimmedStringSchema,
+  budgetUsd: budgetUsdSchema,
+  promptTemplate: nullableTrimmedStringSchema,
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
   permissions: agentPermissionsSchema.optional(),
   metadata: z.record(z.unknown()).optional().nullable(),

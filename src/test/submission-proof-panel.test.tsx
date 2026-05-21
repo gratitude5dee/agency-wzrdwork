@@ -17,6 +17,30 @@ import type { ReactNode } from "react";
 
 /* ---------- Mocks ---------- */
 
+type MockActiveCompany = {
+  id: string;
+  name: string;
+  slug: string;
+  wallet_address: string;
+};
+
+let mockActiveCompanyState: {
+  company: MockActiveCompany | null;
+  companyId: string | null;
+  isLoading: boolean;
+  error: Error | null;
+} = {
+  company: {
+    id: "comp-1",
+    name: "Test Corp",
+    slug: "test-corp",
+    wallet_address: "0xTEST",
+  },
+  companyId: "comp-1" as string | null,
+  isLoading: false,
+  error: null as Error | null,
+};
+
 // Mock thirdweb
 vi.mock("thirdweb/react", () => ({
   useActiveAccount: vi.fn().mockReturnValue({ address: "0xTEST" }),
@@ -28,6 +52,10 @@ vi.mock("thirdweb/react", () => ({
 const mockFrom = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: (...args: unknown[]) => mockFrom(...args) },
+}));
+
+vi.mock("@/hooks/useActiveCompany", () => ({
+  useActiveCompany: () => mockActiveCompanyState,
 }));
 
 // Mock sonner
@@ -54,7 +82,13 @@ function createWrapper() {
 
 /* ---------- Helper: setup Supabase mock for active company ---------- */
 
-function setupActiveCompanyMock(company: { id: string; name: string; slug: string; wallet_address: string } | null) {
+function setupActiveCompanyMock(company: MockActiveCompany | null) {
+  mockActiveCompanyState = {
+    company,
+    companyId: company?.id ?? null,
+    isLoading: false,
+    error: null,
+  };
   mockFrom.mockImplementation((table: string) => {
     const chain: Record<string, unknown> = {};
     chain.select = vi.fn().mockReturnValue(chain);
@@ -81,6 +115,12 @@ function setupActiveCompanyMock(company: { id: string; name: string; slug: strin
 describe("SubmissionProofPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setupActiveCompanyMock({
+      id: "comp-1",
+      name: "Test Corp",
+      slug: "test-corp",
+      wallet_address: "0xTEST",
+    });
   });
 
   it("renders the proof pack page header and retrieval instructions", async () => {
@@ -158,13 +198,6 @@ describe("SubmissionProofPage", () => {
   });
 
   it("shows no-company state when wallet is not connected", async () => {
-    const { useActiveAccount } = await import("thirdweb/react");
-    vi.mocked(useActiveAccount).mockReturnValue(undefined as unknown as ReturnType<typeof useActiveAccount>);
-
-    // Also need to clear the mock wallet env
-    const origEnv = import.meta.env.VITE_DEV_MOCK_WALLET;
-    import.meta.env.VITE_DEV_MOCK_WALLET = undefined;
-
     setupActiveCompanyMock(null);
 
     const { SubmissionProofPage } = await import("@/pages/SubmissionProof");
@@ -186,9 +219,12 @@ describe("SubmissionProofPage", () => {
     const loading = screen.queryByTestId("proof-loading");
     expect(noCompany || loading).toBeTruthy();
 
-    // Restore
-    import.meta.env.VITE_DEV_MOCK_WALLET = origEnv;
-    vi.mocked(useActiveAccount).mockReturnValue({ address: "0xTEST" } as ReturnType<typeof useActiveAccount>);
+    setupActiveCompanyMock({
+      id: "comp-1",
+      name: "Test Corp",
+      slug: "test-corp",
+      wallet_address: "0xTEST",
+    });
   });
 });
 

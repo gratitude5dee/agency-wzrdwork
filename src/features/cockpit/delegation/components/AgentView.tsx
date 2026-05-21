@@ -130,7 +130,7 @@ const AgentView: React.FC<AgentViewProps> = ({ agentIndex }) => {
   const inspector = agentInspectors[agentIndex] ?? null;
 
   const activeTask = tasks.find(
-    (t) => t.assignedAgentIds.includes(agentIndex) && t.status === 'in_progress'
+    (t) => t.assignedAgentIds.includes(agentIndex) && (t.status === 'in_progress' || t.status === 'in_review')
   ) ?? null;
 
   return (
@@ -141,6 +141,9 @@ const AgentView: React.FC<AgentViewProps> = ({ agentIndex }) => {
             <div className="flex items-center gap-2 mb-2">
               <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${toneClasses(inspector.statusTone)}`}>
                 {inspector.statusLabel}
+              </span>
+              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${toneClasses(inspector.visualStateTone)}`}>
+                {inspector.visualStateLabel}
               </span>
               <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                 {inspector.adapterLabel}
@@ -215,18 +218,114 @@ const AgentView: React.FC<AgentViewProps> = ({ agentIndex }) => {
             </div>
           )}
 
-          {(inspector.tokenStats.length > 0 || inspector.totalCost) && (
+          {(inspector.tokenStats.length > 0 || inspector.totalCost || inspector.budget) && (
             <div className="mb-6">
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                 Usage
               </p>
               <div className="grid grid-cols-2 gap-2">
+                {inspector.budget && <StatCard stat={inspector.budget} />}
                 {inspector.tokenStats.map((stat) => (
                   <StatCard key={stat.label} stat={stat} />
                 ))}
                 {inspector.totalCost && (
                   <StatCard stat={{ label: 'Cost', value: inspector.totalCost, tone: 'muted' }} />
                 )}
+              </div>
+            </div>
+          )}
+
+          {inspector.heartbeatItems.length > 0 && (
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                Heartbeats
+              </p>
+              <div className="space-y-2">
+                {inspector.heartbeatItems.map((item) => (
+                  item.href ? (
+                    <a key={`${item.title}-${item.meta ?? ''}`} href={item.href} className="block">
+                      <DetailCard {...item} />
+                    </a>
+                  ) : (
+                    <DetailCard key={`${item.title}-${item.meta ?? ''}`} {...item} />
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {inspector.workProducts.length > 0 && (
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                Work Products
+              </p>
+              <div className="space-y-2">
+                {inspector.workProducts.map((item) => (
+                  item.href ? (
+                    <a key={`${item.title}-${item.meta ?? ''}`} href={item.href} className="block">
+                      <DetailCard {...item} />
+                    </a>
+                  ) : (
+                    <DetailCard key={`${item.title}-${item.meta ?? ''}`} {...item} />
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {inspector.governanceItems.length > 0 && (
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                Governance
+              </p>
+              <div className="space-y-2">
+                {inspector.governanceItems.map((item) => (
+                  item.href ? (
+                    <a key={`${item.title}-${item.meta ?? ''}`} href={item.href} className="block">
+                      <DetailCard {...item} />
+                    </a>
+                  ) : (
+                    <DetailCard key={`${item.title}-${item.meta ?? ''}`} {...item} />
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(inspector.documents.length > 0 || inspector.workspaceItems.length > 0 || inspector.environmentItems.length > 0 || inspector.runtimeServices.length > 0) && (
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                Assets & Workspace
+              </p>
+              <div className="space-y-2">
+                {[...inspector.documents, ...inspector.workspaceItems, ...inspector.environmentItems, ...inspector.runtimeServices].map((item) => (
+                  item.href ? (
+                    <a key={`${item.title}-${item.meta ?? ''}`} href={item.href} className="block">
+                      <DetailCard {...item} />
+                    </a>
+                  ) : (
+                    <DetailCard key={`${item.title}-${item.meta ?? ''}`} {...item} />
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(inspector.routineItems.length > 0 || inspector.pluginResourceItems.length > 0 || inspector.secretItems.length > 0) && (
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                Controls
+              </p>
+              <div className="space-y-2">
+                {[...inspector.routineItems, ...inspector.pluginResourceItems, ...inspector.secretItems].map((item) => (
+                  item.href ? (
+                    <a key={`${item.title}-${item.meta ?? ''}`} href={item.href} className="block">
+                      <DetailCard {...item} />
+                    </a>
+                  ) : (
+                    <DetailCard key={`${item.title}-${item.meta ?? ''}`} {...item} />
+                  )
+                ))}
               </div>
             </div>
           )}

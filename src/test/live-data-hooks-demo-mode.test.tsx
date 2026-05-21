@@ -30,6 +30,8 @@ vi.mock("@/hooks/useActiveCompany", () => ({
 // ── Supabase mock with tracking ────────────────────────────────────────
 
 const eqCalls: Array<{ column: string; value: string }> = [];
+const mockGetDashboardOverview = vi.fn();
+const mockListAgentRecords = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -50,6 +52,14 @@ vi.mock("@/integrations/supabase/client", () => ({
       return chain;
     }),
   },
+}));
+
+vi.mock("@/lib/server-api/dashboard", () => ({
+  getDashboardOverview: (...args: unknown[]) => mockGetDashboardOverview(...args),
+}));
+
+vi.mock("@/lib/server-api/agents", () => ({
+  listAgentRecords: (...args: unknown[]) => mockListAgentRecords(...args),
 }));
 
 // ── thirdweb mock (no real wallet) ─────────────────────────────────────
@@ -80,6 +90,22 @@ function renderWithProviders(ui: React.ReactElement) {
   );
 }
 
+function makeDashboardOverview() {
+  return {
+    metrics: {
+      agents: { total: 2, running: 1, active: 1 },
+      issues: { open: 2, inProgress: 1, blocked: 1 },
+      runs: { live: 1, succeeded: 0, failed: 0 },
+      approvals: { pending: 1 },
+    },
+    latestRuns: [],
+    urgentIssues: [],
+    agentRows: [],
+    pendingApprovals: [],
+    recentActivity: [],
+  };
+}
+
 // ── DemoModeBanner tests ───────────────────────────────────────────────
 
 describe("DemoModeBanner", () => {
@@ -108,6 +134,8 @@ describe("DemoModeBanner", () => {
 describe("useDashboardMetrics company scoping", () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    vi.clearAllMocks();
+    mockGetDashboardOverview.mockResolvedValue(makeDashboardOverview());
     mockCompanyState = {
       company: { id: "co-1", name: "Test Co", slug: "test-co", wallet_address: null },
       companyId: "co-1",
@@ -116,7 +144,7 @@ describe("useDashboardMetrics company scoping", () => {
     };
   });
 
-  it("useAgentMetrics includes company_id in the query key and filter", async () => {
+  it("useAgentMetrics includes company_id in the server request", async () => {
     const { useAgentMetrics } = await import("@/hooks/useDashboardMetrics");
 
     function TestComp() {
@@ -126,16 +154,12 @@ describe("useDashboardMetrics company scoping", () => {
 
     renderWithProviders(<TestComp />);
 
-    // Wait for the query to fire
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-1",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockGetDashboardOverview).toHaveBeenCalledWith({ companyId: "co-1" });
     });
   });
 
-  it("useIssueMetrics scopes by company_id", async () => {
+  it("useIssueMetrics scopes the server request by company_id", async () => {
     const { useIssueMetrics } = await import("@/hooks/useDashboardMetrics");
 
     function TestComp() {
@@ -146,14 +170,11 @@ describe("useDashboardMetrics company scoping", () => {
     renderWithProviders(<TestComp />);
 
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-1",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockGetDashboardOverview).toHaveBeenCalledWith({ companyId: "co-1" });
     });
   });
 
-  it("useRunMetrics scopes by company_id", async () => {
+  it("useRunMetrics scopes the server request by company_id", async () => {
     const { useRunMetrics } = await import("@/hooks/useDashboardMetrics");
 
     function TestComp() {
@@ -164,14 +185,11 @@ describe("useDashboardMetrics company scoping", () => {
     renderWithProviders(<TestComp />);
 
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-1",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockGetDashboardOverview).toHaveBeenCalledWith({ companyId: "co-1" });
     });
   });
 
-  it("useApprovalMetrics scopes by company_id", async () => {
+  it("useApprovalMetrics scopes the server request by company_id", async () => {
     const { useApprovalMetrics } = await import("@/hooks/useDashboardMetrics");
 
     function TestComp() {
@@ -182,10 +200,7 @@ describe("useDashboardMetrics company scoping", () => {
     renderWithProviders(<TestComp />);
 
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-1",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockGetDashboardOverview).toHaveBeenCalledWith({ companyId: "co-1" });
     });
   });
 });
@@ -195,6 +210,8 @@ describe("useDashboardMetrics company scoping", () => {
 describe("useSidebarAgents company scoping", () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    vi.clearAllMocks();
+    mockListAgentRecords.mockResolvedValue([]);
     mockCompanyState = {
       company: { id: "co-2", name: "Sidebar Co", slug: "sidebar-co", wallet_address: null },
       companyId: "co-2",
@@ -203,7 +220,7 @@ describe("useSidebarAgents company scoping", () => {
     };
   });
 
-  it("passes company_id filter to the agents query", async () => {
+  it("passes company_id to the agents server request", async () => {
     const { useSidebarAgents } = await import("@/hooks/useSidebarAgents");
 
     function TestComp() {
@@ -214,10 +231,7 @@ describe("useSidebarAgents company scoping", () => {
     renderWithProviders(<TestComp />);
 
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-2",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockListAgentRecords).toHaveBeenCalledWith({ companyId: "co-2" });
     });
   });
 });
@@ -225,6 +239,8 @@ describe("useSidebarAgents company scoping", () => {
 describe("useLiveRunCount company scoping", () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    vi.clearAllMocks();
+    mockGetDashboardOverview.mockResolvedValue(makeDashboardOverview());
     mockCompanyState = {
       company: { id: "co-3", name: "Run Co", slug: "run-co", wallet_address: null },
       companyId: "co-3",
@@ -233,7 +249,7 @@ describe("useLiveRunCount company scoping", () => {
     };
   });
 
-  it("passes company_id filter to the runs query", async () => {
+  it("passes company_id to the dashboard server request", async () => {
     const { useLiveRunCount } = await import("@/hooks/useLiveRunCount");
 
     function TestComp() {
@@ -244,10 +260,7 @@ describe("useLiveRunCount company scoping", () => {
     renderWithProviders(<TestComp />);
 
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-3",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockGetDashboardOverview).toHaveBeenCalledWith({ companyId: "co-3" });
     });
   });
 });
@@ -255,6 +268,8 @@ describe("useLiveRunCount company scoping", () => {
 describe("usePendingApprovalCount company scoping", () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    vi.clearAllMocks();
+    mockGetDashboardOverview.mockResolvedValue(makeDashboardOverview());
     mockCompanyState = {
       company: { id: "co-4", name: "Approval Co", slug: "approval-co", wallet_address: null },
       companyId: "co-4",
@@ -263,7 +278,7 @@ describe("usePendingApprovalCount company scoping", () => {
     };
   });
 
-  it("passes company_id filter to the approvals query", async () => {
+  it("passes company_id to the dashboard server request", async () => {
     const { usePendingApprovalCount } = await import("@/hooks/usePendingApprovalCount");
 
     function TestComp() {
@@ -274,10 +289,7 @@ describe("usePendingApprovalCount company scoping", () => {
     renderWithProviders(<TestComp />);
 
     await waitFor(() => {
-      const companyIdCalls = eqCalls.filter(
-        (c) => c.column === "company_id" && c.value === "co-4",
-      );
-      expect(companyIdCalls.length).toBeGreaterThan(0);
+      expect(mockGetDashboardOverview).toHaveBeenCalledWith({ companyId: "co-4" });
     });
   });
 });

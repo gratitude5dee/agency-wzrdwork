@@ -1,3 +1,5 @@
+import type { AgentVisualState } from "./agencyStore";
+
 export type InspectorTone = 'default' | 'muted' | 'info' | 'success' | 'warning' | 'danger'
 
 export interface InspectorLink {
@@ -52,12 +54,26 @@ export interface AgentInspectorModel {
   agentName: string
   statusLabel: string
   statusTone: InspectorTone
+  visualState: AgentVisualState
+  visualStateLabel: string
+  visualStateTone: InspectorTone
   adapterLabel: string
   manager?: InspectorLink
   activeIssue?: InspectorItem
   recentIssues: InspectorItem[]
   latestRun?: AgentInspectorLatestRun
   pendingApproval?: AgentInspectorApproval
+  workProducts: InspectorItem[]
+  documents: InspectorItem[]
+  governanceItems: InspectorItem[]
+  workspaceItems: InspectorItem[]
+  environmentItems: InspectorItem[]
+  runtimeServices: InspectorItem[]
+  routineItems: InspectorItem[]
+  pluginResourceItems: InspectorItem[]
+  secretItems: InspectorItem[]
+  heartbeatItems: InspectorItem[]
+  budget?: InspectorStat
   lastHeartbeat?: string
   session?: string
   lastError?: string | null

@@ -15,6 +15,7 @@ import type {
   ProjectRecord,
   RunRecord,
 } from "./domain";
+import { createEmptyPaperclipSnapshotSections } from "./domain";
 
 const SNAPSHOT_QUERY_KEY = ["agency-snapshot"];
 const EMPTY_SNAPSHOT: AgencySnapshot = {
@@ -36,6 +37,7 @@ const EMPTY_SNAPSHOT: AgencySnapshot = {
   approvals: [],
   runs: [],
   activity: [],
+  ...createEmptyPaperclipSnapshotSections(),
   source: "server",
   sourceMessage: "Waiting for data...",
 };

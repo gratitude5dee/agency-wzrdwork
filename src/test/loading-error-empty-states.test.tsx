@@ -9,6 +9,10 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
+const mockListAgentRecords = vi.fn();
+const mockListCompanyIntegrations = vi.fn();
+const mockUpsertIntegrationRecord = vi.fn();
+
 // ---- Supabase mock ----
 
 const mockFrom = vi.fn();
@@ -16,6 +20,19 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
   },
+}));
+
+vi.mock("@/lib/server-api/agents", () => ({
+  listAgentRecords: (...args: unknown[]) => mockListAgentRecords(...args),
+}));
+
+vi.mock("@/lib/server-api/integrations", () => ({
+  listCompanyIntegrations: (...args: unknown[]) => mockListCompanyIntegrations(...args),
+  upsertIntegrationRecord: (...args: unknown[]) => mockUpsertIntegrationRecord(...args),
+}));
+
+vi.mock("thirdweb/react", () => ({
+  useActiveAccount: () => ({ address: "0xtest" }),
 }));
 
 // ---- Active company mock ----
@@ -56,12 +73,7 @@ describe("AgentsPage states", () => {
   });
 
   it("shows loading state while agents are fetching", async () => {
-    // Create a promise that never resolves to keep loading state
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnValue(new Promise(() => {})),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListAgentRecords.mockReturnValue(new Promise(() => {}));
 
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
@@ -71,12 +83,7 @@ describe("AgentsPage states", () => {
   });
 
   it("shows error state with retry when fetch fails", async () => {
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockRejectedValue(new Error("Connection failed")),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListAgentRecords.mockRejectedValue(new Error("Connection failed"));
 
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
@@ -89,12 +96,7 @@ describe("AgentsPage states", () => {
   });
 
   it("shows empty state when no agents exist", async () => {
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListAgentRecords.mockResolvedValue([]);
 
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
@@ -107,24 +109,19 @@ describe("AgentsPage states", () => {
   });
 
   it("shows agent list when agents exist", async () => {
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          {
-            id: "a1",
-            name: "CEO Bot",
-            role: "ceo",
-            title: "Chief Executive",
-            status: "active",
-            adapter_type: "claude_local",
-          },
-        ],
-        error: null,
-      }),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListAgentRecords.mockResolvedValue([
+      {
+        id: "a1",
+        name: "CEO Bot",
+        role: "ceo",
+        title: "Chief Executive",
+        status: "active",
+        adapter_type: "claude_local",
+        reports_to: null,
+        company_id: "co-1",
+        created_at: "2026-05-19T00:00:00.000Z",
+      },
+    ]);
 
     const { AgentsPage } = await import("@/pages/Agents");
     renderWithProviders(<AgentsPage />);
@@ -147,12 +144,7 @@ describe("IntegrationsPage states", () => {
   });
 
   it("shows loading state while integrations are fetching", async () => {
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnValue(new Promise(() => {})),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListCompanyIntegrations.mockReturnValue(new Promise(() => {}));
 
     const { IntegrationsPage } = await import("@/pages/Integrations");
     renderWithProviders(<IntegrationsPage />);
@@ -162,12 +154,7 @@ describe("IntegrationsPage states", () => {
   });
 
   it("shows error state with retry when integration fetch fails", async () => {
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockRejectedValue(new Error("Database unavailable")),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListCompanyIntegrations.mockRejectedValue(new Error("Database unavailable"));
 
     const { IntegrationsPage } = await import("@/pages/Integrations");
     renderWithProviders(<IntegrationsPage />);
@@ -180,12 +167,7 @@ describe("IntegrationsPage states", () => {
   });
 
   it("renders integration cards when data loads successfully", async () => {
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockListCompanyIntegrations.mockResolvedValue([]);
 
     const { IntegrationsPage } = await import("@/pages/Integrations");
     renderWithProviders(<IntegrationsPage />);

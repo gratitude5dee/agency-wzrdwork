@@ -34,11 +34,15 @@ const CONFIG_REVISION_FIELDS = [
   "adapterType",
   "adapterConfig",
   "runtimeConfig",
+  "walletAddress",
+  "budgetUsd",
+  "promptTemplate",
   "budgetMonthlyCents",
   "metadata",
 ] as const;
 
 type ConfigRevisionField = (typeof CONFIG_REVISION_FIELDS)[number];
+type AgentInsert = typeof agents.$inferInsert;
 type AgentConfigSnapshot = Pick<typeof agents.$inferSelect, ConfigRevisionField>;
 
 interface RevisionMetadata {
@@ -94,6 +98,9 @@ function buildConfigSnapshot(
     adapterType: row.adapterType,
     adapterConfig,
     runtimeConfig,
+    walletAddress: row.walletAddress,
+    budgetUsd: row.budgetUsd,
+    promptTemplate: row.promptTemplate,
     budgetMonthlyCents: row.budgetMonthlyCents,
     metadata,
   };
@@ -117,37 +124,50 @@ function diffConfigSnapshot(
   return CONFIG_REVISION_FIELDS.filter((field) => !jsonEqual(before[field], after[field]));
 }
 
-function configPatchFromSnapshot(snapshot: unknown): Partial<typeof agents.$inferInsert> {
+function configPatchFromSnapshot(snapshot: unknown): Partial<AgentInsert> {
   if (!isPlainRecord(snapshot)) throw unprocessable("Invalid revision snapshot");
 
-  if (typeof snapshot.name !== "string" || snapshot.name.length === 0) {
+  const name = snapshot.name;
+  const role = snapshot.role;
+  const title = snapshot.title;
+  const reportsTo = snapshot.reportsTo;
+  const capabilities = snapshot.capabilities;
+  const adapterType = snapshot.adapterType;
+  const adapterConfig = snapshot.adapterConfig;
+  const runtimeConfig = snapshot.runtimeConfig;
+  const walletAddress = snapshot.walletAddress;
+  const budgetUsd = snapshot.budgetUsd;
+  const promptTemplate = snapshot.promptTemplate;
+  const budgetMonthlyCents = snapshot.budgetMonthlyCents;
+  const metadata = snapshot.metadata;
+
+  if (typeof name !== "string" || name.length === 0) {
     throw unprocessable("Invalid revision snapshot: name");
   }
-  if (typeof snapshot.role !== "string" || snapshot.role.length === 0) {
+  if (typeof role !== "string" || role.length === 0) {
     throw unprocessable("Invalid revision snapshot: role");
   }
-  if (typeof snapshot.adapterType !== "string" || snapshot.adapterType.length === 0) {
+  if (typeof adapterType !== "string" || adapterType.length === 0) {
     throw unprocessable("Invalid revision snapshot: adapterType");
   }
-  if (typeof snapshot.budgetMonthlyCents !== "number" || !Number.isFinite(snapshot.budgetMonthlyCents)) {
+  if (typeof budgetMonthlyCents !== "number" || !Number.isFinite(budgetMonthlyCents)) {
     throw unprocessable("Invalid revision snapshot: budgetMonthlyCents");
   }
 
   return {
-    name: snapshot.name,
-    role: snapshot.role,
-    title: typeof snapshot.title === "string" || snapshot.title === null ? snapshot.title : null,
-    reportsTo:
-      typeof snapshot.reportsTo === "string" || snapshot.reportsTo === null ? snapshot.reportsTo : null,
-    capabilities:
-      typeof snapshot.capabilities === "string" || snapshot.capabilities === null
-        ? snapshot.capabilities
-        : null,
-    adapterType: snapshot.adapterType,
-    adapterConfig: isPlainRecord(snapshot.adapterConfig) ? snapshot.adapterConfig : {},
-    runtimeConfig: isPlainRecord(snapshot.runtimeConfig) ? snapshot.runtimeConfig : {},
-    budgetMonthlyCents: Math.max(0, Math.floor(snapshot.budgetMonthlyCents)),
-    metadata: isPlainRecord(snapshot.metadata) || snapshot.metadata === null ? snapshot.metadata : null,
+    name,
+    role,
+    title: (typeof title === "string" || title === null ? title : null) as AgentInsert["title"],
+    reportsTo: (typeof reportsTo === "string" || reportsTo === null ? reportsTo : null) as AgentInsert["reportsTo"],
+    capabilities: (typeof capabilities === "string" || capabilities === null ? capabilities : null) as AgentInsert["capabilities"],
+    adapterType,
+    adapterConfig: (isPlainRecord(adapterConfig) ? adapterConfig : {}) as AgentInsert["adapterConfig"],
+    runtimeConfig: (isPlainRecord(runtimeConfig) ? runtimeConfig : {}) as AgentInsert["runtimeConfig"],
+    walletAddress: (typeof walletAddress === "string" || walletAddress === null ? walletAddress : null) as AgentInsert["walletAddress"],
+    budgetUsd: (typeof budgetUsd === "string" || budgetUsd === null ? budgetUsd : null) as AgentInsert["budgetUsd"],
+    promptTemplate: (typeof promptTemplate === "string" || promptTemplate === null ? promptTemplate : null) as AgentInsert["promptTemplate"],
+    budgetMonthlyCents: Math.max(0, Math.floor(budgetMonthlyCents)),
+    metadata: (isPlainRecord(metadata) || metadata === null ? metadata : null) as AgentInsert["metadata"],
   };
 }
 

@@ -1,16 +1,38 @@
 import type { Request } from "express";
 import { forbidden, unauthorized } from "../errors.js";
 
+export function assertAuthenticated(req: Request) {
+  if (req.actor.type === "none") {
+    throw unauthorized();
+  }
+}
+
 export function assertBoard(req: Request) {
   if (req.actor.type !== "board") {
     throw forbidden("Board access required");
   }
 }
 
+export function hasBoardOrgAccess(req: Request) {
+  if (req.actor.type !== "board") return false;
+  if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return true;
+  return Array.isArray(req.actor.companyIds) && req.actor.companyIds.length > 0;
+}
+
+export function assertBoardOrgAccess(req: Request) {
+  assertBoard(req);
+  if (hasBoardOrgAccess(req)) return;
+  throw forbidden("Company membership or instance admin access required");
+}
+
+export function assertInstanceAdmin(req: Request) {
+  assertBoard(req);
+  if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return;
+  throw forbidden("Instance admin access required");
+}
+
 export function assertCompanyAccess(req: Request, companyId: string) {
-  if (req.actor.type === "none") {
-    throw unauthorized();
-  }
+  assertAuthenticated(req);
   if (req.actor.type === "agent" && req.actor.companyId !== companyId) {
     throw forbidden("Agent key cannot access another company");
   }

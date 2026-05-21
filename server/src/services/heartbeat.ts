@@ -4,7 +4,11 @@ import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import type { BillingType } from "@paperclipai/shared";
+import type {
+  BillingType,
+  EnvironmentLeaseStatus,
+  ExecutionWorkspaceConfig,
+} from "@paperclipai/shared";
 import {
   agents,
   agentRuntimeState,
@@ -39,13 +43,19 @@ import {
   sanitizeRuntimeServiceBaseEnv,
 } from "./workspace-runtime.js";
 import { issueService } from "./issues.js";
+import {
+  isVerifiedIssueTreeControlInteractionWake,
+  issueTreeControlService,
+} from "./issue-tree-control.js";
 import { executionWorkspaceService } from "./execution-workspaces.js";
 import { workspaceOperationService } from "./workspace-operations.js";
 import {
+  buildExecutionWorkspaceConfigSnapshot,
   buildExecutionWorkspaceAdapterConfig,
   gateProjectExecutionWorkspacePolicy,
   parseIssueExecutionWorkspaceSettings,
   parseProjectExecutionWorkspacePolicy,
+  resolveExecutionWorkspaceEnvironmentId,
   resolveExecutionWorkspaceMode,
 } from "./execution-workspace-policy.js";
 import { instanceSettingsService } from "./instance-settings.js";
@@ -55,6 +65,8 @@ import {
   resolveSessionCompactionPolicy,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+import { logActivity } from "./activity-log.js";
+import { environmentRunOrchestrator } from "./environment-run-orchestrator.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -504,6 +516,38 @@ export function formatRuntimeWorkspaceWarningLog(warning: string) {
   };
 }
 
+function leaseReleaseStatusForRunStatus(
+  status: string | null | undefined,
+): Extract<EnvironmentLeaseStatus, "released" | "expired" | "failed"> {
+  return status === "failed" || status === "timed_out" ? "failed" : "released";
+}
+
+function mergeExecutionWorkspaceMetadataForPersistence(input: {
+  existingMetadata: Record<string, unknown> | null | undefined;
+  source: string;
+  createdByRuntime: boolean;
+  configSnapshot: Partial<ExecutionWorkspaceConfig> | null;
+  shouldReuseExisting: boolean;
+}) {
+  const base = {
+    ...(input.existingMetadata ?? {}),
+    source: input.source,
+    createdByRuntime: input.createdByRuntime,
+  } as Record<string, unknown>;
+
+  if (input.shouldReuseExisting || !input.configSnapshot) {
+    return base;
+  }
+
+  return {
+    ...base,
+    config: {
+      ...parseObject(base.config),
+      ...input.configSnapshot,
+    },
+  };
+}
+
 function describeSessionResetReason(
   contextSnapshot: Record<string, unknown> | null | undefined,
 ) {
@@ -699,13 +743,41 @@ export function heartbeatService(db: Db) {
   const runLogStore = getRunLogStore();
   const secretsSvc = secretService(db);
   const issuesSvc = issueService(db);
+  const treeControlSvc = issueTreeControlService(db);
   const executionWorkspacesSvc = executionWorkspaceService(db);
+  const envOrchestrator = environmentRunOrchestrator(db);
   const workspaceOperationsSvc = workspaceOperationService(db);
   const activeRunExecutions = new Set<string>();
   const budgetHooks = {
     cancelWorkForScope: cancelBudgetScopeWork,
   };
   const budgets = budgetService(db, budgetHooks);
+
+  async function releaseEnvironmentLeasesForRun(input: {
+    runId: string;
+    companyId: string;
+    agentId: string;
+    status: string | null | undefined;
+    failureReason?: string | null;
+  }) {
+    const releaseResult = await envOrchestrator.releaseForRun({
+      heartbeatRunId: input.runId,
+      companyId: input.companyId,
+      agentId: input.agentId,
+      status: leaseReleaseStatusForRunStatus(input.status),
+      failureReason: input.failureReason ?? undefined,
+    }).catch((err) => {
+      logger.warn({ err, runId: input.runId }, "failed to release environment leases for heartbeat run");
+      return null;
+    });
+
+    for (const releaseError of releaseResult?.errors ?? []) {
+      logger.warn(
+        { err: releaseError.error, leaseId: releaseError.leaseId, runId: input.runId },
+        "failed to release environment lease for heartbeat run",
+      );
+    }
+  }
 
   async function getAgent(agentId: string) {
     return db
@@ -1368,6 +1440,39 @@ export function heartbeatService(db: Db) {
       return null;
     }
 
+    const issueId = readNonEmptyString(context.issueId);
+    if (issueId) {
+      const activePauseHold = await treeControlSvc.getActivePauseHoldGate(run.companyId, issueId);
+      const treeHoldInteractionWake = activePauseHold && await isVerifiedIssueTreeControlInteractionWake(db, {
+        companyId: run.companyId,
+        issueId,
+        agentId: run.agentId,
+        runId: run.id,
+        wakeupRequestId: run.wakeupRequestId,
+        contextSnapshot: context,
+      });
+      if (activePauseHold && !treeHoldInteractionWake) {
+        await cancelRunInternal(run.id, "Cancelled because issue is held by an active subtree pause hold");
+        await logActivity(db, {
+          companyId: run.companyId,
+          actorType: "system",
+          actorId: "system",
+          agentId: run.agentId,
+          runId: run.id,
+          action: "issue.tree_hold_run_interrupted",
+          entityType: "heartbeat_run",
+          entityId: run.id,
+          details: {
+            issueId,
+            holdId: activePauseHold.holdId,
+            rootIssueId: activePauseHold.rootIssueId,
+            source: "heartbeat.claim_queued_run",
+          },
+        });
+        return null;
+      }
+    }
+
     const claimedAt = new Date();
     const claimed = await db
       .update(heartbeatRuns)
@@ -1729,6 +1834,22 @@ export function heartbeatService(db: Db) {
       : null;
     const existingExecutionWorkspace =
       issueRef?.executionWorkspaceId ? await executionWorkspacesSvc.getById(issueRef.executionWorkspaceId) : null;
+    const shouldReuseExisting = Boolean(
+      issueRef?.executionWorkspacePreference === "reuse_existing" &&
+        existingExecutionWorkspace &&
+        existingExecutionWorkspace.status !== "archived",
+    );
+    const defaultEnvironment = await envOrchestrator.resolveEnvironment({
+      companyId: agent.companyId,
+      selectedEnvironmentId: null,
+    });
+    const selectedEnvironmentId = resolveExecutionWorkspaceEnvironmentId({
+      projectPolicy: projectExecutionWorkspacePolicy,
+      issueSettings: issueExecutionWorkspaceSettings,
+      workspaceConfig: shouldReuseExisting ? (existingExecutionWorkspace?.config ?? null) : null,
+      defaultEnvironmentId: defaultEnvironment.id,
+    });
+    const configSnapshot = buildExecutionWorkspaceConfigSnapshot(mergedConfig, selectedEnvironmentId);
     const workspaceOperationRecorder = workspaceOperationsSvc.createRecorder({
       companyId: agent.companyId,
       heartbeatRunId: run.id,
@@ -1754,11 +1875,14 @@ export function heartbeatService(db: Db) {
     });
     const resolvedProjectId = executionWorkspace.projectId ?? issueRef?.projectId ?? executionProjectId ?? null;
     const resolvedProjectWorkspaceId = issueRef?.projectWorkspaceId ?? resolvedWorkspace.workspaceId ?? null;
-    const shouldReuseExisting =
-      issueRef?.executionWorkspacePreference === "reuse_existing" &&
-      existingExecutionWorkspace &&
-      existingExecutionWorkspace.status !== "archived";
     let persistedExecutionWorkspace = null;
+    const nextExecutionWorkspaceMetadata = mergeExecutionWorkspaceMetadataForPersistence({
+      existingMetadata: existingExecutionWorkspace?.metadata ?? null,
+      source: executionWorkspace.source,
+      createdByRuntime: executionWorkspace.created,
+      configSnapshot,
+      shouldReuseExisting,
+    });
     try {
       persistedExecutionWorkspace = shouldReuseExisting && existingExecutionWorkspace
         ? await executionWorkspacesSvc.update(existingExecutionWorkspace.id, {
@@ -1770,11 +1894,7 @@ export function heartbeatService(db: Db) {
             providerRef: executionWorkspace.worktreePath,
             status: "active",
             lastUsedAt: new Date(),
-            metadata: {
-              ...(existingExecutionWorkspace.metadata ?? {}),
-              source: executionWorkspace.source,
-              createdByRuntime: executionWorkspace.created,
-            },
+            metadata: nextExecutionWorkspaceMetadata,
           })
         : resolvedProjectId
           ? await executionWorkspacesSvc.create({
@@ -1801,10 +1921,7 @@ export function heartbeatService(db: Db) {
               providerRef: executionWorkspace.worktreePath,
               lastUsedAt: new Date(),
               openedAt: new Date(),
-              metadata: {
-                source: executionWorkspace.source,
-                createdByRuntime: executionWorkspace.created,
-              },
+              metadata: nextExecutionWorkspaceMetadata,
             })
           : null;
     } catch (error) {
@@ -1876,6 +1993,67 @@ export function heartbeatService(db: Db) {
         })
         .where(eq(heartbeatRuns.id, run.id));
     }
+    const persistedEnvironmentId = persistedExecutionWorkspace?.config?.environmentId ?? selectedEnvironmentId;
+    const acquiredEnvironment = await envOrchestrator.acquireForRun({
+      companyId: agent.companyId,
+      selectedEnvironmentId: persistedEnvironmentId,
+      defaultEnvironmentId: defaultEnvironment.id,
+      adapterType: agent.adapterType,
+      issueId: issueId ?? null,
+      heartbeatRunId: run.id,
+      agentId: agent.id,
+      persistedExecutionWorkspace,
+    });
+    const realizationResult = await envOrchestrator.realizeForRun({
+      environment: acquiredEnvironment.environment,
+      lease: acquiredEnvironment.lease,
+      adapterType: agent.adapterType,
+      companyId: agent.companyId,
+      issueId: issueId ?? null,
+      heartbeatRunId: run.id,
+      executionWorkspace,
+      effectiveExecutionWorkspaceMode: executionWorkspaceMode,
+      persistedExecutionWorkspace,
+    });
+    persistedExecutionWorkspace = realizationResult.persistedExecutionWorkspace ?? persistedExecutionWorkspace;
+    const activeEnvironmentLease = realizationResult.lease;
+    const workspaceRealization = realizationResult.workspaceRealization;
+    const executionTarget = realizationResult.executionTarget;
+    const remoteExecution = realizationResult.remoteExecution;
+    context.paperclipEnvironment = {
+      id: acquiredEnvironment.environment.id,
+      name: acquiredEnvironment.environment.name,
+      driver: acquiredEnvironment.environment.driver,
+      leaseId: activeEnvironmentLease.id,
+      workspaceRealization,
+      ...(typeof activeEnvironmentLease.metadata?.remoteCwd === "string"
+        ? {
+            remoteCwd: activeEnvironmentLease.metadata.remoteCwd,
+            host:
+              typeof activeEnvironmentLease.metadata?.host === "string"
+                ? activeEnvironmentLease.metadata.host
+                : undefined,
+            port:
+              typeof activeEnvironmentLease.metadata?.port === "number"
+                ? activeEnvironmentLease.metadata.port
+                : undefined,
+            username:
+              typeof activeEnvironmentLease.metadata?.username === "string"
+                ? activeEnvironmentLease.metadata.username
+                : undefined,
+          }
+        : {}),
+    };
+    if (persistedExecutionWorkspace) {
+      context.executionWorkspaceId = persistedExecutionWorkspace.id;
+    }
+    await db
+      .update(heartbeatRuns)
+      .set({
+        contextSnapshot: context,
+        updatedAt: new Date(),
+      })
+      .where(eq(heartbeatRuns.id, run.id));
     const runtimeSessionResolution = resolveRuntimeSessionParamsForWorkspace({
       agentId: agent.id,
       previousSessionParams,
@@ -1908,6 +2086,7 @@ export function heartbeatService(db: Db) {
       repoRef: executionWorkspace.repoRef,
       branchName: executionWorkspace.branchName,
       worktreePath: executionWorkspace.worktreePath,
+      realization: workspaceRealization,
       agentHome: resolveDefaultAgentWorkspaceDir(agent.id),
     };
     context.paperclipWorkspaces = resolvedWorkspace.workspaceHints;
@@ -2150,6 +2329,10 @@ export function heartbeatService(db: Db) {
         runtime: runtimeForAdapter,
         config: resolvedConfig,
         context,
+        executionTarget,
+        executionTransport: remoteExecution
+          ? { remoteExecution: remoteExecution as unknown as Record<string, unknown> }
+          : undefined,
         onLog,
         onMeta: onAdapterMeta,
         authToken: authToken ?? undefined,
@@ -2435,6 +2618,14 @@ export function heartbeatService(db: Db) {
           // DB calls threw (e.g. a transient DB error in finalizeAgentStatus).
           await finalizeAgentStatus(run.agentId, "failed").catch(() => undefined);
         } finally {
+          const latestRun = await getRun(run.id).catch(() => null);
+          await releaseEnvironmentLeasesForRun({
+            runId: run.id,
+            companyId: run.companyId,
+            agentId: run.agentId,
+            status: latestRun?.status,
+            failureReason: latestRun?.error ?? undefined,
+          });
           await releaseRuntimeServicesForRun(run.id).catch(() => undefined);
           activeRunExecutions.delete(run.id);
           await startNextQueuedRunForAgent(run.agentId);
@@ -2512,7 +2703,40 @@ export function heartbeatService(db: Db) {
 
         const deferredPayload = parseObject(deferred.payload);
         const deferredContextSeed = parseObject(deferredPayload[DEFERRED_WAKE_CONTEXT_KEY]);
+        const activePauseHold = await treeControlSvc.getActivePauseHoldGate(issue.companyId, issue.id);
+        const treeHoldInteractionWake = activePauseHold && await isVerifiedIssueTreeControlInteractionWake(tx, {
+          companyId: issue.companyId,
+          issueId: issue.id,
+          agentId: deferred.agentId,
+          contextSnapshot: deferredContextSeed,
+          requestedByActorType: deferred.requestedByActorType,
+          requestedByActorId: deferred.requestedByActorId,
+        });
+        if (activePauseHold && !treeHoldInteractionWake) {
+          await tx
+            .update(agentWakeupRequests)
+            .set({
+              status: "cancelled",
+              finishedAt: new Date(),
+              error: "Deferred wake suppressed by active subtree pause hold",
+              updatedAt: new Date(),
+            })
+            .where(eq(agentWakeupRequests.id, deferred.id));
+          continue;
+        }
+
         const promotedContextSeed: Record<string, unknown> = { ...deferredContextSeed };
+        if (activePauseHold) {
+          promotedContextSeed.treeHoldInteraction = true;
+          promotedContextSeed.activeTreeHold = {
+            holdId: activePauseHold.holdId,
+            rootIssueId: activePauseHold.rootIssueId,
+            mode: activePauseHold.mode,
+            reason: activePauseHold.reason,
+            releasePolicy: activePauseHold.releasePolicy,
+            interaction: true,
+          };
+        }
         const promotedReason = readNonEmptyString(deferred.reason) ?? "issue_execution_promoted";
         const promotedSource =
           (readNonEmptyString(deferred.source) as WakeupOptions["source"]) ?? "automation";
@@ -2670,6 +2894,52 @@ export function heartbeatService(db: Db) {
     if (source !== "timer" && !policy.wakeOnDemand) {
       await writeSkippedRequest("heartbeat.wakeOnDemand.disabled");
       return null;
+    }
+
+    if (issueId) {
+      const activePauseHold = await treeControlSvc.getActivePauseHoldGate(agent.companyId, issueId);
+      if (activePauseHold) {
+        const treeHoldInteractionWake = await isVerifiedIssueTreeControlInteractionWake(db, {
+          companyId: agent.companyId,
+          issueId,
+          agentId,
+          contextSnapshot: enrichedContextSnapshot,
+          requestedByActorType: opts.requestedByActorType,
+          requestedByActorId: opts.requestedByActorId,
+        });
+
+        if (!treeHoldInteractionWake) {
+          await writeSkippedRequest("issue_tree_hold_active");
+          await logActivity(db, {
+            companyId: agent.companyId,
+            actorType: "system",
+            actorId: "system",
+            agentId,
+            runId: null,
+            action: "issue.tree_hold_wakeup_deferred",
+            entityType: "issue",
+            entityId: issueId,
+            details: {
+              holdId: activePauseHold.holdId,
+              rootIssueId: activePauseHold.rootIssueId,
+              requestedReason: reason,
+              source,
+              triggerDetail,
+            },
+          });
+          return null;
+        }
+
+        enrichedContextSnapshot.treeHoldInteraction = true;
+        enrichedContextSnapshot.activeTreeHold = {
+          holdId: activePauseHold.holdId,
+          rootIssueId: activePauseHold.rootIssueId,
+          mode: activePauseHold.mode,
+          reason: activePauseHold.reason,
+          releasePolicy: activePauseHold.releasePolicy,
+          interaction: true,
+        };
+      }
     }
 
     const bypassIssueExecutionLock =

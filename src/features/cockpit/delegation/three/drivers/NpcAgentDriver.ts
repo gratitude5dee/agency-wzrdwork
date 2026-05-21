@@ -50,10 +50,27 @@ export class NpcAgentDriver implements IAgentDriver {
     }
 
     // Capture current active task (if any)
+    const visualState = agencyState.agentVisualStates[this.agentIndex] ?? 'idle';
     const activeTask = agencyState.tasks.find(
-      t => t.assignedAgentIds.includes(this.agentIndex) && (t.status === 'in_progress' || t.status === 'on_hold')
+      t =>
+        t.assignedAgentIds.includes(this.agentIndex) &&
+        (t.status === 'in_progress' || t.status === 'in_review' || t.status === 'blocked' || t.requiresClientApproval)
     );
-    const isBusyWithAgency = !!activeTask;
+    const isHoldState =
+      visualState === 'awaiting_approval' ||
+      visualState === 'blocked' ||
+      visualState === 'needs_input' ||
+      visualState === 'over_budget' ||
+      visualState === 'failed' ||
+      activeTask?.status === 'blocked' ||
+      activeTask?.requiresClientApproval;
+    const isWorkState =
+      visualState === 'working' ||
+      visualState === 'heartbeat_tick' ||
+      visualState === 'producing_work_product' ||
+      activeTask?.status === 'in_progress' ||
+      activeTask?.status === 'in_review';
+    const isBusyWithAgency = !!activeTask || isHoldState || isWorkState || visualState === 'queued';
 
     // Detect busy→idle transition: kick the agent to move away immediately
     if (this.wasBusy && !isBusyWithAgency) {
@@ -61,8 +78,8 @@ export class NpcAgentDriver implements IAgentDriver {
     }
     this.wasBusy = isBusyWithAgency;
 
-    if (activeTask) {
-      if (activeTask.status === 'on_hold') {
+    if (isBusyWithAgency) {
+      if (isHoldState) {
         const spawnId = `idle-spawn-${this.agentIndex}`;
         const targetPoi = this.controller.poiManager.getPoi(spawnId);
         if (targetPoi) {
@@ -83,11 +100,11 @@ export class NpcAgentDriver implements IAgentDriver {
               if (currentState !== 'idle') {
                 this.controller.cancelMovement(this.agentIndex);
               }
-              this.controller.play(this.agentIndex, 'wave_loop');
+              this.controller.play(this.agentIndex, visualState === 'failed' || visualState === 'over_budget' ? 'sad' : 'wave_loop');
             }
           }
         }
-      } else if (activeTask.status === 'in_progress') {
+      } else if (isWorkState) {
         const pois = this.controller.poiManager.getFreePois('sit_work', this.agentIndex);
         if (pois.length > 0) {
           // Use indices for consistent assignment or random like SceneManager
