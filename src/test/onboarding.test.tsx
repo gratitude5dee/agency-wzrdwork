@@ -12,6 +12,19 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
+// ---- Paperclip server API mock ----
+
+const mockCompaniesList = vi.fn();
+const mockCompaniesCreate = vi.fn();
+const mockCompaniesUpdate = vi.fn();
+vi.mock("@/api/companies", () => ({
+  companiesApi: {
+    list: (...args: unknown[]) => mockCompaniesList(...args),
+    create: (...args: unknown[]) => mockCompaniesCreate(...args),
+    update: (...args: unknown[]) => mockCompaniesUpdate(...args),
+  },
+}));
+
 // ---- thirdweb/react mock ----
 
 const mockUseActiveAccount = vi.fn();
@@ -155,6 +168,9 @@ describe("OnboardingGate", () => {
 describe("CompanySetup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCompaniesList.mockResolvedValue([]);
+    mockCompaniesCreate.mockResolvedValue({ id: "company-1" });
+    mockCompaniesUpdate.mockResolvedValue({ id: "company-1" });
   });
 
   it("renders company name input and wallet address", async () => {
@@ -196,6 +212,35 @@ describe("CompanySetup", () => {
 
     const button = screen.getByText("Create Company");
     expect(button).not.toBeDisabled();
+  });
+
+  it("creates companies through the server API using the current contract", async () => {
+    const { CompanySetup } = await import("@/features/onboarding/steps/CompanySetup");
+    const onComplete = vi.fn();
+    setupSupabaseMock();
+
+    renderWithProviders(
+      <CompanySetup walletAddress="0xTestWallet" onComplete={onComplete} />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/company name/i), {
+      target: { value: "My Company" },
+    });
+    fireEvent.change(screen.getByLabelText(/description/i), {
+      target: { value: "Builds useful agents" },
+    });
+    fireEvent.click(screen.getByText("Create Company"));
+
+    await waitFor(() => {
+      expect(mockCompaniesCreate).toHaveBeenCalledWith({
+        name: "My Company",
+        description: "Builds useful agents",
+        walletAddress: "0xTestWallet",
+      });
+      expect(onComplete).toHaveBeenCalledWith("company-1");
+    });
+
+    expect(mockFrom).not.toHaveBeenCalledWith("companies");
   });
 });
 
@@ -544,52 +589,34 @@ describe("OnboardingFlow", () => {
 describe("CompanySetup duplicate prevention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCompaniesList.mockResolvedValue([{ id: "existing-co", walletAddress: "0xtestwallet" }]);
+    mockCompaniesUpdate.mockResolvedValue({ id: "existing-co" });
+    mockCompaniesCreate.mockResolvedValue({ id: "new-co" });
   });
 
   it("checks for existing company with same wallet before creating", async () => {
     const { CompanySetup } = await import("@/features/onboarding/steps/CompanySetup");
     const onComplete = vi.fn();
-
-    // First call (companies.select.eq.maybeSingle) returns existing company
-    // Second call (companies.update.eq.select.single) returns updated company
-    // Third call (user_onboarding.select.eq.maybeSingle) returns existing row
-    // Fourth call (user_onboarding.update.eq) succeeds
-    let callCount = 0;
-    mockFrom.mockImplementation((table: string) => {
-      callCount++;
-      if (table === "companies") {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          update: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: { id: "existing-co" }, error: null }),
-          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "existing-co" }, error: null }),
-        };
-      }
-      // user_onboarding table
-      return {
-        select: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        maybeSingle: vi.fn().mockResolvedValue({ data: { id: "ob-1" }, error: null }),
-      };
+    setupSupabaseMock({
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: "ob-1" }, error: null }),
     });
 
     renderWithProviders(
       <CompanySetup walletAddress="0xTestWallet" onComplete={onComplete} />,
     );
 
-    // Fill in the company name and submit
     fireEvent.change(screen.getByLabelText(/company name/i), {
       target: { value: "My Company" },
     });
     fireEvent.click(screen.getByText("Create Company"));
 
-    // Should call onComplete with the existing company id
     await waitFor(() => {
+      expect(mockCompaniesUpdate).toHaveBeenCalledWith("existing-co", {
+        name: "My Company",
+        description: null,
+        walletAddress: "0xTestWallet",
+      });
+      expect(mockCompaniesCreate).not.toHaveBeenCalled();
       expect(onComplete).toHaveBeenCalledWith("existing-co");
     });
   });

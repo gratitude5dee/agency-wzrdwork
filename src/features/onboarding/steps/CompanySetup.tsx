@@ -2,7 +2,7 @@
  * Onboarding Step 1: Company Setup
  *
  * Company name (required), description (optional), auto-filled wallet address.
- * Creates a companies row in Supabase on submit.
+ * Creates a company through the Paperclip server API on submit.
  */
 
 import { useState } from "react";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { companiesApi } from "@/api/companies";
 import { saveCompanyENSName, preparePrimaryNameTx } from "@/lib/ens";
 
 interface CompanySetupProps {
@@ -32,49 +33,34 @@ export function CompanySetup({ walletAddress, onComplete }: CompanySetupProps) {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      // Check for existing company with the same wallet to avoid duplicates
-      const { data: existing } = await supabase
-        .from("companies")
-        .select("id")
-        .eq("wallet_address", walletAddress)
-        .maybeSingle();
+      const normalizedWallet = walletAddress.trim().toLowerCase();
+      const companies = await companiesApi.list();
+      const existing = companies.find((company) => {
+        if (!company || typeof company !== "object") return false;
+        const record = company as { walletAddress?: unknown; wallet_address?: unknown; id?: unknown };
+        const recordWallet = typeof record.walletAddress === "string"
+          ? record.walletAddress
+          : typeof record.wallet_address === "string"
+            ? record.wallet_address
+            : null;
+        return recordWallet?.trim().toLowerCase() === normalizedWallet && typeof record.id === "string";
+      }) as { id: string } | undefined;
 
       if (existing) {
-        // Update the existing company record instead of creating a duplicate
-        const { data, error } = await supabase
-          .from("companies")
-          .update({
-            name,
-            description,
-          })
-          .eq("id", existing.id)
-          .select("id")
-          .single();
-
-        if (error) throw error;
-        return data as { id: string };
+        const updated = await companiesApi.update(existing.id, {
+          name,
+          description: description || null,
+          walletAddress,
+        });
+        return updated as { id: string };
       }
 
-      // Generate slug from company name
-      const slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      const { data, error } = await supabase
-        .from("companies")
-        .insert({
-          name,
-          description,
-          slug: slug || "my-company",
-          company_type: "agency",
-          wallet_address: walletAddress,
-        })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      return data as { id: string };
+      const created = await companiesApi.create({
+        name,
+        description: description || null,
+        walletAddress,
+      });
+      return created as { id: string };
     },
     onSuccess: async (data) => {
       // Upsert the user_onboarding row — check if one already exists

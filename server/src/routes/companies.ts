@@ -7,7 +7,6 @@ import {
   createCompanySchema,
   updateCompanySchema,
 } from "@paperclipai/shared";
-import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import {
   accessService,
@@ -115,9 +114,6 @@ export function companyRoutes(db: Db) {
 
   router.post("/", validate(createCompanySchema), async (req, res) => {
     assertBoard(req);
-    if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
-      throw forbidden("Instance admin required");
-    }
     const company = await svc.create(req.body);
     await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
     await logActivity(db, {
