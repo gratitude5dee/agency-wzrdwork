@@ -1,5 +1,5 @@
 import type { AdapterModel } from "./types.js";
-import { models as codexFallbackModels } from "@paperclipai/adapter-codex-local";
+import { CODEX_FALLBACK_MODELS } from "./local-adapter-defaults.js";
 import { readConfigFile } from "../config-file.js";
 
 const OPENAI_MODELS_ENDPOINT = "https://api.openai.com/v1/models";
@@ -27,7 +27,7 @@ function dedupeModels(models: AdapterModel[]): AdapterModel[] {
 function mergedWithFallback(models: AdapterModel[]): AdapterModel[] {
   return dedupeModels([
     ...models,
-    ...codexFallbackModels,
+    ...CODEX_FALLBACK_MODELS,
   ]).sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true, sensitivity: "base" }));
 }
 
@@ -72,7 +72,7 @@ async function fetchOpenAiModels(apiKey: string): Promise<AdapterModel[]> {
 
 export async function listCodexModels(): Promise<AdapterModel[]> {
   const apiKey = resolveOpenAiApiKey();
-  const fallback = dedupeModels(codexFallbackModels);
+  const fallback = dedupeModels(CODEX_FALLBACK_MODELS);
   if (!apiKey) return fallback;
 
   const now = Date.now();

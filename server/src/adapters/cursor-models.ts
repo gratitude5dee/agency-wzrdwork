@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { models as cursorFallbackModels } from "@paperclipai/adapter-cursor-local";
 import type { AdapterModel } from "./types.js";
+import { CURSOR_FALLBACK_MODELS } from "./local-adapter-defaults.js";
 
 const CURSOR_MODELS_TIMEOUT_MS = 5_000;
 const CURSOR_MODELS_CACHE_TTL_MS = 60_000;
@@ -106,7 +106,7 @@ export function parseCursorModelsOutput(stdout: string, stderr: string): Adapter
 }
 
 function mergedWithFallback(models: AdapterModel[]): AdapterModel[] {
-  return dedupeModels([...models, ...cursorFallbackModels]);
+  return dedupeModels([...models, ...CURSOR_FALLBACK_MODELS]);
 }
 
 function defaultCursorModelsRunner(): CursorModelsCommandResult {
@@ -158,7 +158,7 @@ export async function listCursorModels(): Promise<AdapterModel[]> {
     return cached.models;
   }
 
-  return dedupeModels(cursorFallbackModels);
+  return dedupeModels(CURSOR_FALLBACK_MODELS);
 }
 
 export function resetCursorModelsCacheForTests() {

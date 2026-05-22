@@ -36,14 +36,12 @@ import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
-import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
-} from "@paperclipai/adapter-codex-local";
-import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
-import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
-import { ensureOpenCodeModelConfiguredAndAvailable } from "@paperclipai/adapter-opencode-local/server";
+  DEFAULT_CURSOR_LOCAL_MODEL,
+  DEFAULT_GEMINI_LOCAL_MODEL,
+} from "../adapters/local-adapter-defaults.js";
 import {
   assertNoAgentHostWorkspaceCommandMutation,
   collectAgentAdapterWorkspaceCommandPaths,
@@ -280,6 +278,7 @@ export function agentRoutes(db: Db) {
     const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(companyId, adapterConfig);
     const runtimeEnv = asRecord(runtimeConfig.env) ?? {};
     try {
+      const { ensureOpenCodeModelConfiguredAndAvailable } = await import("@paperclipai/adapter-opencode-local/server");
       await ensureOpenCodeModelConfiguredAndAvailable({
         model: runtimeConfig.model,
         command: runtimeConfig.command,
@@ -1426,6 +1425,7 @@ export function agentRoutes(db: Db) {
 
     const config = asRecord(agent.adapterConfig) ?? {};
     const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(agent.companyId, config);
+    const { runClaudeLogin } = await import("@paperclipai/adapter-claude-local/server");
     const result = await runClaudeLogin({
       runId: `claude-login-${randomUUID()}`,
       agent: {
