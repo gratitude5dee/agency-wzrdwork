@@ -268,6 +268,12 @@ async function removeWalletCompatibleCompany(sql: Sql, companyId: string) {
   const existing = await getWalletCompatibleCompany(sql, companyId);
   if (!existing) return null;
 
+  await sql`DELETE FROM public.activity_events WHERE company_id = ${companyId}::uuid`.catch((err) => {
+    logger.warn({ err, companyId }, "Failed to delete wallet activity events during compatible removal");
+  });
+  await sql`DELETE FROM public.activity_log WHERE company_id = ${companyId}::uuid`.catch((err) => {
+    logger.warn({ err, companyId }, "Failed to delete wallet activity log during compatible removal");
+  });
   await sql`DELETE FROM public.company_memberships WHERE company_id = ${companyId}::uuid`.catch((err) => {
     logger.warn({ err, companyId }, "Failed to delete wallet company memberships during compatible removal");
   });

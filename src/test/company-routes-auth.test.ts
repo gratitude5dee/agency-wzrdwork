@@ -181,6 +181,52 @@ async function callCompanyCreate(
   return { status: res.statusCode, body: res.body };
 }
 
+async function callCompanyDelete(
+  actor: Record<string, unknown>,
+  companyId: string,
+  opts: Parameters<typeof companyRoutes>[1] = {},
+) {
+  const router = companyRoutes({} as any, opts) as any;
+  const layer = router.stack.find(
+    (entry: any) => entry.route?.path === "/:companyId" && entry.route?.methods?.delete,
+  );
+  if (!layer) throw new Error("DELETE /:companyId company route was not registered");
+
+  const req = { actor, params: { companyId } } as any;
+  const res: MockResponse = {
+    statusCode: 200,
+    body: null,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload: unknown) {
+      this.body = payload;
+      return this;
+    },
+  };
+
+  for (const routeLayer of layer.route.stack) {
+    try {
+      let nextError: unknown;
+      const next = (error?: unknown) => {
+        nextError = error;
+      };
+      const result = routeLayer.handle(req, res, next);
+      if (result && typeof result.then === "function") await result;
+      if (nextError) throw nextError;
+    } catch (error) {
+      const httpError = error as { status?: number; statusCode?: number; message?: string };
+      res.status(httpError.status ?? httpError.statusCode ?? 500).json({
+        error: httpError.message ?? "Internal error",
+      });
+      break;
+    }
+  }
+
+  return { status: res.statusCode, body: res.body };
+}
+
 describe("company creation auth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -282,5 +328,24 @@ describe("company creation auth", () => {
     expect(walletSql.calls.some((call) => call.query.includes("information_schema.columns"))).toBe(true);
     expect(walletSql.calls.some((call) => call.query.includes("INSERT INTO public.companies"))).toBe(true);
     expect(walletSql.calls.some((call) => call.query.includes("INSERT INTO public.company_memberships"))).toBe(true);
+  });
+
+  it("falls back to legacy company removal and clears legacy activity rows", async () => {
+    serviceMocks.companyRemove.mockRejectedValueOnce(new Error("column status does not exist"));
+    const walletSql = createMockWalletSql({ legacyCompanies: true });
+    const companyId = "11111111-1111-1111-1111-111111111111";
+    const res = await callCompanyDelete({
+      type: "board",
+      userId: "user-1",
+      companyIds: [companyId],
+      isInstanceAdmin: false,
+      source: "wallet_session",
+    }, companyId, { walletSessionSql: walletSql.sql as any });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(walletSql.calls.some((call) => call.query.includes("DELETE FROM public.activity_events"))).toBe(true);
+    expect(walletSql.calls.some((call) => call.query.includes("DELETE FROM public.activity_log"))).toBe(true);
+    expect(walletSql.calls.some((call) => call.query.includes("DELETE FROM public.companies"))).toBe(true);
   });
 });
