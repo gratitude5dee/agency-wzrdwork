@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Sql } from "postgres";
-import { verifyEOASignature } from "thirdweb/auth";
 import type { AccessibleCompany, Actor, ServerConfig } from "../types.js";
 import { HttpError } from "../http.js";
 import { logger } from "../middleware/logger.js";
@@ -26,6 +25,14 @@ type WalletSignatureVerifier = (input: {
   message: string;
   signature: string;
 }) => Promise<boolean>;
+
+type ThirdwebAuthModule = {
+  verifyEOASignature(input: {
+    address: string;
+    message: string;
+    signature: string;
+  }): Promise<boolean>;
+};
 
 let walletSignatureVerifierForTest: WalletSignatureVerifier | null = null;
 
@@ -53,6 +60,7 @@ async function verifyWalletSignature(input: {
       return await walletSignatureVerifierForTest(input);
     }
 
+    const { verifyEOASignature } = await import("thirdweb/auth") as ThirdwebAuthModule;
     return await verifyEOASignature(input);
   } catch (err) {
     logger.warn(
