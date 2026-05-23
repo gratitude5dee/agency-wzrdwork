@@ -7,7 +7,11 @@ export interface ServerActorContext {
 
 export function getServerBaseUrl(): string | null {
   const value = import.meta.env.VITE_SERVER_URL as string | undefined;
-  return value ? value.replace(/\/$/, "") : null;
+  if (value) return value.replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, "");
+  }
+  return null;
 }
 
 export function getServerWebSocketUrl(): string | null {
@@ -53,7 +57,7 @@ export async function requestServerJson<T>(
 ): Promise<T> {
   const baseUrl = getServerBaseUrl();
   if (!baseUrl) {
-    throw new Error("VITE_SERVER_URL is not configured");
+    throw new Error("Server URL is not configured");
   }
 
   const response = await fetch(`${baseUrl}${path}`, {

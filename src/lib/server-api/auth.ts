@@ -44,6 +44,14 @@ export interface AccessMeResponse {
   instanceRoles: string[];
 }
 
+type AuthSessionResponse = {
+  actor: AuthActor;
+  activeCompany: AccessibleCompany | null;
+  accessibleCompanies: AccessibleCompany[];
+  memberships?: AuthActor["memberships"];
+  instanceRoles?: string[];
+};
+
 export async function requestAuthChallenge(walletAddress: string): Promise<AuthChallengeResponse> {
   return await requestServerJson<AuthChallengeResponse>("/api/auth/challenge", {
     method: "POST",
@@ -75,7 +83,14 @@ export async function logoutServerSession(): Promise<void> {
 
 export async function getAccessMe(companyId?: string | null): Promise<AccessMeResponse> {
   const suffix = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
-  return await requestServerJson<AccessMeResponse>(`/api/access/me${suffix}`, {
+  const result = await requestServerJson<AuthSessionResponse>(`/api/auth/session${suffix}`, {
     method: "GET",
   });
+  return {
+    actor: result.actor,
+    activeCompany: result.activeCompany,
+    accessibleCompanies: result.accessibleCompanies,
+    memberships: result.memberships ?? result.actor.memberships ?? [],
+    instanceRoles: result.instanceRoles ?? result.actor.instanceRoles ?? [],
+  };
 }

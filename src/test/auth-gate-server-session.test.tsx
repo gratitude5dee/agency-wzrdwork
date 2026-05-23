@@ -123,4 +123,56 @@ describe("AuthGate server session flow", () => {
       signature: "0xsigned",
     });
   });
+
+  it("creates a signed session on same-origin production when VITE_SERVER_URL is unset", async () => {
+    delete (import.meta.env as Record<string, unknown>).VITE_SERVER_URL;
+    const signMessage = vi.fn().mockResolvedValue("0xsigned");
+
+    mockUseActiveWalletConnectionStatus.mockReturnValue("connected");
+    mockUseActiveAccount.mockReturnValue({
+      address: "0xdef",
+      signMessage,
+    });
+    mockGetAccessMe.mockRejectedValueOnce(new Error("unauthorized"));
+    mockRequestAuthChallenge.mockResolvedValue({
+      message: "Sign this too",
+      nonce: "nonce-2",
+      expiresAt: "2026-03-20T00:10:00.000Z",
+    });
+    mockVerifyAuthChallenge.mockImplementationOnce(async () => {
+      window.localStorage.setItem("agency.server.sessionToken", "session-2");
+      return {
+        sessionToken: "session-2",
+        actor: {},
+        activeCompany: null,
+        accessibleCompanies: [],
+      };
+    });
+
+    const { AuthGate } = await import("@/components/AuthGate");
+
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <MemoryRouter>
+          <AuthGate>
+            <div>App Ready</div>
+          </AuthGate>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("App Ready")).toBeInTheDocument();
+    });
+
+    expect(mockRequestAuthChallenge).toHaveBeenCalledWith("0xdef");
+    expect(signMessage).toHaveBeenCalledWith({ message: "Sign this too" });
+    expect(mockVerifyAuthChallenge).toHaveBeenCalledWith({
+      walletAddress: "0xdef",
+      nonce: "nonce-2",
+      message: "Sign this too",
+      signature: "0xsigned",
+    });
+    expect(window.localStorage.getItem("agency.server.sessionToken")).toBe("session-2");
+  });
 });
