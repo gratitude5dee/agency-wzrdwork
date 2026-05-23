@@ -15,6 +15,7 @@ function expandHomePrefix(value: string): string {
 export function resolvePaperclipHomeDir(): string {
   const envHome = process.env.PAPERCLIP_HOME?.trim();
   if (envHome) return path.resolve(expandHomePrefix(envHome));
+  if (process.env.VERCEL) return path.resolve(os.tmpdir(), ".paperclip");
   return path.resolve(os.homedir(), ".paperclip");
 }
 
