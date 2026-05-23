@@ -31,7 +31,7 @@ interface CompanyColumnInfo {
 }
 
 type RawCompanyRow = Record<string, unknown>;
-type CompanySqlValue = string | number | boolean | Date | null;
+type CompanySqlValue = string | number | boolean | null;
 
 interface CompanyInput {
   name?: string;
@@ -156,7 +156,7 @@ function buildWalletCompatibleCompanyInsert(
   const name = data.name?.trim() || "Untitled Company";
   const description = data.description?.trim() || "";
   const walletAddress = data.walletAddress?.trim().toLowerCase() || null;
-  const now = new Date();
+  const now = new Date().toISOString();
 
   putColumn(values, columns, "name", name);
   putColumn(values, columns, "description", description || nullableFallback(columns, "description", ""));
@@ -232,7 +232,7 @@ async function getWalletCompatibleCompany(sql: Sql, companyId: string) {
 async function updateWalletCompatibleCompany(sql: Sql, companyId: string, data: CompanyInput) {
   const columns = await getCompanyColumns(sql);
   const values: Record<string, CompanySqlValue> = {};
-  const now = new Date();
+  const now = new Date().toISOString();
 
   if (data.name !== undefined) {
     const name = data.name.trim() || "Untitled Company";
