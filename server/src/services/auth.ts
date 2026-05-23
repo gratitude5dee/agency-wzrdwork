@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Sql } from "postgres";
+import { verifyEOASignature } from "thirdweb/auth";
 import type { AccessibleCompany, Actor, ServerConfig } from "../types.js";
 import { HttpError } from "../http.js";
 import { logger } from "../middleware/logger.js";
@@ -19,22 +20,6 @@ interface AuthSessionRow {
   expires_at: string;
   revoked_at: string | null;
 }
-
-type ThirdwebAuthModule = {
-  verifySignature?(input: {
-    address: string;
-    message: string;
-    signature: string;
-  }): Promise<boolean>;
-  verifyEOASignature(input: {
-    address: string;
-    message: string;
-    signature: string;
-  }): Promise<boolean>;
-};
-
-const runtimeImport = Function("specifier", "return import(specifier)") as <T>(specifier: string) => Promise<T>;
-const THIRDWEB_AUTH_MODULE = ["thirdweb", "auth"].join("/");
 
 type WalletSignatureVerifier = (input: {
   address: string;
@@ -68,13 +53,13 @@ async function verifyWalletSignature(input: {
       return await walletSignatureVerifierForTest(input);
     }
 
-    const auth = await runtimeImport<ThirdwebAuthModule>(THIRDWEB_AUTH_MODULE);
-    const verifier = auth.verifySignature ?? auth.verifyEOASignature;
-    return await verifier(input);
+    return await verifyEOASignature(input);
   } catch (err) {
     logger.warn(
       {
         err,
+        errorName: err instanceof Error ? err.name : undefined,
+        errorMessage: err instanceof Error ? err.message : undefined,
         walletAddress: redactWalletAddress(input.address),
       },
       "Wallet signature verification failed unexpectedly",
