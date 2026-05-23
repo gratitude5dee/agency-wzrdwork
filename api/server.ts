@@ -34,6 +34,14 @@ function readEnv(primary: string, fallback?: string): string | undefined {
   return fallbackValue || undefined;
 }
 
+function readAnyEnv(...names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function readCsvEnv(primary: string, fallback?: string): string[] {
   return (readEnv(primary, fallback) ?? "")
     .split(",")
@@ -82,6 +90,14 @@ function assertProductionAuthConfig() {
 }
 
 function getWalletAuthConfig() {
+  const configuredAudience = readAnyEnv(
+    "PAPERCLIP_AUTH_PUBLIC_BASE_URL",
+    "PAPERCLIP_PUBLIC_URL",
+    "BETTER_AUTH_URL",
+    "BETTER_AUTH_BASE_URL",
+  );
+  const vercelAudience = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined;
+
   return {
     host: "0.0.0.0",
     port: 443,
@@ -89,9 +105,7 @@ function getWalletAuthConfig() {
     allowedOrigin: process.env.ALLOWED_ORIGIN ?? "*",
     trustWalletHeader: process.env.TRUST_WALLET_HEADER === "true",
     websocketPath: "/ws",
-    audience: process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : (process.env.PAPERCLIP_PUBLIC_URL ?? "https://localhost"),
+    audience: (configuredAudience ?? vercelAudience ?? "https://localhost").replace(/\/$/, ""),
     challengeTtlMinutes: Number(process.env.AUTH_CHALLENGE_TTL_MINUTES) || 5,
     sessionTtlDays: Number(process.env.AUTH_SESSION_TTL_DAYS) || 30,
   };

@@ -3,6 +3,7 @@ import type { IncomingMessage } from "node:http";
 import type { Sql } from "postgres";
 import type { AccessibleCompany, Actor, ServerConfig } from "../types.js";
 import { HttpError } from "../http.js";
+import { logger } from "../middleware/logger.js";
 import {
   ensureUserForWallet,
   resolveActor,
@@ -20,6 +21,11 @@ interface AuthSessionRow {
 }
 
 type ThirdwebAuthModule = {
+  verifySignature?(input: {
+    address: string;
+    message: string;
+    signature: string;
+  }): Promise<boolean>;
   verifyEOASignature(input: {
     address: string;
     message: string;
@@ -30,13 +36,51 @@ type ThirdwebAuthModule = {
 const runtimeImport = Function("specifier", "return import(specifier)") as <T>(specifier: string) => Promise<T>;
 const THIRDWEB_AUTH_MODULE = ["thirdweb", "auth"].join("/");
 
+type WalletSignatureVerifier = (input: {
+  address: string;
+  message: string;
+  signature: string;
+}) => Promise<boolean>;
+
+let walletSignatureVerifierForTest: WalletSignatureVerifier | null = null;
+
+export function setWalletSignatureVerifierForTest(verifier: WalletSignatureVerifier | null) {
+  walletSignatureVerifierForTest = verifier;
+}
+
+function redactWalletAddress(address: string): string {
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+function redactNonce(nonce: string): string {
+  if (nonce.length <= 8) return nonce;
+  return `${nonce.slice(0, 8)}…`;
+}
+
 async function verifyWalletSignature(input: {
   address: string;
   message: string;
   signature: string;
 }) {
-  const { verifyEOASignature } = await runtimeImport<ThirdwebAuthModule>(THIRDWEB_AUTH_MODULE);
-  return verifyEOASignature(input);
+  try {
+    if (walletSignatureVerifierForTest) {
+      return await walletSignatureVerifierForTest(input);
+    }
+
+    const auth = await runtimeImport<ThirdwebAuthModule>(THIRDWEB_AUTH_MODULE);
+    const verifier = auth.verifySignature ?? auth.verifyEOASignature;
+    return await verifier(input);
+  } catch (err) {
+    logger.warn(
+      {
+        err,
+        walletAddress: redactWalletAddress(input.address),
+      },
+      "Wallet signature verification failed unexpectedly",
+    );
+    return false;
+  }
 }
 
 function normalizeWalletAddress(value: string | null | undefined): string | null {
@@ -164,15 +208,31 @@ export async function verifyAuthChallenge(
 
   const challenge = challenges[0];
   if (!challenge) {
+    logger.warn(
+      { walletAddress: redactWalletAddress(normalized), nonce: redactNonce(input.nonce) },
+      "Wallet auth challenge not found",
+    );
     throw new HttpError(401, "Auth challenge not found");
   }
   if (challenge.consumed_at) {
+    logger.warn(
+      { walletAddress: redactWalletAddress(normalized), nonce: redactNonce(input.nonce) },
+      "Wallet auth challenge already consumed",
+    );
     throw new HttpError(401, "Auth challenge has already been used");
   }
   if (new Date(challenge.expires_at).getTime() <= Date.now()) {
+    logger.warn(
+      { walletAddress: redactWalletAddress(normalized), nonce: redactNonce(input.nonce) },
+      "Wallet auth challenge expired",
+    );
     throw new HttpError(401, "Auth challenge has expired");
   }
   if (challenge.message !== input.message) {
+    logger.warn(
+      { walletAddress: redactWalletAddress(normalized), nonce: redactNonce(input.nonce) },
+      "Wallet auth challenge message mismatch",
+    );
     throw new HttpError(401, "Auth challenge message mismatch");
   }
 
@@ -182,8 +242,16 @@ export async function verifyAuthChallenge(
     signature: input.signature,
   });
   if (!verified) {
+    logger.warn(
+      { walletAddress: redactWalletAddress(normalized), nonce: redactNonce(input.nonce) },
+      "Wallet auth signature rejected",
+    );
     throw new HttpError(401, "Signature verification failed");
   }
+  logger.info(
+    { walletAddress: redactWalletAddress(normalized), nonce: redactNonce(input.nonce) },
+    "Wallet auth signature verified",
+  );
 
   await sql`
     UPDATE public.auth_challenges
@@ -191,38 +259,55 @@ export async function verifyAuthChallenge(
     WHERE id = ${challenge.id}::uuid
   `;
 
-  const user = await ensureUserForWallet(sql, normalized);
-  await syncWalletAddressToCompany(sql, normalized);
-  const actor = await resolveActor(sql, { walletAddress: normalized });
-  const accessibleCompanies = await listAccessibleCompanies(sql, actor);
-  const activeCompany = selectActiveCompany(accessibleCompanies, null);
+  try {
+    const user = await ensureUserForWallet(sql, normalized);
+    await syncWalletAddressToCompany(sql, normalized);
+    const actor = await resolveActor(sql, { walletAddress: normalized });
+    const accessibleCompanies = await listAccessibleCompanies(sql, actor);
+    const activeCompany = selectActiveCompany(accessibleCompanies, null);
 
-  const sessionToken = randomBytes(32).toString("hex");
-  const expiresAt = addDays(new Date(), config.sessionTtlDays).toISOString();
+    const sessionToken = randomBytes(32).toString("hex");
+    const expiresAt = addDays(new Date(), config.sessionTtlDays).toISOString();
 
-  await sql`
-    INSERT INTO public.auth_sessions (
-      user_id,
-      wallet_address,
-      session_token_sha256,
-      expires_at,
-      last_seen_at
-    )
-    VALUES (
-      ${user.id}::uuid,
-      ${normalized},
-      ${sha256(sessionToken)},
-      ${expiresAt}::timestamptz,
-      now()
-    )
-  `;
+    await sql`
+      INSERT INTO public.auth_sessions (
+        user_id,
+        wallet_address,
+        session_token_sha256,
+        expires_at,
+        last_seen_at
+      )
+      VALUES (
+        ${user.id}::uuid,
+        ${normalized},
+        ${sha256(sessionToken)},
+        ${expiresAt}::timestamptz,
+        now()
+      )
+    `;
 
-  return {
-    sessionToken,
-    actor,
-    activeCompany,
-    accessibleCompanies,
-  };
+    logger.info(
+      { walletAddress: redactWalletAddress(normalized), userId: user.id },
+      "Wallet auth session created",
+    );
+
+    return {
+      sessionToken,
+      actor,
+      activeCompany,
+      accessibleCompanies,
+    };
+  } catch (err) {
+    logger.error(
+      {
+        err,
+        walletAddress: redactWalletAddress(normalized),
+        nonce: redactNonce(input.nonce),
+      },
+      "Wallet auth session creation failed",
+    );
+    throw err;
+  }
 }
 
 export async function authenticateSessionToken(

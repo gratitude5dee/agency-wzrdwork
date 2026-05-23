@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
+import type { Sql } from "postgres";
 import {
   companyPortabilityExportSchema,
   companyPortabilityImportSchema,
@@ -16,8 +17,74 @@ import {
   logActivity,
 } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { logger } from "../middleware/logger.js";
 
-export function companyRoutes(db: Db) {
+interface CompanyRouteOptions {
+  walletSessionSql?: Sql;
+}
+
+async function ensureWalletOwnerMembership(sql: Sql, companyId: string, userId: string) {
+  const ownerPermissions = {
+    manage_company: true,
+    manage_agents: true,
+    manage_issues: true,
+    manage_secrets: true,
+    manage_integrations: true,
+  };
+
+  try {
+    await sql`
+      INSERT INTO public.company_memberships (
+        company_id,
+        user_id,
+        role,
+        permissions,
+        status
+      )
+      VALUES (
+        ${companyId}::uuid,
+        ${userId}::uuid,
+        'owner',
+        ${JSON.stringify(ownerPermissions)}::jsonb,
+        'active'
+      )
+      ON CONFLICT (company_id, user_id) DO UPDATE
+        SET role = 'owner',
+            permissions = EXCLUDED.permissions,
+            status = 'active',
+            updated_at = now()
+    `;
+    return;
+  } catch (err) {
+    logger.warn(
+      { err, companyId, userId },
+      "Wallet owner membership insert using user_id schema failed; trying principal membership schema",
+    );
+  }
+
+  await sql`
+    INSERT INTO public.company_memberships (
+      company_id,
+      principal_type,
+      principal_id,
+      status,
+      membership_role
+    )
+    VALUES (
+      ${companyId}::uuid,
+      'user',
+      ${userId},
+      'active',
+      'owner'
+    )
+    ON CONFLICT (company_id, principal_type, principal_id) DO UPDATE
+      SET status = 'active',
+          membership_role = 'owner',
+          updated_at = now()
+  `;
+}
+
+export function companyRoutes(db: Db, opts: CompanyRouteOptions = {}) {
   const router = Router();
   const svc = companyService(db);
   const portability = companyPortabilityService(db);
@@ -115,7 +182,12 @@ export function companyRoutes(db: Db) {
   router.post("/", validate(createCompanySchema), async (req, res) => {
     assertBoard(req);
     const company = await svc.create(req.body);
-    await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
+    if (req.actor.source === "wallet_session" && req.actor.userId && opts.walletSessionSql) {
+      await ensureWalletOwnerMembership(opts.walletSessionSql, company.id, req.actor.userId);
+      req.actor.companyIds = Array.from(new Set([...(req.actor.companyIds ?? []), company.id]));
+    } else {
+      await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
+    }
     await logActivity(db, {
       companyId: company.id,
       actorType: "user",

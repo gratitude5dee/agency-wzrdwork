@@ -24,14 +24,21 @@ interface ActorMiddlewareOptions {
   walletSessionSql?: Sql;
 }
 
+interface WalletSessionAccess {
+  userId: string;
+  companyIds: string[];
+  isInstanceAdmin: boolean;
+}
+
 /**
  * Try to resolve a Bearer token as a Thirdweb wallet session.
- * Returns the userId if the token maps to a valid, non-revoked, non-expired session.
+ * Returns board-access details if the token maps to a valid, non-revoked,
+ * non-expired wallet session.
  */
 async function resolveWalletSession(
   sql: Sql,
   tokenHash: string,
-): Promise<string | null> {
+): Promise<WalletSessionAccess | null> {
   try {
     const rows = await sql<{ user_id: string; expires_at: string; revoked_at: string | null }[]>`
       SELECT user_id, expires_at, revoked_at
@@ -44,9 +51,61 @@ async function resolveWalletSession(
     if (new Date(row.expires_at).getTime() <= Date.now()) return null;
     // Touch last_seen_at asynchronously — don't block the request
     sql`UPDATE public.auth_sessions SET last_seen_at = now() WHERE session_token_sha256 = ${tokenHash}`.catch(() => {});
-    return row.user_id;
-  } catch {
+    const [companyIds, isInstanceAdmin] = await Promise.all([
+      listWalletSessionCompanyIds(sql, row.user_id),
+      isWalletSessionInstanceAdmin(sql, row.user_id),
+    ]);
+    return { userId: row.user_id, companyIds, isInstanceAdmin };
+  } catch (err) {
+    logger.warn({ err }, "Failed to resolve wallet session bearer token");
     return null;
+  }
+}
+
+async function listWalletSessionCompanyIds(sql: Sql, userId: string): Promise<string[]> {
+  try {
+    const rows = await sql<{ company_id: string }[]>`
+      SELECT company_id
+      FROM public.company_memberships
+      WHERE user_id::text = ${userId}
+        AND status = 'active'
+    `;
+    return rows.map((row) => row.company_id);
+  } catch (err) {
+    logger.warn(
+      { err, userId },
+      "Wallet session membership lookup using user_id failed; trying principal membership schema",
+    );
+  }
+
+  try {
+    const rows = await sql<{ company_id: string }[]>`
+      SELECT company_id
+      FROM public.company_memberships
+      WHERE principal_type = 'user'
+        AND principal_id = ${userId}
+        AND status = 'active'
+    `;
+    return rows.map((row) => row.company_id);
+  } catch (err) {
+    logger.warn({ err, userId }, "Wallet session membership lookup failed");
+    return [];
+  }
+}
+
+async function isWalletSessionInstanceAdmin(sql: Sql, userId: string): Promise<boolean> {
+  try {
+    const rows = await sql<{ id: string }[]>`
+      SELECT id
+      FROM public.instance_user_roles
+      WHERE user_id::text = ${userId}
+        AND role IN ('instance_admin', 'admin')
+      LIMIT 1
+    `;
+    return rows.length > 0;
+  } catch (err) {
+    logger.warn({ err, userId }, "Wallet session instance role lookup failed");
+    return false;
   }
 }
 
@@ -119,30 +178,13 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
     // Check if the Bearer token is a Thirdweb wallet session before
     // falling through to agent API key / JWT auth.
     if (opts.walletSessionSql) {
-      const walletUserId = await resolveWalletSession(opts.walletSessionSql, tokenHash);
-      if (walletUserId) {
-        const [roleRow, memberships] = await Promise.all([
-          db
-            .select({ id: instanceUserRoles.id })
-            .from(instanceUserRoles)
-            .where(and(eq(instanceUserRoles.userId, walletUserId), eq(instanceUserRoles.role, "instance_admin")))
-            .then((rows) => rows[0] ?? null),
-          db
-            .select({ companyId: companyMemberships.companyId })
-            .from(companyMemberships)
-            .where(
-              and(
-                eq(companyMemberships.principalType, "user"),
-                eq(companyMemberships.principalId, walletUserId),
-                eq(companyMemberships.status, "active"),
-              ),
-            ),
-        ]);
+      const walletAccess = await resolveWalletSession(opts.walletSessionSql, tokenHash);
+      if (walletAccess) {
         req.actor = {
           type: "board",
-          userId: walletUserId,
-          companyIds: memberships.map((row) => row.companyId),
-          isInstanceAdmin: Boolean(roleRow),
+          userId: walletAccess.userId,
+          companyIds: walletAccess.companyIds,
+          isInstanceAdmin: walletAccess.isInstanceAdmin,
           runId: runIdHeader ?? undefined,
           source: "wallet_session",
         };

@@ -237,7 +237,7 @@ export async function createApp(
     { toolDispatcher },
     { workerManager },
   ));
-  api.use("/companies", companyRoutes(db));
+  api.use("/companies", companyRoutes(db, { walletSessionSql: opts.walletSessionSql }));
 
   const healthOptions = {
     deploymentMode: opts.deploymentMode,

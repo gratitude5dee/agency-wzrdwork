@@ -40,8 +40,21 @@ type MockResponse = {
   json: (body: unknown) => MockResponse;
 };
 
-async function callCompanyCreate(actor: Record<string, unknown>, body: unknown) {
-  const router = companyRoutes({} as any) as any;
+function createMockWalletSql() {
+  const calls: Array<{ query: string; values: unknown[] }> = [];
+  const sql = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => {
+    calls.push({ query: Array.from(strings).join("?"), values });
+    return Promise.resolve([]);
+  });
+  return { sql, calls };
+}
+
+async function callCompanyCreate(
+  actor: Record<string, unknown>,
+  body: unknown,
+  opts: Parameters<typeof companyRoutes>[1] = {},
+) {
+  const router = companyRoutes({} as any, opts) as any;
   const layer = router.stack.find(
     (entry: any) => entry.route?.path === "/" && entry.route?.methods?.post,
   );
@@ -105,13 +118,14 @@ describe("company creation auth", () => {
   });
 
   it("lets a signed non-admin board user create a company", async () => {
+    const walletSql = createMockWalletSql();
     const res = await callCompanyCreate({
       type: "board",
       userId: "user-1",
       companyIds: [],
       isInstanceAdmin: false,
       source: "wallet_session",
-    }, { name: "My Company", walletAddress: "0xabc" });
+    }, { name: "My Company", walletAddress: "0xabc" }, { walletSessionSql: walletSql.sql as any });
 
     expect(res.status).toBe(201);
     expect(serviceMocks.companyCreate).toHaveBeenCalledWith({
@@ -120,23 +134,22 @@ describe("company creation auth", () => {
       budgetMonthlyCents: 0,
     });
     expect(res.body).toMatchObject({ id: "company-1", name: "My Company" });
+    expect(serviceMocks.ensureMembership).not.toHaveBeenCalled();
   });
 
-  it("grants owner membership to the signed creator", async () => {
+  it("grants owner membership to the signed wallet creator", async () => {
+    const walletSql = createMockWalletSql();
     await callCompanyCreate({
       type: "board",
       userId: "user-1",
       companyIds: [],
       isInstanceAdmin: false,
       source: "wallet_session",
-    }, { name: "My Company", walletAddress: "0xabc" });
+    }, { name: "My Company", walletAddress: "0xabc" }, { walletSessionSql: walletSql.sql as any });
 
-    expect(serviceMocks.ensureMembership).toHaveBeenCalledWith(
-      "company-1",
-      "user",
-      "user-1",
-      "owner",
-      "active",
-    );
+    expect(walletSql.calls[0]?.query).toContain("INSERT INTO public.company_memberships");
+    expect(walletSql.calls[0]?.values).toContain("company-1");
+    expect(walletSql.calls[0]?.values).toContain("user-1");
+    expect(serviceMocks.ensureMembership).not.toHaveBeenCalled();
   });
 });

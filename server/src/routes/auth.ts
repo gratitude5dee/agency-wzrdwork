@@ -22,10 +22,24 @@ import {
   revokeSessionToken,
 } from "../services/auth.js";
 import type { ServerConfig } from "../types.js";
+import { logger } from "../middleware/logger.js";
 
 export interface WalletAuthRouteOptions {
   sql: Sql;
   config: ServerConfig;
+}
+
+function sendAuthError(res: import("express").Response, route: string, err: unknown) {
+  const error = err as { statusCode?: number; status?: number; message?: string };
+  const status = error.statusCode ?? error.status ?? 500;
+  const message = error.message ?? "Internal error";
+  const logPayload = { route, status, message };
+  if (status >= 500) {
+    logger.error({ ...logPayload, err }, "Wallet auth route failed");
+  } else {
+    logger.warn(logPayload, "Wallet auth route rejected request");
+  }
+  res.status(status).json({ error: message });
 }
 
 export function walletAuthRoutes(opts: WalletAuthRouteOptions) {
@@ -40,9 +54,8 @@ export function walletAuthRoutes(opts: WalletAuthRouteOptions) {
       }
       const challenge = await createAuthChallenge(opts.sql, opts.config, walletAddress);
       res.json(challenge);
-    } catch (err: any) {
-      const status = err.statusCode ?? err.status ?? 500;
-      res.status(status).json({ error: err.message ?? "Internal error" });
+    } catch (err) {
+      sendAuthError(res, "auth/challenge", err);
     }
   });
 
@@ -55,9 +68,8 @@ export function walletAuthRoutes(opts: WalletAuthRouteOptions) {
         signature: typeof req.body?.signature === "string" ? req.body.signature : "",
       });
       res.json(result);
-    } catch (err: any) {
-      const status = err.statusCode ?? err.status ?? 500;
-      res.status(status).json({ error: err.message ?? "Internal error" });
+    } catch (err) {
+      sendAuthError(res, "auth/verify", err);
     }
   });
 
@@ -67,9 +79,8 @@ export function walletAuthRoutes(opts: WalletAuthRouteOptions) {
       const { actor } = await authenticateRequest(opts.sql, opts.config, req);
       const payload = await resolveAccessPayload(opts.sql, actor, companyId);
       res.json(payload);
-    } catch (err: any) {
-      const status = err.statusCode ?? err.status ?? 500;
-      res.status(status).json({ error: err.message ?? "Internal error" });
+    } catch (err) {
+      sendAuthError(res, "auth/session", err);
     }
   });
 
@@ -80,9 +91,8 @@ export function walletAuthRoutes(opts: WalletAuthRouteOptions) {
         await revokeSessionToken(opts.sql, sessionToken);
       }
       res.status(204).end();
-    } catch (err: any) {
-      const status = err.statusCode ?? err.status ?? 500;
-      res.status(status).json({ error: err.message ?? "Internal error" });
+    } catch (err) {
+      sendAuthError(res, "auth/logout", err);
     }
   });
 

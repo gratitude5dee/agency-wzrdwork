@@ -14,7 +14,9 @@ vi.mock("thirdweb/react", () => ({
     <button data-testid="connect-button">{String(props.connectButton && (props.connectButton as { label?: string }).label) || "Connect"}</button>
   ),
   useActiveAccount: () => mockUseActiveAccount(),
+  useActiveWallet: () => ({ id: "wallet-1" }),
   useActiveWalletConnectionStatus: () => mockUseActiveWalletConnectionStatus(),
+  useDisconnect: () => ({ disconnect: vi.fn() }),
   getDefaultToken: () => ({
     address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     name: "USD Coin",
